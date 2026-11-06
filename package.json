@@ -1,0 +1,25 @@
+{
+  "name": "sun-harness",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "A personal, first-principles agent harness: coding agent, general agent, and personal assistant.",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "pnpm run build:core && pnpm --filter @sun/desktop run build",
+    "build:core": "pnpm --filter @sun/core run build && pnpm --filter @sun/cli run build",
+    "test": "vitest run",
+    "typecheck": "pnpm -r run typecheck",
+    "sun": "node packages/cli/dist/index.js",
+    "desktop": "pnpm --filter @sun/desktop run dev",
+    "desktop:start": "pnpm --filter @sun/desktop run start"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "^7.0.2",
+    "vitest": "^5.1.0"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "name": "@sun/cli",
+  "version": "0.1.0",
+  "type": "module",
+  "bin": {
+    "sun": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json && chmod +x dist/index.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@sun/core": "workspace:*"
+  }
+}

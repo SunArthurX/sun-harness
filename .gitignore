@@ -1,0 +1,10 @@
+node_modules/
+dist/
+out/
+release/
+coverage/
+*.tsbuildinfo
+.DS_Store
+.env
+.sun-test-home*/
+test-results/
