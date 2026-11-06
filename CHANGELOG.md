@@ -33,3 +33,7 @@
 ### Iteration 1 (from intel 2026-11-07)
 - Fail-closed approvals: headless runs and `denyInsteadOfPrompting` deny with a reason instead of hanging.
 - Hooks: `onFailure: "block"`.
+
+### Verification fixes
+- CLI: agent/assistant sessions default to `~/.sun/workspace` (specs/007) instead of the current folder.
+- CLI chat: buffered line input, so piped and fast-typed messages are not dropped.

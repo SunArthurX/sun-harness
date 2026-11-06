@@ -148,9 +148,19 @@ async function chat(host: HarnessHost, sessionId: string): Promise<void> {
       process.exit(0);
     }
   });
-  while (true) {
-    const line = (await rl.question(c.bold('\n› '))).trim();
-    if (!line) continue;
+  // The async iterator buffers lines typed (or piped) while a run is in progress; rl.question() would drop them.
+  let closed = false;
+  rl.on('close', () => (closed = true));
+  const prompt = () => !closed && rl.prompt();
+  rl.setPrompt(c.bold('\n› '));
+  prompt();
+  for await (const raw of rl) {
+    const line = raw.trim();
+    if (!line) {
+      prompt();
+      continue;
+    }
+    if (closed) console.log(c.bold('\n› ') + line);
     if (line.startsWith('/')) {
       const [cmd, ...rest] = line.slice(1).split(/\s+/);
       const arg = rest.join(' ');
@@ -170,11 +180,14 @@ async function chat(host: HarnessHost, sessionId: string): Promise<void> {
         for (const p of props) console.log(`${p.id}  [${p.type}] ${p.title}`);
         console.log(c.dim('Accept with: sun evolve accept <id>'));
       } else console.log(`Unknown command /${cmd}`);
+      prompt();
       continue;
     }
     await host.send(sessionId, line);
     await host.wait(sessionId);
+    prompt();
   }
+  await host.wait(sessionId);
   rl.close();
 }
 
@@ -261,6 +274,8 @@ async function main(): Promise<void> {
   if (values.help) return void console.log(HELP);
   const [cmd = 'chat', ...args] = positionals;
   const cwd = resolve(values.cwd ?? process.cwd());
+  // Coding works in the current folder; agent/assistant use ~/.sun/workspace unless --cwd is given (specs/007).
+  const sessionCwd = values.cwd || !values.mode || values.mode === 'coding' ? cwd : undefined;
   const needsMcp = ['chat', 'run', 'resume', 'mcp'].includes(cmd);
   const host = new HarnessHost({ connectMcp: needsMcp });
   await host.init();
@@ -268,14 +283,14 @@ async function main(): Promise<void> {
 
   switch (cmd) {
     case 'chat': {
-      const s = host.createSession({ cwd, mode: values.mode, model: values.model });
+      const s = host.createSession({ cwd: sessionCwd, mode: values.mode, model: values.model });
       await chat(host, s.id);
       break;
     }
     case 'run': {
       const prompt = args.join(' ') || (!process.stdin.isTTY ? readFileSync(0, 'utf8') : '');
       if (!prompt) throw new Error('Usage: sun run "<prompt>"');
-      const s = host.createSession({ cwd, mode: values.mode, model: values.model });
+      const s = host.createSession({ cwd: sessionCwd, mode: values.mode, model: values.model });
       const state = { streamed: false, reasoning: false };
       if (!values.json) host.subscribe((e) => printEvent(e, s.id, state));
       wireApprovals(host);
