@@ -15,6 +15,7 @@ Status: implemented (M1). Code: `packages/core/src/{log,messages,agent,host,prov
 - `run()` doubles as `resume()`: crash, abort, quota pause, and model switch all resume from the log.
 - Every assistant tool call is paired with a result before the next request; interrupted calls get a synthetic result.
 - Messages sent during a run are queued and delivered when it ends.
+- A new session is titled from its first user message when it is sent (so sessions that pause before any reply are recognizable).
 - `maxSteps` (default 60) pauses with reason `max_steps`; finishing exactly on the last step is `idle`.
 
 ## Providers

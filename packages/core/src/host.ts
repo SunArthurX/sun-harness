@@ -199,6 +199,10 @@ export class HarnessHost {
       if (ctx) this.append(log, { type: 'user/message', text: `[sessionStart hook context]\n${ctx}`, source: 'hook' });
     }
     this.append(log, { type: 'user/message', text, source });
+    if (log.meta()!.title === 'New session' && !log.last('session/title')) {
+      const t = text.replace(/\s+/g, ' ').trim();
+      this.append(log, { type: 'session/title', title: t.length > 60 ? t.slice(0, 57) + '...' : t || 'Untitled' });
+    }
     this.startRun(id);
   }
 

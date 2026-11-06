@@ -32,4 +32,4 @@ Warm dark "solar instrument" theme: ink background, single amber accent, Instrum
 
 ## Verification
 
-`apps/desktop/e2e/smoke.mjs` launches the built app with a temporary `SUN_HOME`, runs a live session that requires an approval, asserts the UI matches the log, and screenshots every screen.
+`apps/desktop/e2e/smoke.mjs` launches the built app with a temporary `SUN_HOME`, runs a live session that requires approvals, asserts the UI matches the log, pauses a session on a rejected key and recovers it with **Switch & resume**, and screenshots every screen.

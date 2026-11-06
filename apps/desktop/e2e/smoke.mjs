@@ -16,7 +16,15 @@ const home = mkdtempSync(join(tmpdir(), 'sun-e2e-home-'));
 const ws = mkdtempSync(join(tmpdir(), 'sun-e2e-ws-'));
 mkdirSync(join(ws, '.git'));
 writeFileSync(join(ws, 'AGENTS.md'), '# Rules\nWrite everything in English.\n');
-writeFileSync(join(home, 'config.json'), JSON.stringify({ defaultModel: process.env.SUN_E2E_MODEL || 'deepseek/deepseek-chat', approval: 'suggest' }));
+writeFileSync(
+  join(home, 'config.json'),
+  JSON.stringify({
+    defaultModel: process.env.SUN_E2E_MODEL || 'deepseek/deepseek-chat',
+    approval: 'suggest',
+    // A provider with a rejected key, to exercise the paused banner and "Switch & resume".
+    providers: { broke: { type: 'openai', baseUrl: 'https://api.deepseek.com/v1', apiKey: 'sk-invalid', models: ['deepseek-chat'] } },
+  }),
+);
 mkdirSync(join(home, 'kb'), { recursive: true });
 writeFileSync(join(home, 'kb', 'harness.md'), '# Harness notes\n\n## Principles\nModel-visible means logged. Durable before clever.\n');
 
@@ -70,6 +78,30 @@ if (!ui.idleDot || ui.working || ui.okTools < 2) {
   console.error('UI does not match the session log');
   process.exitCode = 1;
 }
+
+// Quota/auth recovery from the UI: pause on a rejected key, then switch model and resume.
+const broken = await win.evaluate((cwd) => window.sun.call('createSession', { cwd, mode: 'coding', model: 'broke/deepseek-chat' }), ws);
+await win.evaluate((id) => window.sun.call('send', id, 'Reply with exactly: recovered'), broken.id);
+await win.click(`.session:has-text("Reply with exactly")`);
+await win.waitForSelector('.banner', { timeout: 60_000 });
+await win.waitForTimeout(400);
+await win.screenshot({ path: join(shots, '09-paused.png') });
+await win.selectOption('.banner select', 'deepseek/deepseek-chat');
+await win.click('.banner .btn-ghost');
+for (let i = 0; ; i++) {
+  const s = await win.evaluate(async (id) => (await window.sun.call('listSessions')).find((x) => x.id === id), broken.id);
+  if (s?.status === 'idle') break;
+  if (i > 120) throw new Error(`Recovery did not finish (${s?.status})`);
+  await win.waitForTimeout(500);
+}
+await win.waitForTimeout(500);
+await win.screenshot({ path: join(shots, '10-recovered.png') });
+const recovered = await win.evaluate(async (id) => {
+  const ev = await window.sun.call('getEvents', id);
+  return { paused: ev.some((e) => e.type === 'run/status' && e.status === 'paused'), switched: ev.some((e) => e.type === 'model/switch'), text: ev.filter((e) => e.type === 'assistant/message').at(-1)?.text };
+}, broken.id);
+console.log('recovery', JSON.stringify(recovered));
+if (!recovered.paused || !recovered.switched || !/recovered/i.test(recovered.text ?? '')) process.exitCode = 1;
 
 const pages = [
   ['Knowledge', '04-knowledge.png'],

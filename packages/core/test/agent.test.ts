@@ -159,6 +159,8 @@ describe('agent loop', () => {
     const s = host.createSession({ cwd: ws });
     await host.send(s.id, 'hello');
     expect((await host.wait(s.id))?.status).toBe('paused');
+    // Titled from the first message even though the model never answered.
+    expect(host.listSessions().find((x) => x.id === s.id)?.title).toBe('hello');
     const tick = await host.backgroundTick(new Date(Date.now() + 1000), { intel: false });
     expect(tick.resumed).toEqual([s.id]);
     expect((await host.wait(s.id))?.status).toBe('idle');
