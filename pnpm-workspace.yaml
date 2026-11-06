@@ -2,6 +2,10 @@ packages:
   - packages/*
   - apps/*
 
-onlyBuiltDependencies:
-  - electron
-  - esbuild
+allowBuilds:
+  electron: true
+  esbuild: true
+  electron-winstaller: false
+
+minimumReleaseAgeExclude:
+  - playwright-core@1.65.0

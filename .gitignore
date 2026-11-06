@@ -8,3 +8,4 @@ coverage/
 .env
 .sun-test-home*/
 test-results/
+apps/desktop/e2e/shots/

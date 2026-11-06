@@ -1,0 +1,370 @@
+import type { LiveEvent, PendingApproval, SessionEvent, SessionSummary, TodoItem, ToolCall } from '@sun/core';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { api } from './api';
+import { MODE_META, StatusDot } from './App';
+import { Markdown } from './markdown';
+
+type ResultEvent = Extract<SessionEvent, { type: 'tool/result' }>;
+
+const TOOL_GLYPH: Record<string, string> = {
+  read_file: '◎',
+  write_file: '✎',
+  edit_file: '✎',
+  list_dir: '▤',
+  glob: '✱',
+  grep: '⌕',
+  bash: '❯',
+  web_fetch: '⇣',
+  web_search: '⌕',
+  todo_write: '☑',
+  kb_search: '❖',
+  kb_add_note: '❖',
+  memory_save: '✧',
+  load_skill: '⌬',
+  task: '⑂',
+  schedule_task: '⏲',
+};
+
+function summarizeArgs(call: ToolCall): string {
+  try {
+    const a = JSON.parse(call.arguments || '{}');
+    return String(a.command ?? a.path ?? a.pattern ?? a.url ?? a.query ?? a.name ?? a.prompt ?? a.fact ?? a.title ?? '').slice(0, 140);
+  } catch {
+    return call.arguments.slice(0, 140);
+  }
+}
+
+function ToolCard({ call, result, pending }: { call: ToolCall; result?: ResultEvent; pending: boolean }) {
+  const [open, setOpen] = useState(false);
+  const state = result ? (result.isError ? 'err' : 'ok') : pending ? 'run' : 'idle';
+  const isMcp = call.name.startsWith('mcp__');
+  return (
+    <div className={`tool tool-${state}`}>
+      <button className="tool-head" onClick={() => setOpen(!open)}>
+        <span className="tool-glyph">{TOOL_GLYPH[call.name] ?? (isMcp ? '⧉' : '•')}</span>
+        <span className="tool-name">{isMcp ? call.name.replace(/^mcp__/, '').replace('__', ' › ') : call.name}</span>
+        <span className="tool-arg">{summarizeArgs(call)}</span>
+        <span className="tool-meta">{result?.durationMs !== undefined ? `${(result.durationMs / 1000).toFixed(1)}s` : state === 'run' ? '…' : ''}</span>
+      </button>
+      {open && (
+        <div className="tool-body">
+          <div className="tool-label">arguments</div>
+          <pre>{(() => {
+            try {
+              return JSON.stringify(JSON.parse(call.arguments || '{}'), null, 2);
+            } catch {
+              return call.arguments;
+            }
+          })()}</pre>
+          {result && (
+            <>
+              <div className="tool-label">{result.isError ? 'error' : 'output'}</div>
+              <pre>{result.output}</pre>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ApprovalCard({ a }: { a: PendingApproval }) {
+  let args = a.arguments;
+  try {
+    args = JSON.stringify(JSON.parse(a.arguments), null, 2);
+  } catch {
+    // raw
+  }
+  return (
+    <div className="approval">
+      <div className="approval-head">
+        <span className="risk">{a.risk}</span>
+        <strong>{a.name}</strong> wants to run{a.sessionId !== a.displaySessionId ? ' (from a subagent)' : ''}
+      </div>
+      <pre>{args.slice(0, 4000)}</pre>
+      <div className="approval-actions">
+        <button className="btn-primary" onClick={() => api.approve(a.callId, 'allow')}>
+          Allow
+        </button>
+        <button className="btn-ghost" onClick={() => api.approve(a.callId, 'allow_always')}>
+          Always allow {a.name}
+        </button>
+        <button className="btn-danger" onClick={() => api.approve(a.callId, 'deny')}>
+          Deny
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function PausedBanner({ s, models }: { s: SessionSummary; models: string[] }) {
+  const [model, setModel] = useState(models.find((m) => m !== s.model) ?? s.model);
+  const quota = s.statusReason === 'quota' || s.statusReason === 'auth';
+  const text: Record<string, string> = {
+    quota: 'The model quota is exhausted.',
+    auth: 'The API key was rejected.',
+    rate_limit: 'The provider is rate limiting.',
+    network: 'The network or provider is unavailable.',
+    max_steps: 'The step limit was reached.',
+    interrupted: 'The app stopped during this run.',
+  };
+  return (
+    <div className={`banner ${s.status === 'error' ? 'banner-err' : ''}`}>
+      <div>
+        <strong>{s.status === 'error' ? 'Run failed' : 'Paused'}</strong> — {text[s.statusReason ?? ''] ?? s.statusReason}{' '}
+        <span className="muted">{s.statusDetail?.slice(0, 220)}</span>
+        {quota && <div className="muted small">Everything is saved. Resume after topping up, or continue on another model. Auto-resume retries periodically.</div>}
+      </div>
+      <div className="banner-actions">
+        <button className="btn-primary" onClick={() => api.resume(s.id)}>
+          Resume
+        </button>
+        <select value={model} onChange={(e) => setModel(e.target.value)}>
+          {models.map((m) => (
+            <option key={m}>{m}</option>
+          ))}
+        </select>
+        <button className="btn-ghost" onClick={() => api.resume(s.id, model)}>
+          Switch &amp; resume
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function Todos({ items }: { items: TodoItem[] }) {
+  const done = items.filter((i) => i.status === 'done').length;
+  return (
+    <div className="todos">
+      <div className="todos-head">
+        Plan <span className="muted">{done}/{items.length}</span>
+        <span className="bar">
+          <span style={{ width: `${(done / Math.max(1, items.length)) * 100}%` }} />
+        </span>
+      </div>
+      {items.map((i) => (
+        <div key={i.id} className={`todo todo-${i.status}`}>
+          <span>{i.status === 'done' ? '●' : i.status === 'in_progress' ? '◐' : i.status === 'cancelled' ? '⊘' : '○'}</span> {i.content}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export function Chat({
+  summary,
+  approvals,
+  onOpen,
+  onDeleted,
+}: {
+  summary: SessionSummary;
+  approvals: PendingApproval[];
+  onOpen: (id: string) => void;
+  onDeleted: () => void;
+}) {
+  const [events, setEvents] = useState<SessionEvent[]>([]);
+  const [draft, setDraft] = useState('');
+  const [thinking, setThinking] = useState('');
+  const [input, setInput] = useState('');
+  const [models, setModels] = useState<string[]>([]);
+  const [modes, setModes] = useState<{ id: string; label: string }[]>([]);
+  const scroller = useRef<HTMLDivElement>(null);
+  const stick = useRef(true);
+
+  useEffect(() => {
+    api.getEvents(summary.id).then((snap) =>
+      setEvents((live) => {
+        const seen = new Set(snap.map((e) => e.seq));
+        return [...snap, ...live.filter((e) => !seen.has(e.seq))].sort((a, b) => a.seq - b.seq);
+      }),
+    );
+    api.listModels().then((ms) => setModels(ms.filter((m) => m.ready).map((m) => m.ref)));
+    api.listModes().then(setModes);
+  }, [summary.id]);
+
+  // Subscribe directly: every live event must be applied (a shared state value would drop batched updates).
+  useEffect(
+    () =>
+      window.sun.onLive((live: LiveEvent) => {
+        if (live.kind === 'event' && live.sessionId === summary.id) {
+          setEvents((ev) => (ev.some((e) => e.seq === live.event.seq) ? ev : [...ev, live.event]));
+          if (live.event.type === 'assistant/message') {
+            setDraft('');
+            setThinking('');
+          }
+        } else if (live.kind === 'delta' && live.sessionId === summary.id) {
+          if (live.text) setDraft((d) => d + live.text);
+          if (live.reasoning) setThinking((t) => (t + live.reasoning).slice(-1200));
+        }
+      }),
+    [summary.id],
+  );
+
+  useEffect(() => {
+    const el = scroller.current;
+    if (el && stick.current) el.scrollTop = el.scrollHeight;
+  }, [events, draft, thinking, approvals]);
+
+  const results = useMemo(() => {
+    const m = new Map<string, ResultEvent>();
+    for (const e of events) if (e.type === 'tool/result') m.set(e.callId, e);
+    return m;
+  }, [events]);
+  const todos = useMemo(() => [...events].reverse().find((e) => e.type === 'todo/update') as Extract<SessionEvent, { type: 'todo/update' }> | undefined, [events]);
+
+  const running = summary.status === 'running' || summary.status === 'awaiting_approval';
+  const mine = approvals.filter((a) => a.displaySessionId === summary.id);
+  const usage = events.reduce((acc, e) => (e.type === 'assistant/message' && e.usage ? acc + e.usage.inputTokens + e.usage.outputTokens : acc), 0);
+
+  const submit = async () => {
+    const text = input.trim();
+    if (!text) return;
+    setInput('');
+    stick.current = true;
+    await api.send(summary.id, text);
+  };
+
+  return (
+    <div className="chat">
+      <header className="chat-head">
+        <div className="chat-title">
+          <StatusDot s={summary} />
+          <h2>{summary.title}</h2>
+          <button className="chip mono" title="Open workspace" onClick={() => api.openPath(summary.cwd)}>
+            {summary.cwd.replace(/^\/Users\/[^/]+/, '~')}
+          </button>
+        </div>
+        <div className="chat-controls">
+          <select value={summary.mode} onChange={(e) => api.switchMode(summary.id, e.target.value)} title="Mode">
+            {modes.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.label}
+              </option>
+            ))}
+          </select>
+          <select value={summary.model} onChange={(e) => api.switchModel(summary.id, e.target.value)} title="Model">
+            {[...new Set([summary.model, ...models])].map((m) => (
+              <option key={m}>{m}</option>
+            ))}
+          </select>
+          {usage > 0 && <span className="muted small mono">{(usage / 1000).toFixed(1)}k tok</span>}
+          <button
+            className="btn-ghost small"
+            title="Delete session"
+            onClick={async () => {
+              if (confirm('Delete this session log?')) {
+                await api.deleteSession(summary.id);
+                onDeleted();
+              }
+            }}
+          >
+            ✕
+          </button>
+        </div>
+      </header>
+
+      <div
+        className="transcript"
+        ref={scroller}
+        onScroll={(e) => {
+          const el = e.currentTarget;
+          stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+        }}
+      >
+        {todos && todos.items.length > 0 && <Todos items={todos.items} />}
+        {events.map((e) => {
+          switch (e.type) {
+            case 'user/message':
+              return e.source === 'hook' ? (
+                <div key={e.seq} className="divider">
+                  hook context
+                </div>
+              ) : (
+                <div key={e.seq} className={`msg user ${e.source === 'schedule' ? 'scheduled' : ''}`}>
+                  {e.source === 'schedule' && <div className="muted small">⏲ scheduled</div>}
+                  <Markdown text={e.text} />
+                </div>
+              );
+            case 'assistant/message':
+              return (
+                <div key={e.seq} className="msg assistant">
+                  {e.reasoning && (
+                    <details className="reasoning">
+                      <summary>Reasoning</summary>
+                      <p>{e.reasoning}</p>
+                    </details>
+                  )}
+                  {e.text && <Markdown text={e.text} />}
+                  {e.toolCalls.map((c) => (
+                    <ToolCard key={c.id} call={c} result={results.get(c.id)} pending={running} />
+                  ))}
+                </div>
+              );
+            case 'model/switch':
+              return (
+                <div key={e.seq} className="divider">
+                  model {e.from} → {e.to}
+                </div>
+              );
+            case 'mode/switch':
+              return (
+                <div key={e.seq} className="divider">
+                  mode {e.from} → {e.to}
+                </div>
+              );
+            case 'context/compaction':
+              return (
+                <div key={e.seq} className="divider" title={e.summary}>
+                  context compacted
+                </div>
+              );
+            default:
+              return null;
+          }
+        })}
+        {(draft || thinking) && (
+          <div className="msg assistant streaming">
+            {thinking && !draft && <p className="thinking">{thinking.slice(-400)}</p>}
+            {draft && <Markdown text={draft} />}
+          </div>
+        )}
+        {running && !draft && !thinking && !mine.length && <div className="pulse">working</div>}
+        {mine.map((a) => (
+          <ApprovalCard key={a.callId} a={a} />
+        ))}
+        {(summary.status === 'paused' || summary.status === 'error') && <PausedBanner s={summary} models={models} />}
+        {summary.parent && (
+          <button className="chip" onClick={() => onOpen(summary.parent!)}>
+            ← back to parent session
+          </button>
+        )}
+      </div>
+
+      <div className="composer">
+        <textarea
+          value={input}
+          placeholder={running ? 'Queue a follow-up… (sent when the current run ends)' : `Message ${MODE_META[summary.mode]?.label ?? summary.mode}… (Enter to send, Shift+Enter for newline)`}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+              e.preventDefault();
+              submit();
+            }
+          }}
+          rows={Math.min(8, Math.max(2, input.split('\n').length))}
+        />
+        <div className="composer-actions">
+          {running ? (
+            <button className="btn-danger" onClick={() => api.abort(summary.id)}>
+              ■ Stop
+            </button>
+          ) : (
+            <button className="btn-primary" onClick={submit} disabled={!input.trim()}>
+              Send ↵
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
