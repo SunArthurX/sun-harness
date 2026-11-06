@@ -426,6 +426,10 @@ export function SettingsPage() {
           <p className="muted small">
             suggest: ask before any write or command · auto-edit: workspace edits are free, commands and network ask · full-auto: never ask
           </p>
+          <label className="row">
+            <input type="checkbox" checked={cfg.denyInsteadOfPrompting} onChange={(e) => save({ denyInsteadOfPrompting: e.target.checked })} />
+            Deny instead of prompting (the agent is told why and keeps going; headless runs always do this)
+          </label>
           <label>
             Max steps per run
             <input type="number" value={cfg.maxSteps} onChange={(e) => save({ maxSteps: Number(e.target.value) })} />

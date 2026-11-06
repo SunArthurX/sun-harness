@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" /><meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>02 · The core runtime — sun-harness</title>
+<link rel="stylesheet" href="teach.css" />
+<script type="module">import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs'; mermaid.initialize({ startOnLoad: true, theme: 'neutral' });</script>
+</head>
+<body>
+<header class="top"><div class="wrap"><a class="brand" href="index.html">sun<em>harness</em> · teach</a><nav><a href="index.html">All pages</a></nav></div></header>
+<main class="wrap">
+<p class="muted">Milestone M1 · <code>packages/core/src/{log,messages,agent,host,providers}</code> · spec <code>specs/001-core-runtime.md</code></p>
+<h1>02 · The <em>core runtime</em></h1>
+<p class="lede">The core is small: a log, a loop that reads the log, providers that speak two wire formats, and an error taxonomy that decides whether to retry, fall back, or pause.</p>
+
+<h2>The log is the state</h2>
+<p>Every session is one JSONL file. Each line is an event with a sequence number. The loop never keeps state between steps; it re-derives everything from the log. This one decision gives resume, crash recovery, model switching, auditing and reflection for free.</p>
+<pre><code>{"seq":1,"type":"user/message","text":"Create fib.py ..."}
+{"seq":3,"type":"request/header","model":"deepseek/deepseek-chat","systemPrompt":"...","tools":["read_file",...]}
+{"seq":4,"type":"assistant/message","text":"","toolCalls":[{"id":"call_0","name":"write_file","arguments":"{...}"}]}
+{"seq":5,"type":"tool/result","callId":"call_0","name":"write_file","output":"Created fib.py (18 lines)","isError":false}
+{"seq":9,"type":"run/status","status":"paused","reason":"quota","detail":"HTTP 402: Insufficient Balance"}</code></pre>
+<p><strong>Model-visible means logged</strong> (borrowed from DeepSeek Harness): the system prompt is logged as <code>request/header</code> whenever it changes, so any request can be reconstructed exactly.</p>
+
+<h2>The loop</h2>
+<div class="mermaid">
+sequenceDiagram
+  participant H as HarnessHost
+  participant A as Agent.run()
+  participant L as Session log
+  participant M as Model
+  participant T as Tools
+  H->>L: append user/message
+  H->>A: run(signal)
+  loop until nothing is owed
+    A->>L: pendingToolCalls()?
+    alt calls pending
+      A->>T: policy check, hooks, execute
+      T-->>L: tool/result
+    end
+    A->>L: owesRequest()? (last event is user input or tool result)
+    A->>M: system prompt + deriveMessages(log) + tool schemas
+    M-->>A: streamed text, reasoning, tool calls
+    A->>L: assistant/message
+  end
+  A->>L: run/status idle
+</div>
+<p>Two details that matter in practice:</p>
+<ul>
+<li><strong>Pairing.</strong> Providers reject an assistant tool call without a matching result. <code>deriveMessages()</code> inserts a synthetic "interrupted" result for any call that was never answered, such as after a crash.</li>
+<li><strong>Owed request.</strong> "Should I call the model?" has one answer: yes if the latest conversational event is user input or a tool result. That single rule makes <code>run()</code> and <code>resume()</code> the same function.</li>
+</ul>
+
+<h2>Errors decide the next move</h2>
+<div class="mermaid">
+stateDiagram-v2
+  [*] --> Running
+  Running --> Retrying: rate_limit / network
+  Retrying --> Running: backoff 1s,2s,4s… (≤5)
+  Retrying --> Paused: retries exhausted
+  Running --> Fallback: quota / auth
+  Fallback --> Running: next fallbackModels entry
+  Fallback --> Paused: no fallback left
+  Running --> Compacting: context_length
+  Compacting --> Running: retry once
+  Running --> Idle: nothing owed
+  Paused --> Running: resume (same model or switched)
+  Running --> Aborted: user stop
+</div>
+<div class="qa"><p class="q">How do you tell "quota exhausted" from "rate limited"? Both are often HTTP 429.</p><p class="a">By the body. 402 is always quota (DeepSeek "Insufficient Balance"). A 429/403/400 whose body mentions balance, quota, billing or credits, including Chinese wording such as 余额 (balance), 额度 (credit limit) or 配额 (quota), is treated as quota. Any other 429 is a rate limit. Tests cover DeepSeek's 402 and GLM's <code>1113 余额不足</code> ("insufficient balance") 429 against a local SSE server.</p></div>
+<div class="qa"><p class="q">What exactly happens when quota runs out mid-task?</p><p class="a">The model request fails, nothing is appended except <code>run/status paused (quota)</code>, and the run returns. Later, <code>resume(id)</code> or <code>resume(id, {model})</code> re-derives the same history and sends the same request, on the same or another model. This was verified live: a session on an invalid key paused with <code>auth</code>, then <code>sun resume &lt;id&gt; --model deepseek/deepseek-chat</code> logged a <code>model/switch</code> and finished, sending the original user message exactly once.</p></div>
+
+<h2>Compaction at clean boundaries</h2>
+<p>Long runs outgrow the context window. Compaction summarizes older history into a <code>context/compaction</code> event, but only up to a <em>clean boundary</em>: a point with no outstanding tool calls. Cutting between a call and its result would break pairing.</p>
+
+<h2>Approval policy</h2>
+<table>
+<tr><th>Risk</th><th>suggest</th><th>auto-edit (default)</th><th>full-auto</th></tr>
+<tr><td>read</td><td>free</td><td>free</td><td>free</td></tr>
+<tr><td>write</td><td>ask</td><td>free inside the workspace or ~/.sun, ask outside</td><td>free</td></tr>
+<tr><td>exec / network</td><td>ask</td><td>ask</td><td>free</td></tr>
+</table>
+<p>"Always allow" is stored as an <code>approval/decision</code> event, so it survives restarts like everything else.</p>
+
+<h2>Bugs found by tests</h2>
+<div class="qa"><p class="q">A run that finished on its last allowed step reported "paused: max_steps". Why?</p><p class="a">The loop exited because of the step counter before checking whether anything was still owed. Fix: after the loop, return <code>idle</code> when nothing is pending. The test was tightened to count exact model requests, so the fix is pinned.</p></div>
+<p class="lesson">Make the durable log the only state and make every decision a pure function of it. Resume, crash recovery and quota handling then stop being features you build and become properties you test.</p>
+
+<div class="nav"><a href="01-first-principles.html">← 01 · First principles</a><a href="03-extensions-knowledge.html">03 · Extensions and knowledge →</a></div>
+</main>
+</body>
+</html>

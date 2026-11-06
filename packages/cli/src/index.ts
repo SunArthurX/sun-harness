@@ -117,7 +117,10 @@ async function askApproval(rl: ReturnType<typeof createInterface> | undefined, a
   return ans.startsWith('a') ? 'allow_always' : ans.startsWith('y') ? 'allow' : 'deny';
 }
 
+/** Only an interactive terminal can approve; piped/launchd runs stay headless so approvals are denied instead of hanging. */
 function wireApprovals(host: HarnessHost, rl?: ReturnType<typeof createInterface>): () => void {
+  if (!process.stdin.isTTY) return () => undefined;
+  host.registerApprover();
   const asked = new Set<string>();
   let chain = Promise.resolve();
   return host.subscribe((e) => {

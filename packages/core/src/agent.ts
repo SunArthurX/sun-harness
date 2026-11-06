@@ -29,7 +29,8 @@ export interface AgentDeps {
   tools(): Tool[];
   systemPrompt(modelRef: string): string;
   approvalMode(): ApprovalMode;
-  requestApproval(req: ApprovalRequest, signal: AbortSignal): Promise<ApprovalDecision>;
+  /** `reason` explains a non-human decision (e.g. headless deny) to the model. */
+  requestApproval(req: ApprovalRequest, signal: AbortSignal): Promise<{ decision: ApprovalDecision; reason?: string }>;
   services: ToolServices;
   hooks?: AgentHooks;
   onLive?(e: LiveEvent): void;
@@ -250,15 +251,15 @@ export class Agent {
         const already = this.d.log.all().some((e) => e.type === 'approval/request' && e.callId === call.id);
         if (!already) this.emit({ type: 'approval/request', callId: call.id, name: call.name, arguments: call.arguments, risk: tool.risk });
         this.setStatus('awaiting_approval', undefined, call.name);
-        const decision = await this.d.requestApproval(
+        const { decision, reason } = await this.d.requestApproval(
           { sessionId: this.id, callId: call.id, name: call.name, arguments: call.arguments, risk: tool.risk },
           signal,
         );
         if (signal.aborted) return;
-        this.emit({ type: 'approval/decision', callId: call.id, decision });
+        this.emit({ type: 'approval/decision', callId: call.id, decision, ...(reason ? { reason } : {}) });
         this.setStatus('running');
         if (decision === 'deny') {
-          result('The user denied this tool call. Do not retry it; ask or choose another approach.', true);
+          result(reason ?? 'The user denied this tool call. Do not retry it; ask or choose another approach.', true);
           continue;
         }
       }

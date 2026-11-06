@@ -67,7 +67,7 @@ export type SessionEventBody =
     }
   | { type: 'tool/result'; callId: string; name: string; output: string; isError: boolean; durationMs?: number }
   | { type: 'approval/request'; callId: string; name: string; arguments: string; risk: ToolRisk }
-  | { type: 'approval/decision'; callId: string; decision: ApprovalDecision }
+  | { type: 'approval/decision'; callId: string; decision: ApprovalDecision; reason?: string }
   | { type: 'run/status'; status: RunStatus; reason?: PauseReason | string; detail?: string }
   | { type: 'model/switch'; from: string; to: string; reason: string }
   | { type: 'mode/switch'; from: string; to: string }

@@ -35,6 +35,8 @@ export interface SunConfig {
   /** Tried in order when the current model pauses for quota/auth. */
   fallbackModels: string[];
   approval: ApprovalMode;
+  /** Deny (with a reason to the model) instead of waiting for a human. Always on when no approver is attached. */
+  denyInsteadOfPrompting: boolean;
   maxSteps: number;
   autoResume: { enabled: boolean; intervalMinutes: number };
   compaction: { thresholdTokens: number; keepRecent: number };
@@ -124,6 +126,7 @@ export function defaultConfig(): SunConfig {
     defaultModel: '',
     fallbackModels: [],
     approval: 'auto-edit',
+    denyInsteadOfPrompting: false,
     maxSteps: 60,
     autoResume: { enabled: true, intervalMinutes: 15 },
     compaction: { thresholdTokens: 90000, keepRecent: 12 },

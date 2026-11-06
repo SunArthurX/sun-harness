@@ -10,6 +10,8 @@ export interface HookEntry {
   matcher?: string;
   command: string;
   timeoutMs?: number;
+  /** preToolUse only: "block" makes a crashed/timed-out hook veto the call (fail-closed). Default "ignore". */
+  onFailure?: 'ignore' | 'block';
 }
 
 export interface HooksConfig {
@@ -47,11 +49,12 @@ export function runHook(entry: HookEntry, payload: unknown, cwd: string): Promis
     child.stdout.on('data', (d) => (stdout += d));
     child.stderr.on('data', (d) => (stderr += d));
     const t = setTimeout(() => child.kill('SIGKILL'), entry.timeoutMs ?? 30_000);
-    child.on('close', (code) => {
+    child.on('close', (code, sig) => {
       clearTimeout(t);
-      resolve({ code: code ?? 1, stdout: stdout.trim(), stderr: stderr.trim() });
+      resolve({ code: code ?? 1, stdout: stdout.trim(), stderr: (sig ? `killed by ${sig} (timeout)` : stderr).trim() });
     });
     child.on('error', () => resolve({ code: 1, stdout: '', stderr: 'spawn failed' }));
+    child.stdin.on('error', () => undefined);
     child.stdin.end(JSON.stringify(payload));
   });
 }
@@ -73,6 +76,7 @@ export function createShellHooks(cwd: string): AgentHooks & { sessionStart(sessi
       for (const h of match(cfg.preToolUse, e.tool)) {
         const r = await runHook(h, { event: 'preToolUse', ...e }, e.cwd);
         if (r.code === 2) return { block: r.stderr || r.stdout || 'blocked' };
+        if (r.code !== 0 && h.onFailure === 'block') return { block: `policy hook failed (exit ${r.code}${r.stderr ? `: ${r.stderr.slice(0, 200)}` : ''}); failing closed` };
       }
     },
     async postToolUse(e) {

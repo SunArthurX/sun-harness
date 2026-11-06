@@ -50,6 +50,8 @@ for (let i = 0; ; i++) {
   const status = await win.evaluate(async (id) => (await window.sun.call('listSessions')).find((s) => s.id === id)?.status, session.id);
   if (status === 'idle') break;
   if (i > 240) throw new Error(`Session did not finish (status ${status})`);
+  // Models may take a different path that needs more approvals; approve each one that appears.
+  if (await win.$('.approval .btn-primary')) await win.click('.approval .btn-primary').catch(() => {});
   await win.waitForTimeout(500);
 }
 await win.waitForTimeout(600);

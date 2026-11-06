@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" /><meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>06 · The research loop — sun-harness</title>
+<link rel="stylesheet" href="teach.css" />
+<script type="module">import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs'; mermaid.initialize({ startOnLoad: true, theme: 'neutral' });</script>
+</head>
+<body>
+<header class="top"><div class="wrap"><a class="brand" href="index.html">sun<em>harness</em> · teach</a><nav><a href="index.html">All pages</a></nav></div></header>
+<main class="wrap">
+<p class="muted">Iteration 1 · spec <code>specs/008-approval-policy.md</code></p>
+<h1>06 · The <em>research loop</em></h1>
+<p class="lede">The MVP is only the start. The plan is a loop: watch the field, pick the highest-value gap, write a spec, build, test, document, repeat. Here is the first full turn of that loop.</p>
+
+<div class="mermaid">
+flowchart LR
+  I[Intel report<br/>2026-11-07] --> P[Feature proposals]
+  P --> S[Spec 008<br/>fail-closed approvals]
+  S --> C[Code<br/>host.ts · hooks.ts]
+  C --> T[Tests<br/>headless deny · onFailure block]
+  T --> D[Manual + this page]
+  D --> I
+</div>
+
+<h2>1 · The finding</h2>
+<p>The 2026-11-07 briefing covered Claude Code 2.1.317–2.1.319. Its headline was <strong>fail-closed autonomy</strong>: when the auto-mode classifier cannot be reached, risky calls are now asked or denied instead of approved by a local fallback. It also highlighted two related primitives:</p>
+<ul>
+<li><code>permissions.denyInsteadOfPrompting</code>: a call that would block on a prompt is denied, and the turn continues.</li>
+<li>Hook <code>onFailure: "block"</code>: a failing policy callback vetoes the action instead of letting it through.</li>
+</ul>
+
+<h2>2 · Does it apply here? (first principles)</h2>
+<p>Which of the six parts does this touch? <strong>Policy.</strong> Did sun-harness have the problem? Yes, in two places:</p>
+<div class="qa"><p class="q">What did sun-harness do with an approval in a headless run?</p><p class="a">It waited forever. <code>sun run</code> with piped input, a launchd job, or a desktop app whose window was closed would raise an approval that no one could answer. The intel finding exposed a real latent bug.</p></div>
+<div class="qa"><p class="q">What did a crashing <code>preToolUse</code> hook do?</p><p class="a">Any exit code other than 2 was ignored, so a broken policy script silently disabled the policy.</p></div>
+
+<h2>3 · The design</h2>
+<div class="mermaid">
+flowchart TB
+  Q[Tool needs approval] --> A{Approver registered?<br/>desktop window / interactive TTY}
+  A -->|no| D1[deny + reason: headless run]
+  A -->|yes| B{denyInsteadOfPrompting?}
+  B -->|yes| D2[deny + reason]
+  B -->|no| ASK[show approval card / prompt]
+  D1 & D2 --> R[reason logged on approval/decision<br/>and returned to the model as the tool result]
+  R --> CONT[agent continues without the tool]
+</div>
+<ul>
+<li>UIs announce themselves with <code>host.registerApprover()</code>. The desktop registers when its window opens; the CLI registers only when stdin is a TTY.</li>
+<li>The deny carries a reason, so the model can adapt ("I could not run the tests; here is what I need") instead of retrying blindly.</li>
+<li>Hooks gain <code>onFailure: "block"</code>. The default stays <code>ignore</code>, so existing hook files keep working.</li>
+</ul>
+
+<h2>4 · Tests that pin it</h2>
+<pre><code>✓ denies instead of hanging when no approver is attached (headless), with a reason for the model
+✓ denyInsteadOfPrompting denies even with an approver attached
+✓ onFailure "block" makes a crashing policy hook fail closed; default ignores it</code></pre>
+<p>Existing approval tests now register an approver explicitly. That made the new rule visible in the test code itself: without someone to ask, the answer is no.</p>
+
+<h2>What the loop will pick up next</h2>
+<p>Candidates from the same briefings, waiting as proposals:</p>
+<table>
+<tr><th>Idea</th><th>Seen in</th><th>Part</th></tr>
+<tr><td>Separate prompt budgets for global vs project rules</td><td>DeepSeek Harness 0.2.2</td><td>Context</td></tr>
+<tr><td>Compact with the old model before switching to a smaller-context model</td><td>DeepSeek Harness 0.2.2</td><td>Loop</td></tr>
+<tr><td>Background MCP tasks with eventual result delivery</td><td>Claude Code 2.1.319</td><td>Tools</td></tr>
+<tr><td>One gateway owns every session; surfaces attach as clients</td><td>Hermes Agent 0.23</td><td>Architecture</td></tr>
+<tr><td>Git worktree per session for parallel changes</td><td>DeepSeek Harness 0.2.2, Codex</td><td>Tools · policy</td></tr>
+</table>
+<p class="lesson">Intel is useful only when it ends in a spec. Ask which first-principle part a finding improves, check whether you actually have the problem, then build the smallest version that makes the safe behavior the default.</p>
+
+<div class="nav"><a href="05-intel-evolution.html">← 05 · Intel and evolution</a><a href="index.html">All pages →</a></div>
+</main>
+</body>
+</html>

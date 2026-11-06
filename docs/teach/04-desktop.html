@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" /><meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>04 · The desktop app — sun-harness</title>
+<link rel="stylesheet" href="teach.css" />
+<script type="module">import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs'; mermaid.initialize({ startOnLoad: true, theme: 'neutral' });</script>
+</head>
+<body>
+<header class="top"><div class="wrap"><a class="brand" href="index.html">sun<em>harness</em> · teach</a><nav><a href="index.html">All pages</a></nav></div></header>
+<main class="wrap">
+<p class="muted">Milestone M3 · <code>apps/desktop</code> · spec <code>specs/004-desktop.md</code></p>
+<h1>04 · The <em>desktop</em> app</h1>
+<p class="lede">The desktop is a thin view over the same core the CLI uses. Most of the interesting lessons came from the end-to-end test, which found two bugs that unit tests could not.</p>
+
+<h2>Process architecture</h2>
+<div class="mermaid">
+flowchart LR
+  subgraph Renderer [Renderer · React · sandboxed]
+    UI[Sessions · Chat · Pages]
+  end
+  subgraph Preload [Preload · contextBridge]
+    API["window.sun.call(method, ...args)<br/>window.sun.onLive(fn)"]
+  end
+  subgraph Main [Main process · Node]
+    IPC[ipcMain 'sun:call'<br/>allowlist in shared/api.ts]
+    HOST[HarnessHost<br/>core bundled in]
+    BG[Background tick 60s<br/>auto-resume · schedules · intel catch-up]
+  end
+  UI --> API --> IPC --> HOST
+  HOST -- "'sun:live' events" --> API --> UI
+  BG --> HOST
+</div>
+<ul>
+<li>The renderer has no Node access (<code>contextIsolation</code>, <code>sandbox</code>, no <code>nodeIntegration</code>). One IPC channel accepts only methods on an allowlist.</li>
+<li>Core is bundled into the main process by electron-vite, so the app has one runtime and one host instance.</li>
+<li>GUI apps on macOS do not inherit the shell environment, so API keys are imported from <code>~/.sun/.env</code> and simple <code>export</code> lines in shell rc files. The lines are parsed, never executed (see page 05 for why).</li>
+</ul>
+
+<figure><img src="img/welcome.png" alt="Welcome screen" width="100%" style="border-radius:12px;border:1px solid var(--line)"/><figcaption>Welcome: choose a mode and a workspace.</figcaption></figure>
+<figure><img src="img/approval.png" alt="Approval card" width="100%" style="border-radius:12px;border:1px solid var(--line)"/><figcaption>A write in <code>suggest</code> mode waits on an approval card (from the end-to-end test, live model).</figcaption></figure>
+<figure><img src="img/chat.png" alt="Finished session" width="100%" style="border-radius:12px;border:1px solid var(--line)"/><figcaption>The finished session: tool cards with timings, then the final answer.</figcaption></figure>
+
+<h2>Design</h2>
+<p>The visual direction is a warm dark "solar instrument panel": ink-brown background, one amber accent, an editorial serif (Instrument Serif) for headings, a clean grotesk (Hanken Grotesk) for body text, and JetBrains Mono for tool output. Fonts are bundled so the app works offline. Tool calls are compact cards that expand on click. Approvals glow amber because they are the only thing that blocks progress.</p>
+
+<h2>Bug 1 — lost events from React batching</h2>
+<div class="qa"><p class="q">The session finished and the log was complete, but the chat showed the first tool still running and no final answer. Why?</p><p class="a">The app kept the latest live event in a single React state value, and the chat applied it in an effect. Several events arriving in the same tick were batched by React into one render, so only the last value was seen and the others were dropped. Fix: the chat subscribes to the live stream directly and appends every event, merging with its initial snapshot by <code>seq</code>.</p></div>
+<div class="mermaid">
+sequenceDiagram
+  participant Main
+  participant App as App state (live)
+  participant Chat as Chat effect
+  Main->>App: event 10 tool/result
+  Main->>App: event 11 assistant/message
+  Main->>App: event 12 tool/result
+  Note over App: React batches → one render
+  App->>Chat: only event 12 seen ✗
+  Note over Chat: Fix: Chat subscribes to window.sun.onLive and applies every event ✓
+</div>
+
+<h2>Bug 2 — a test that passed too early</h2>
+<div class="qa"><p class="q">After fixing bug 1, the end-to-end test still showed "working". The live event trace even had an assistant message squeezed between two tool results. Was the core broken?</p><p class="a">No. The log on disk was perfect, and the out-of-order events were simply the model calling tools in two steps. The test used Playwright's <code>waitForFunction</code> with an <code>async</code> predicate; it returns a Promise, a Promise is truthy, so "wait until idle" returned immediately and the screenshot captured the run midway. Fix: poll explicitly from Node until the status is <code>idle</code>. The test now also asserts that the UI matches the log: an idle status dot, no "working" indicator, and every tool card marked successful.</p></div>
+<p class="lesson">When the UI and the log disagree, read the log on disk first. It separates "the product is wrong" from "the observer is wrong" in one step.</p>
+
+<h2>Build and environment issues</h2>
+<table>
+<tr><th>Symptom</th><th>Cause</th><th>Fix</th></tr>
+<tr><td>Electron binary missing after install</td><td>pnpm 11 blocks dependency install scripts unless allowed; <code>onlyBuiltDependencies</code> was replaced by an <code>allowBuilds</code> map</td><td><code>allowBuilds: { electron: true, esbuild: true }</code> in <code>pnpm-workspace.yaml</code></td></tr>
+<tr><td><code>fetch failed</code> downloading Electron</td><td>GitHub release downloads blocked on this network</td><td><code>ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/</code></td></tr>
+<tr><td><code>git commit</code> rejects <code>--trailer</code></td><td>an old git 2.23 first on PATH</td><td>use the system <code>/usr/bin/git</code> 2.39</td></tr>
+</table>
+
+<h2>The end-to-end smoke test</h2>
+<pre><code>node apps/desktop/e2e/smoke.mjs
+# temp SUN_HOME + temp repo → launch built app → create session → send a live prompt
+# → approval card appears → click Allow → poll until idle → assert UI matches log
+# → screenshot every screen → exit non-zero on any mismatch</code></pre>
+
+<div class="nav"><a href="03-extensions-knowledge.html">← 03 · Extensions and knowledge</a><a href="05-intel-evolution.html">05 · Intel and evolution →</a></div>
+</main>
+</body>
+</html>

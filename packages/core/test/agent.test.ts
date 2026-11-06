@@ -64,6 +64,7 @@ describe('agent loop', () => {
     );
     const decisions = ['deny', 'allow_always'] as const;
     let i = 0;
+    host.registerApprover();
     host.subscribe((e) => {
       if (e.kind === 'approvals' && e.approvals.length) setTimeout(() => host.approve(e.approvals[0].callId, decisions[i++]), 5);
     });
@@ -89,6 +90,7 @@ describe('agent loop', () => {
       },
       { approval: 'auto-edit' },
     );
+    host.registerApprover();
     host.subscribe((e) => {
       if (e.kind === 'approvals' && e.approvals.length) setTimeout(() => host.approve(e.approvals[0].callId, 'deny'), 5);
     });
@@ -98,6 +100,31 @@ describe('agent loop', () => {
     const reqs = host.getEvents(s.id).filter((e) => e.type === 'approval/request') as any[];
     expect(reqs.map((r) => r.callId)).toEqual(['w2']);
     expect(existsSync(join(ws, 'in.txt'))).toBe(true);
+  });
+
+  it('denies instead of hanging when no approver is attached (headless), with a reason for the model', async () => {
+    const { host } = await mockHost(
+      { 'mock/a': [{ text: '', toolCalls: [call('bash', { command: 'echo hi' })] }, { text: 'continued without bash', toolCalls: [] }] },
+      { approval: 'suggest' },
+    );
+    const s = host.createSession({ cwd: ws });
+    await host.send(s.id, 'run it');
+    expect((await host.wait(s.id))?.status).toBe('idle');
+    const res = host.getEvents(s.id).find((e) => e.type === 'tool/result') as any;
+    expect(res.output).toContain('headless run');
+    expect(host.getEvents(s.id).find((e) => e.type === 'approval/decision')).toMatchObject({ decision: 'deny' });
+  });
+
+  it('denyInsteadOfPrompting denies even with an approver attached', async () => {
+    const { host } = await mockHost(
+      { 'mock/a': [{ text: '', toolCalls: [call('bash', { command: 'echo hi' })] }, { text: 'ok', toolCalls: [] }] },
+      { approval: 'suggest', denyInsteadOfPrompting: true },
+    );
+    host.registerApprover();
+    const s = host.createSession({ cwd: ws });
+    await host.send(s.id, 'run it');
+    await host.wait(s.id);
+    expect((host.getEvents(s.id).find((e) => e.type === 'tool/result') as any).output).toContain('denyInsteadOfPrompting');
   });
 
   it('pauses durably on quota and resumes on another model', async () => {

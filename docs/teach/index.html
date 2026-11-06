@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" /><meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Building sun-harness — teaching pages</title>
+<link rel="stylesheet" href="teach.css" />
+<script type="module">import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs'; mermaid.initialize({ startOnLoad: true, theme: 'neutral' });</script>
+</head>
+<body>
+<header class="top"><div class="wrap"><a class="brand" href="index.html">sun<em>harness</em> · teach</a><nav><a href="../manual/README.md">Manual</a><a href="../plan.md">Plan</a><a href="../../specs/000-vision.md">Vision</a></nav></div></header>
+<main class="wrap">
+<h1>How to build a <em>personal</em> agent harness</h1>
+<p class="lede">These pages follow sun-harness from an empty folder to a tested desktop app: the reasoning behind each decision, the problems hit along the way, and how each was solved. Read them in order, or jump to the part you need.</p>
+
+<figure>
+<svg viewBox="0 0 860 360" width="100%" role="img" aria-label="sun-harness architecture">
+  <defs>
+    <radialGradient id="sun" cx="40%" cy="38%" r="70%"><stop offset="0" stop-color="#fff1cf"/><stop offset=".4" stop-color="#ffb347"/><stop offset="1" stop-color="#e0662a"/></radialGradient>
+    <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#8a7d6b"/></marker>
+  </defs>
+  <rect x="10" y="20" width="170" height="70" rx="12" fill="#fff" stroke="#e7dfd2"/><text x="95" y="50" text-anchor="middle" font-size="15" font-weight="600">Desktop</text><text x="95" y="70" text-anchor="middle" font-size="12" fill="#6f6556">Electron + React</text>
+  <rect x="10" y="110" width="170" height="70" rx="12" fill="#fff" stroke="#e7dfd2"/><text x="95" y="140" text-anchor="middle" font-size="15" font-weight="600">CLI · sun</text><text x="95" y="160" text-anchor="middle" font-size="12" fill="#6f6556">chat · run · intel</text>
+  <rect x="10" y="200" width="170" height="70" rx="12" fill="#fff" stroke="#e7dfd2"/><text x="95" y="230" text-anchor="middle" font-size="15" font-weight="600">launchd</text><text x="95" y="250" text-anchor="middle" font-size="12" fill="#6f6556">daily intel 09:00</text>
+  <line x1="180" y1="55" x2="262" y2="150" stroke="#8a7d6b" marker-end="url(#ar)"/><line x1="180" y1="145" x2="262" y2="160" stroke="#8a7d6b" marker-end="url(#ar)"/><line x1="180" y1="235" x2="262" y2="175" stroke="#8a7d6b" marker-end="url(#ar)"/>
+  <rect x="265" y="20" width="360" height="320" rx="18" fill="#fff8ee" stroke="#e8862a" stroke-dasharray="4 4"/>
+  <text x="445" y="44" text-anchor="middle" font-size="13" fill="#e8862a" font-weight="700">packages/core · HarnessHost</text>
+  <circle cx="445" cy="165" r="56" fill="url(#sun)"/><text x="445" y="161" text-anchor="middle" font-size="15" font-weight="700" fill="#2a1606">Agent loop</text><text x="445" y="180" text-anchor="middle" font-size="11" fill="#2a1606">derive → ask → act</text>
+  <g font-size="12" text-anchor="middle">
+    <rect x="285" y="62" width="110" height="38" rx="8" fill="#fff" stroke="#e7dfd2"/><text x="340" y="86">Model providers</text>
+    <rect x="495" y="62" width="110" height="38" rx="8" fill="#fff" stroke="#e7dfd2"/><text x="550" y="86">Context builder</text>
+    <rect x="285" y="232" width="110" height="38" rx="8" fill="#fff" stroke="#e7dfd2"/><text x="340" y="256">Tool registry</text>
+    <rect x="495" y="232" width="110" height="38" rx="8" fill="#fff" stroke="#e7dfd2"/><text x="550" y="256">Policy · hooks</text>
+    <rect x="370" y="286" width="150" height="40" rx="8" fill="#201a13"/><text x="445" y="311" fill="#ffb347">Session JSONL log</text>
+  </g>
+  <line x1="395" y1="100" x2="415" y2="118" stroke="#8a7d6b"/><line x1="495" y1="100" x2="476" y2="118" stroke="#8a7d6b"/><line x1="395" y1="232" x2="415" y2="212" stroke="#8a7d6b"/><line x1="495" y1="232" x2="476" y2="212" stroke="#8a7d6b"/><line x1="445" y1="221" x2="445" y2="286" stroke="#e8862a" stroke-width="2"/>
+  <g font-size="12">
+    <rect x="680" y="20" width="170" height="44" rx="10" fill="#fff" stroke="#e7dfd2"/><text x="765" y="47" text-anchor="middle">Rules · specs · AGENTS.md</text>
+    <rect x="680" y="76" width="170" height="44" rx="10" fill="#fff" stroke="#e7dfd2"/><text x="765" y="103" text-anchor="middle">Skills (SKILL.md)</text>
+    <rect x="680" y="132" width="170" height="44" rx="10" fill="#fff" stroke="#e7dfd2"/><text x="765" y="159" text-anchor="middle">MCP servers · plugins</text>
+    <rect x="680" y="188" width="170" height="44" rx="10" fill="#fff" stroke="#e7dfd2"/><text x="765" y="215" text-anchor="middle">Knowledge · memory</text>
+    <rect x="680" y="244" width="170" height="44" rx="10" fill="#fff" stroke="#e7dfd2"/><text x="765" y="271" text-anchor="middle">Intel · evolution</text>
+  </g>
+  <line x1="680" y1="42" x2="605" y2="80" stroke="#8a7d6b" marker-end="url(#ar)"/><line x1="680" y1="98" x2="605" y2="86" stroke="#8a7d6b" marker-end="url(#ar)"/><line x1="680" y1="154" x2="605" y2="250" stroke="#8a7d6b" marker-end="url(#ar)"/><line x1="680" y1="210" x2="605" y2="90" stroke="#8a7d6b" marker-end="url(#ar)"/><line x1="680" y1="266" x2="605" y2="96" stroke="#8a7d6b" marker-end="url(#ar)"/>
+</svg>
+<figcaption>One core, three entry points. Everything the model sees is assembled from files and recorded in the log.</figcaption>
+</figure>
+
+<h2>The path</h2>
+<div class="mermaid">
+timeline
+  title sun-harness development path
+  M0 Foundations : First principles : AGENTS.md rules : Vision spec and plan
+  M1 Core runtime : JSONL log : Providers and error taxonomy : Loop, tools, approvals : Quota pause and resume : CLI
+  M2 Extensions : Rules loader : Skills, MCP, plugins, hooks : Knowledge and memory : Modes and subagents
+  M3 Desktop : Electron + React : Live streaming and approvals : E2E smoke test
+  M4 Intel and evolution : Daily briefing : launchd schedule : Reflection and proposals
+  Iteration 1 : Intel finding : Fail-closed approvals : Spec, code, tests, docs
+</div>
+
+<div class="cards">
+  <a class="card" href="01-first-principles.html"><div class="n">01</div><strong>First principles</strong><span>What a harness is, the plan, and the rules that stop drift.</span></a>
+  <a class="card" href="02-core-runtime.html"><div class="n">02</div><strong>The core runtime</strong><span>Durable log, the loop, providers, and surviving quota exhaustion.</span></a>
+  <a class="card" href="03-extensions-knowledge.html"><div class="n">03</div><strong>Extensions and knowledge</strong><span>Rules, skills, MCP, plugins, hooks, BM25 with CJK bigrams.</span></a>
+  <a class="card" href="04-desktop.html"><div class="n">04</div><strong>The desktop app</strong><span>Electron architecture and the bugs only end-to-end tests found.</span></a>
+  <a class="card" href="05-intel-evolution.html"><div class="n">05</div><strong>Intel and evolution</strong><span>Daily field watch, launchd pitfalls, and a harness that improves.</span></a>
+  <a class="card" href="06-research-loop.html"><div class="n">06</div><strong>The research loop</strong><span>From an intel finding to a shipped feature: fail-closed approvals.</span></a>
+</div>
+
+<h2>How to use these pages</h2>
+<p>Each page has the same parts: <strong>the decision</strong> (what and why), <strong>diagrams</strong>, <strong>questions and answers</strong> met during development, and <strong>lessons</strong>. Code references point into <code>packages/core/src</code> and <code>apps/desktop/src</code>; specs in <code>specs/</code> are the source of truth.</p>
+</main>
+</body>
+</html>

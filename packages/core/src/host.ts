@@ -310,14 +310,31 @@ export class HarnessHost {
     return [...this.approvals.values()].map((a) => a.pending);
   }
 
-  private requestApproval(req: ApprovalRequest, displaySessionId: string, signal: AbortSignal): Promise<ApprovalDecision> {
+  private approvers = 0;
+
+  /** A UI that can answer approvals (desktop window, interactive terminal). Without one, approvals are denied, not awaited. */
+  registerApprover(): () => void {
+    this.approvers++;
+    let done = false;
+    return () => {
+      if (!done) (this.approvers--, (done = true));
+    };
+  }
+
+  private requestApproval(req: ApprovalRequest, displaySessionId: string, signal: AbortSignal): Promise<{ decision: ApprovalDecision; reason?: string }> {
+    if (this.config.denyInsteadOfPrompting || this.approvers === 0) {
+      return Promise.resolve({
+        decision: 'deny',
+        reason: `No human is available to approve "${req.name}" (${this.approvers === 0 ? 'headless run' : 'denyInsteadOfPrompting'}), so it was denied. Continue without it, or finish and explain what approval you need.`,
+      });
+    }
     return new Promise((resolve) => {
       const pending: PendingApproval = { ...req, displaySessionId };
       const done = (d: ApprovalDecision) => {
         if (!this.approvals.has(req.callId)) return;
         this.approvals.delete(req.callId);
         this.broadcastApprovals();
-        resolve(d);
+        resolve({ decision: d });
       };
       this.approvals.set(req.callId, { pending, resolve: done });
       signal.addEventListener('abort', () => done('deny'), { once: true });

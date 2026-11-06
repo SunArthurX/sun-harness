@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" /><meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>05 · Intel and evolution — sun-harness</title>
+<link rel="stylesheet" href="teach.css" />
+<script type="module">import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs'; mermaid.initialize({ startOnLoad: true, theme: 'neutral' });</script>
+</head>
+<body>
+<header class="top"><div class="wrap"><a class="brand" href="index.html">sun<em>harness</em> · teach</a><nav><a href="index.html">All pages</a></nav></div></header>
+<main class="wrap">
+<p class="muted">Milestone M4 · specs <code>005-intel</code>, <code>006-evolution</code></p>
+<h1>05 · Intel <em>&amp; evolution</em></h1>
+<p class="lede">A personal harness should grow with the field and with its owner. Intel watches the field every day; evolution turns what the harness learns into changes you approve.</p>
+
+<h2>The intel pipeline</h2>
+<div class="mermaid">
+flowchart LR
+  S[14 sources<br/>GitHub releases · CHANGELOG.md · pages] --> F[Fetch in parallel<br/>per-source errors are not fatal]
+  F --> D{New since<br/>state.json?}
+  D -->|no| N[“No news” report]
+  D -->|yes| RAW[(raw/date.json)]
+  RAW --> A[LLM analysis<br/>What changed · Mechanism · Why it matters · Trends · Ideas]
+  A -->|ok| R[reports/date.md + .html]
+  A -->|quota / error| PEND[report with raw items<br/>“Analysis pending”]
+  PEND -. sun intel analyze date .-> A
+  R --> I[Top 8 ideas → feature proposals]
+</div>
+<div class="qa"><p class="q">Why ask for the "mechanism / principle" of each change?</p><p class="a">A changelog says <em>what</em> changed. To learn from another harness you need <em>why it works</em>. The first live report did this well: it explained Codex's session-picker fixes as "a session-first index with the provider as an attribute", and Hermes v0.23 as "one gateway process owns every session; every surface attaches as a client". Those are transferable ideas, not just version notes.</p></div>
+
+<figure><img src="img/intel.png" alt="Harness Intel screen" width="100%" style="border-radius:12px;border:1px solid var(--line)"/><figcaption>The 2026-11-07 briefing in the desktop app.</figcaption></figure>
+
+<h2>Scheduling: three failures before it worked</h2>
+<div class="mermaid">
+flowchart TB
+  A1["Attempt 1: zsh -ilc 'node cli intel run'<br/>(to load API keys from ~/.zshrc)"] -->|hung| C1["conda shell hook in .zshrc<br/>blocks without a terminal"]
+  C1 --> A2["Attempt 2: run node directly,<br/>parse export lines from rc files"]
+  A2 -->|hung, no output, no sockets| C2["macOS TCC: launchd jobs cannot read<br/>~/Downloads without a permission prompt"]
+  C2 --> A3["Attempt 3: self-contained esbuild bundle<br/>copied to ~/.sun/bin/sun.mjs"]
+  A3 -->|works| OK["14 sources · 0 errors · analyzed · 8 proposals"]
+</div>
+<div class="qa"><p class="q">How was the TCC problem diagnosed? Nothing was logged.</p><p class="a">The process list showed node alive with no CPU use, <code>lsof</code> showed no network sockets and an empty log, and the code was located under <code>~/Downloads</code>, a protected folder. A background job touching a protected folder waits for a consent prompt that never appears. Moving the code to <code>~/.sun/bin</code> confirmed it: the next launchd run finished in about 30 seconds.</p></div>
+<div class="qa"><p class="q">Why parse rc files instead of running a login shell?</p><p class="a">Running an interactive rc file means running whatever is in it (conda, nvm, prompts), and any of it can hang. sun-harness reads only lines of the form <code>export NAME=value</code> where <code>NAME</code> looks like a credential (<code>_API_KEY</code>, <code>_BASE_URL</code>, <code>_TOKEN</code>, …). It skips anything that needs evaluation and never copies secrets into the plist.</p></div>
+
+<h2>Smaller fixes from the first live run</h2>
+<table>
+<tr><th>Problem</th><th>Fix</th></tr>
+<tr><td>Claude Code changelog: <code>fetch failed</code></td><td>read through the GitHub contents API; <code>raw.githubusercontent.com</code> is only a fallback</td></tr>
+<tr><td>Report dated yesterday at 03:00 local time</td><td><code>toISOString()</code> is UTC; user-facing dates now use the local calendar (<code>localDate()</code>)</td></tr>
+<tr><td>20 proposals from one report</td><td>sort by priority, keep the top 8, strip the JSON block from the human report</td></tr>
+</table>
+
+<h2>Evolution: proposals, never silent changes</h2>
+<div class="mermaid">
+flowchart LR
+  SES[Finished session] --> REF[reflect: abridged transcript<br/>+ memory + known proposals + injected-rules note]
+  INT[Daily intel] --> PROP
+  REF --> PROP[(Proposals<br/>pending)]
+  PROP -->|accept memory| MEM[MEMORY.md]
+  PROP -->|accept skill| SK[~/.sun/skills/name/SKILL.md]
+  PROP -->|accept rule| RU[~/.sun/AGENTS.md]
+  PROP -->|accept feature| BL[backlog.md → spec → code]
+  MEM & SK & RU & BL --> J[journal.md]
+</div>
+<div class="qa"><p class="q">The first reflection claimed the agent "never read AGENTS.md". Was that true?</p><p class="a">No. The rules were injected into the system prompt, which the reflector could not see, and it also flagged "truncated tool arguments" that the transcript builder had truncated itself. Fix: the transcript now starts with a context line listing the rules that were injected and noting that it is abridged. Both false findings disappeared. Known proposal titles are also passed in, so reflection does not re-propose pending items.</p></div>
+<figure><img src="img/evolution.png" alt="Evolution screen" width="100%" style="border-radius:12px;border:1px solid var(--line)"/><figcaption>Pending proposals from intel (feature) and reflection (memory, skill, rule).</figcaption></figure>
+<p class="lesson">A reflector judges only what it can see. Give it the same context the agent had, and tell it what you removed.</p>
+
+<div class="nav"><a href="04-desktop.html">← 04 · The desktop app</a><a href="06-research-loop.html">06 · The research loop →</a></div>
+</main>
+</body>
+</html>

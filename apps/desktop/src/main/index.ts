@@ -103,7 +103,11 @@ function createWindow(): void {
   });
   if (process.env.ELECTRON_RENDERER_URL) win.loadURL(process.env.ELECTRON_RENDERER_URL);
   else win.loadFile(join(here, '../renderer/index.html'));
-  win.on('closed', () => (win = null));
+  const releaseApprover = host.registerApprover();
+  win.on('closed', () => {
+    releaseApprover();
+    win = null;
+  });
 }
 
 app.whenReady().then(async () => {

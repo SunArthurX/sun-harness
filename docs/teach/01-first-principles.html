@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" /><meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>01 · First principles — sun-harness</title>
+<link rel="stylesheet" href="teach.css" />
+<script type="module">import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs'; mermaid.initialize({ startOnLoad: true, theme: 'neutral' });</script>
+</head>
+<body>
+<header class="top"><div class="wrap"><a class="brand" href="index.html">sun<em>harness</em> · teach</a><nav><a href="index.html">All pages</a></nav></div></header>
+<main class="wrap">
+<p class="muted">Milestone M0</p>
+<h1>01 · <em>First principles</em></h1>
+<p class="lede">Before writing code: what is an agent harness, really? If we can name the irreducible parts, the MVP is just those parts done well, and every other feature becomes an extension.</p>
+
+<h2>A harness has six parts</h2>
+<p>Strip away the UI and branding of Claude Code, Codex, DeepSeek Harness, Cursor, Manus or Hermes, and the same six things remain:</p>
+<table>
+<tr><th>Part</th><th>Question</th><th>If it is missing…</th></tr>
+<tr><td>Model</td><td>Who thinks?</td><td>nothing happens</td></tr>
+<tr><td>Context</td><td>What does it know about this task, this repo, this person?</td><td>generic answers, drift from project conventions</td></tr>
+<tr><td>Tools</td><td>What can it do?</td><td>it can only talk</td></tr>
+<tr><td>Loop</td><td>How does it keep going until done?</td><td>one-shot answers, no verification</td></tr>
+<tr><td>Log</td><td>What happened, durably?</td><td>no resume, no audit, no learning</td></tr>
+<tr><td>Policy</td><td>What is allowed without asking?</td><td>either useless (asks for everything) or dangerous</td></tr>
+</table>
+
+<div class="mermaid">
+flowchart LR
+  U[User input] --> C[Context builder<br/>rules · specs · skills · memory · KB]
+  C --> M[Model]
+  M -->|text| L[(Session log)]
+  M -->|tool calls| P{Policy}
+  P -->|allowed| T[Tools]
+  P -->|ask| H[Human]
+  H --> T
+  T -->|results| L
+  L -->|derive history| M
+</div>
+
+<h2>The MVP, derived</h2>
+<p>The minimum useful harness is those six parts, each in its simplest durable form:</p>
+<ul>
+<li><strong>Model:</strong> two wire formats cover almost every provider: OpenAI Chat Completions and the Anthropic Messages API.</li>
+<li><strong>Context:</strong> the project's own files (AGENTS.md, specs) assembled fresh on every request.</li>
+<li><strong>Tools:</strong> read, write, edit, search, shell, web. That is enough for coding and for most general tasks.</li>
+<li><strong>Loop:</strong> "if a request is owed, ask the model; if it called tools, run them; repeat."</li>
+<li><strong>Log:</strong> append-only JSONL, one file per session. No database.</li>
+<li><strong>Policy:</strong> three approval modes keyed on a tool's risk (read, write, exec, network).</li>
+</ul>
+<p>Everything else, from the desktop UI to MCP, plugins, knowledge, intel and evolution, plugs into one of these parts.</p>
+
+<h2>Rules that prevent drift</h2>
+<p>An AI-built project drifts when the reasons for decisions live only in chat history. The fix is to put the reasons in files that every agent reads on every request, and to order them by authority:</p>
+<div class="mermaid">
+flowchart TB
+  S[specs/ — product behavior<br/>000-vision is the north star] --> P[docs/plan.md — milestones]
+  P --> A[AGENTS.md — how to work]
+  A --> C[Code]
+  C -. "behavior change" .-> S
+</div>
+<p>The repository's <code>AGENTS.md</code> codifies four things: <strong>English-only artifacts</strong>, <strong>spec-first changes</strong> (a behavior change updates its spec in the same change), the <strong>first principles</strong> above as design constraints, and a <strong>definition of done</strong> per milestone: tests and build pass, the manual is updated, and a teaching page like this one is added.</p>
+
+<div class="qa"><p class="q">Why AGENTS.md and not a custom format?</p><p class="a">It is the de-facto cross-tool convention (Codex, Cursor, DeepSeek Harness, and others read it). <code>CLAUDE.md</code> is a symlink to it, so Claude Code reads the same rules. One file, every tool.</p></div>
+<div class="qa"><p class="q">Why write everything in English?</p><p class="a">Models are strongest in English, most upstream documentation is English, and a single language keeps rules, specs and code comments consistent. Chat with the owner can be in any language; the artifacts are English. This rule lives in <code>AGENTS.md</code> §1.</p></div>
+<div class="qa"><p class="q">Electron or Tauri for the desktop?</p><p class="a">Electron. The core is TypeScript on Node (MCP SDK, child processes, file system). Electron lets the main process host that core directly; Tauri would need a Node sidecar or a Rust rewrite. The cost is app size, which does not matter for a personal tool.</p></div>
+
+<h2>The plan</h2>
+<div class="mermaid">
+gantt
+  dateFormat  X
+  axisFormat %s
+  section Build
+  M0 Foundations           :done, 0, 1
+  M1 Core runtime          :done, 1, 4
+  M2 Extensions            :done, 4, 6
+  M3 Desktop               :done, 6, 8
+  M4 Intel + evolution     :done, 8, 10
+  section Loop
+  Iteration 1 (from intel) :done, 10, 11
+  Next iterations          :active, 11, 13
+</div>
+<p class="lesson">Name the irreducible parts first. When a new feature appears in another harness, ask which of the six parts it improves; that tells you where it goes and keeps the core small.</p>
+
+<div class="nav"><a href="index.html">← All pages</a><a href="02-core-runtime.html">02 · The core runtime →</a></div>
+</main>
+</body>
+</html>

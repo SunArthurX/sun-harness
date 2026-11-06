@@ -246,6 +246,30 @@ describe('hooks', () => {
     expect(results[0].output).toContain('Blocked by hook: dangerous command');
     expect(results[1].output).toContain('checked-by-hook');
   });
+
+  it('onFailure "block" makes a crashing policy hook fail closed; default ignores it', async () => {
+    const ws = tempWorkspace();
+    mkdirSync(join(ws, '.sun'), { recursive: true });
+    writeFileSync(
+      join(ws, '.sun', 'hooks.json'),
+      JSON.stringify({
+        preToolUse: [
+          { matcher: '^list_dir$', command: 'exit 7', onFailure: 'block' },
+          { matcher: '^read_file$', command: 'exit 7' },
+        ],
+      }),
+    );
+    writeFileSync(join(ws, 'a.txt'), 'A');
+    const provider = new MockProvider([{ text: '', toolCalls: [call('list_dir', {}), call('read_file', { path: 'a.txt' })] }, { text: 'ok', toolCalls: [] }]);
+    const host = new HarnessHost({ config: testConfig(), providerFactory: () => ({ provider, model: 'm' }), connectMcp: false, loadPlugins: false });
+    await host.init();
+    const s = host.createSession({ cwd: ws });
+    await host.send(s.id, 'go');
+    await host.wait(s.id);
+    const results = host.getEvents(s.id).filter((e) => e.type === 'tool/result') as any[];
+    expect(results[0].output).toContain('failing closed');
+    expect(results[1].output).toContain('1|A');
+  });
 });
 
 describe('mcp', () => {

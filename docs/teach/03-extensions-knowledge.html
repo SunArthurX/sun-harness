@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" /><meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>03 · Extensions and knowledge — sun-harness</title>
+<link rel="stylesheet" href="teach.css" />
+<script type="module">import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs'; mermaid.initialize({ startOnLoad: true, theme: 'neutral' });</script>
+</head>
+<body>
+<header class="top"><div class="wrap"><a class="brand" href="index.html">sun<em>harness</em> · teach</a><nav><a href="index.html">All pages</a></nav></div></header>
+<main class="wrap">
+<p class="muted">Milestone M2 · specs <code>002-extensions</code>, <code>003-knowledge-memory</code>, <code>007-modes</code></p>
+<h1>03 · Extensions <em>&amp; knowledge</em></h1>
+<p class="lede">Every extension feeds one of two parts of the harness: <strong>context</strong> (what the model knows) or <strong>tools</strong> (what it can do). Seeing them this way keeps five extension systems from turning into five architectures.</p>
+
+<div class="mermaid">
+flowchart LR
+  subgraph Context
+    R[Rules<br/>AGENTS.md · .sun/rules · .cursor/rules]
+    SP[Specs index]
+    SK[Skills index<br/>name + description]
+    ME[MEMORY.md]
+    PS[Plugin prompt sections]
+  end
+  subgraph Tools
+    B[Built-ins]
+    MCP[MCP servers<br/>mcp__server__tool]
+    PT[Plugin tools]
+    KB[kb_search → providers]
+    LS[load_skill]
+  end
+  Context --> SYS[System prompt<br/>rebuilt every request]
+  Tools --> REG[Tool registry<br/>filtered by mode]
+  SYS --> MODEL((Model))
+  REG --> MODEL
+  H[Hooks] -. pre/post tool .-> REG
+</div>
+
+<h2>Rules, loaded from general to specific</h2>
+<div class="mermaid">
+flowchart TB
+  G[~/.sun/AGENTS.md — global] --> R1[repo-root AGENTS.md]
+  R1 --> R2[sub/dir AGENTS.md or CLAUDE.md]
+  R2 --> SR[.sun/rules/*.md]
+  SR --> CR[.cursor/rules alwaysApply]
+  CR --> IDX[specs/*.md titles — source of truth]
+</div>
+<p>Rules are re-read before <em>every</em> model request, so an edit to <code>AGENTS.md</code> applies to the very next step of a running session. Symlinked files such as <code>CLAUDE.md → AGENTS.md</code> are de-duplicated by real path.</p>
+
+<h2>Skills: progressive disclosure</h2>
+<div class="mermaid">
+sequenceDiagram
+  participant P as System prompt
+  participant M as Model
+  participant T as load_skill
+  P->>M: "- deploy: How to deploy" (one line per skill)
+  M->>T: load_skill("deploy")
+  T-->>M: SKILL.md body + list of bundled files
+  M->>M: follows the steps, reads bundled files if needed
+</div>
+<div class="qa"><p class="q">Why not put every skill in the prompt?</p><p class="a">This machine already has 17 skills in <code>~/.claude/skills</code>, and some descriptions are hundreds of words. Bodies would cost thousands of tokens on every request. The index costs one line each, and only the skill actually used gets loaded. Because the format matches Claude Code's, those 17 skills worked in sun-harness without changes.</p></div>
+
+<h2>MCP, plugins, hooks</h2>
+<ul>
+<li><strong>MCP</strong> uses the official TypeScript SDK (stdio, streamable HTTP, SSE). Tools are namespaced <code>mcp__server__tool</code> and default to risk <code>exec</code>, so they ask in auto-edit mode unless the server is marked <code>trust</code>. The test suite spawns a real stdio MCP server fixture.</li>
+<li><strong>Plugins</strong> are ESM folders in <code>~/.sun/plugins</code>. One small API registers tools, modes, knowledge providers, prompt sections and event listeners. A broken plugin reports <code>status: error</code> and never takes the host down.</li>
+<li><strong>Hooks</strong> are shell commands with Claude-Code-like semantics: event JSON on stdin; exit 2 blocks; stdout becomes context. A <code>stop</code> hook can send the agent back to work, for example "tests fail", at most three times per run.</li>
+</ul>
+
+<h2>Knowledge without embeddings (yet)</h2>
+<p>The personal knowledge base is any folder of Markdown. It is chunked by heading and ranked with BM25:</p>
+<pre><code>score(q, d) = Σ  idf(t) · f(t,d)·(k1+1) / ( f(t,d) + k1·(1 − b + b·|d|/avgdl) )      k1 = 1.4, b = 0.75
+             t∈q</code></pre>
+<div class="qa"><p class="q">BM25 needs words. How does it search Chinese, which has no spaces?</p><p class="a">With character bigrams. <code>知识库</code> ("knowledge base") becomes <code>知识</code>, <code>识库</code>. Bigrams match most Chinese words without a dictionary-based segmenter, and English words are tokenized normally in the same pass. A test checks that a recipe note containing 红烧肉 (braised pork) is found by that query.</p></div>
+<div class="qa"><p class="q">Why not a vector database?</p><p class="a">BM25 is deterministic, offline, instant to index, and needs no embedding model or API key. The <code>KnowledgeProvider</code> seam means embeddings can arrive later as just another provider. The company knowledge base is reserved the same way: an HTTP contract (<code>POST /search</code>) that any internal search can implement.</p></div>
+
+<h2>Modes are prompts plus tool filters</h2>
+<table>
+<tr><th>Mode</th><th>Inspired by</th><th>What changes</th></tr>
+<tr><td>coding</td><td>Claude Code, Codex</td><td>spec-first, minimal edits, verify</td></tr>
+<tr><td>agent</td><td>Manus</td><td>plan with todos, research the web, delegate with <code>task</code>, deliver files</td></tr>
+<tr><td>assistant</td><td>Hermes, WorkBuddy</td><td>memory-first, KB lookups, reminders; no shell or edit tools</td></tr>
+</table>
+<p>Subagents are just child sessions: same log format, same loop, with a <code>parent</code> field. Their approvals are shown in the parent session, so the human sees them where they are looking.</p>
+<p class="lesson">Classify each extension as context or tools before designing it. Context is assembled into the prompt; tools register in one registry under one policy. New extension types then fit without new architecture.</p>
+
+<div class="nav"><a href="02-core-runtime.html">← 02 · The core runtime</a><a href="04-desktop.html">04 · The desktop app →</a></div>
+</main>
+</body>
+</html>
