@@ -1,7 +1,8 @@
+import { localDate } from './util/date.js';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import type { IntelSource } from './config.js';
 import { addProposal, type Complete } from './evolution.js';
 import { ensureDir, homePath } from './paths.js';
@@ -101,9 +102,24 @@ export async function fetchSource(src: IntelSource, f: Fetch = fetch): Promise<I
       }));
   }
   if (src.kind === 'github-changelog') {
-    const res = await f(`https://raw.githubusercontent.com/${src.target}/HEAD/${src.path ?? 'CHANGELOG.md'}`, { signal: timeout });
-    if (!res.ok) throw new Error(`Changelog ${res.status} for ${src.target}`);
-    return parseChangelog(await res.text()).map((s) => ({
+    // The contents API works where raw.githubusercontent.com is blocked; raw is the fallback.
+    const file = src.path ?? 'CHANGELOG.md';
+    let text: string | undefined;
+    try {
+      const api = await f(`https://api.github.com/repos/${src.target}/contents/${file}`, {
+        headers: { ...ghHeaders(), accept: 'application/vnd.github.raw' },
+        signal: timeout,
+      });
+      if (api.ok) text = await api.text();
+    } catch {
+      // fall through to raw
+    }
+    if (text === undefined) {
+      const res = await f(`https://raw.githubusercontent.com/${src.target}/HEAD/${file}`, { signal: timeout });
+      if (!res.ok) throw new Error(`Changelog ${res.status} for ${src.target}`);
+      text = await res.text();
+    }
+    return parseChangelog(text).map((s) => ({
       ...base,
       id: s.version,
       title: `${src.name} ${s.version}`,
@@ -164,6 +180,30 @@ function rawListing(items: IntelItem[]): string {
     .join('\n\n');
 }
 
+const MAX_IDEAS_PER_RUN = 8;
+
+/** Turn the report's trailing JSON ideas into evolution proposals (highest priority first) and strip the block from the report. */
+export function fileIdeas(raw: string, date: string): { report: string; proposals: number } {
+  const at = raw.lastIndexOf('```json');
+  if (at < 0) return { report: raw, proposals: 0 };
+  const ideas = extractJson<{ title: string; content: string; rationale?: string; priority?: string }[]>(raw.slice(at));
+  const rank = (p?: string) => ({ P1: 1, P2: 2, P3: 3 })[p as 'P1'] ?? 4;
+  const picked = (Array.isArray(ideas) ? ideas : [])
+    .filter((i) => i?.title)
+    .sort((a, b) => rank(a.priority) - rank(b.priority))
+    .slice(0, MAX_IDEAS_PER_RUN);
+  for (const idea of picked) {
+    addProposal({
+      type: 'feature',
+      title: idea.title,
+      content: `${idea.content ?? ''}${idea.priority ? `\n\nPriority: ${idea.priority}` : ''}`,
+      rationale: idea.rationale ?? 'From daily harness intel.',
+      source: { kind: 'intel', ref: date },
+    });
+  }
+  return { report: raw.slice(0, at).trimEnd() + '\n', proposals: picked.length };
+}
+
 export interface IntelOptions {
   sources: IntelSource[];
   complete?: Complete;
@@ -177,7 +217,7 @@ export interface IntelOptions {
 
 export async function runIntel(opts: IntelOptions): Promise<IntelRunResult> {
   const now = opts.now ?? new Date();
-  const date = now.toISOString().slice(0, 10);
+  const date = localDate(now);
   const state = loadIntelState();
   const errors: IntelRunResult['errors'] = [];
   const fresh: IntelItem[] = [];
@@ -216,20 +256,9 @@ export async function runIntel(opts: IntelOptions): Promise<IntelRunResult> {
   } else if (opts.complete) {
     try {
       const notes = fresh.map((i) => `=== ${i.title}\nURL: ${i.url}\nDate: ${i.publishedAt ?? 'n/a'}\n${i.body.slice(0, 3500)}`).join('\n\n');
-      report = await opts.complete(ANALYSIS_SYSTEM, `Date: ${date}\n\nSource notes (${fresh.length} items):\n\n${notes.slice(0, 120_000)}`);
+      const raw = await opts.complete(ANALYSIS_SYSTEM, `Date: ${date}\n\nSource notes (${fresh.length} items):\n\n${notes.slice(0, 120_000)}`);
       analyzed = true;
-      const ideas = extractJson<{ title: string; content: string; rationale?: string; priority?: string }[]>(report.slice(report.lastIndexOf('```json')));
-      for (const idea of Array.isArray(ideas) ? ideas : []) {
-        if (!idea?.title) continue;
-        addProposal({
-          type: 'feature',
-          title: idea.title,
-          content: `${idea.content ?? ''}${idea.priority ? `\n\nPriority: ${idea.priority}` : ''}`,
-          rationale: idea.rationale ?? 'From daily harness intel.',
-          source: { kind: 'intel', ref: date },
-        });
-        proposals++;
-      }
+      ({ report, proposals } = fileIdeas(raw, date));
     } catch (e) {
       analysisError = (e as Error).message;
     }
@@ -253,14 +282,8 @@ export async function analyzeIntelDay(date: string, complete: Complete): Promise
   const raw = JSON.parse(readFileSync(homePath('intel', 'raw', `${date}.json`), 'utf8')) as { items: IntelItem[]; errors: IntelRunResult['errors'] };
   const items = raw.items;
   const notes = items.map((i) => `=== ${i.title}\nURL: ${i.url}\nDate: ${i.publishedAt ?? 'n/a'}\n${i.body.slice(0, 3500)}`).join('\n\n');
-  const report = items.length ? await complete(ANALYSIS_SYSTEM, `Date: ${date}\n\nSource notes (${items.length} items):\n\n${notes.slice(0, 120_000)}`) : `# Harness Intel — ${date}\n\nNo items.\n`;
-  let proposals = 0;
-  const ideas = extractJson<{ title: string; content: string; rationale?: string; priority?: string }[]>(report.slice(Math.max(0, report.lastIndexOf('```json'))));
-  for (const idea of Array.isArray(ideas) ? ideas : []) {
-    if (!idea?.title) continue;
-    addProposal({ type: 'feature', title: idea.title, content: idea.content ?? '', rationale: idea.rationale ?? 'From daily harness intel.', source: { kind: 'intel', ref: date } });
-    proposals++;
-  }
+  const answer = items.length ? await complete(ANALYSIS_SYSTEM, `Date: ${date}\n\nSource notes (${items.length} items):\n\n${notes.slice(0, 120_000)}`) : `# Harness Intel — ${date}\n\nNo items.\n`;
+  const { report, proposals } = fileIdeas(answer, date);
   const reportPath = homePath('intel', 'reports', `${date}.md`);
   const htmlPath = homePath('intel', 'reports', `${date}.html`);
   writeFileSync(reportPath, report);
@@ -284,13 +307,13 @@ export function readIntelReport(date: string): string {
 }
 
 /**
- * macOS LaunchAgent that runs `sun intel run` daily. The command runs in an interactive login zsh so
- * API keys exported in ~/.zshrc are available without copying secrets into the plist.
+ * macOS LaunchAgent that runs `sun intel run` daily. Node runs directly (no shell); the CLI imports
+ * credential env vars itself (see env.ts), so no secrets are copied into the plist.
  */
-export function launchdPlist(opts: { nodePath: string; cliPath: string; hour: number; minute: number; label?: string; shell?: string }): { label: string; xml: string } {
+export function launchdPlist(opts: { nodePath: string; cliPath: string; hour: number; minute: number; label?: string; path?: string }): { label: string; xml: string } {
   const label = opts.label ?? 'com.sun-harness.intel';
   const x = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  const cmd = `'${opts.nodePath}' '${opts.cliPath}' intel run`;
+  const PATH = opts.path ?? `${dirname(opts.nodePath)}:/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin`;
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -298,10 +321,13 @@ export function launchdPlist(opts: { nodePath: string; cliPath: string; hour: nu
   <key>Label</key><string>${label}</string>
   <key>ProgramArguments</key>
   <array>
-    <string>${x(opts.shell ?? '/bin/zsh')}</string>
-    <string>-ilc</string>
-    <string>${x(cmd)}</string>
+    <string>${x(opts.nodePath)}</string>
+    <string>${x(opts.cliPath)}</string>
+    <string>intel</string>
+    <string>run</string>
   </array>
+  <key>EnvironmentVariables</key>
+  <dict><key>PATH</key><string>${x(PATH)}</string></dict>
   <key>StartCalendarInterval</key>
   <dict><key>Hour</key><integer>${opts.hour}</integer><key>Minute</key><integer>${opts.minute}</integer></dict>
   <key>RunAtLoad</key><false/>

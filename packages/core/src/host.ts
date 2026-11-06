@@ -1,3 +1,4 @@
+import { localDate } from './util/date.js';
 import { existsSync, mkdirSync } from 'node:fs';
 import { Agent, type AgentHooks, type ApprovalRequest, type RunResult } from './agent.js';
 import { availableModels, createProviderFactory, isProviderReady, loadConfig, saveConfig, type ProviderFactory, type SunConfig } from './config.js';
@@ -478,10 +479,11 @@ export class HarnessHost {
 
   /** Desktop catch-up: run today's intel if the scheduled time passed and no report exists yet. */
   private async intelCatchUp(now: Date): Promise<boolean> {
-    const today = now.toISOString().slice(0, 10);
+    const today = localDate(now);
     const { hour, minute } = this.config.intel;
     if (now.getHours() * 60 + now.getMinutes() < hour * 60 + minute) return false;
-    const last = loadIntelState().lastRun?.slice(0, 10);
+    const lastRun = loadIntelState().lastRun;
+    const last = lastRun ? localDate(new Date(lastRun)) : undefined;
     if (last === today || listIntelReports().some((r) => r.date === today)) return false;
     await this.runIntel();
     return true;

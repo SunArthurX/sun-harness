@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { createInterface } from 'node:readline/promises';
@@ -10,7 +10,7 @@ import {
   HarnessHost,
   SessionLog,
   acceptProposal,
-  homePath,
+  importCredentialEnv,
   launchdPlist,
   listIntelReports,
   listProposals,
@@ -51,15 +51,6 @@ Usage:
 
 Chat commands: /model <ref>  /mode <id>  /resume  /abort  /reflect  /sessions  /help  /exit
 Home: ${sunHome()}`;
-
-function loadDotEnv(): void {
-  const f = homePath('.env');
-  if (!existsSync(f)) return;
-  for (const line of readFileSync(f, 'utf8').split('\n')) {
-    const m = /^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/.exec(line);
-    if (m && !process.env[m[1]]) process.env[m[1]] = m[2].replace(/^["']|["']$/g, '');
-  }
-}
 
 function printEvent(e: LiveEvent, sessionId: string, state: { streamed: boolean; reasoning: boolean }): void {
   if (e.kind === 'delta' && e.sessionId === sessionId) {
@@ -250,7 +241,7 @@ async function doctor(host: HarnessHost, cwd: string): Promise<void> {
 }
 
 async function main(): Promise<void> {
-  loadDotEnv();
+  importCredentialEnv();
   const { values, positionals } = parseArgs({
     allowPositionals: true,
     options: {
@@ -348,7 +339,13 @@ async function main(): Promise<void> {
         if (!date) throw new Error('No reports yet. Run: sun intel run');
         console.log(readIntelReport(date));
       } else if (sub === 'install-schedule') {
-        const cliPath = fileURLToPath(import.meta.url);
+        // launchd runs a self-contained copy from ~/.sun/bin (outside TCC-protected folders like ~/Downloads).
+        const here = fileURLToPath(import.meta.url);
+        const bundle = join(here, '..', 'sun.mjs');
+        if (!existsSync(bundle)) throw new Error(`Missing ${bundle}. Run: pnpm build:core`);
+        const cliPath = join(sunHome(), 'bin', 'sun.mjs');
+        mkdirSync(join(cliPath, '..'), { recursive: true });
+        copyFileSync(bundle, cliPath);
         const { label, xml } = launchdPlist({ nodePath: process.execPath, cliPath, hour: host.config.intel.hour, minute: host.config.intel.minute });
         const plist = join(homedir(), 'Library', 'LaunchAgents', `${label}.plist`);
         mkdirSync(join(plist, '..'), { recursive: true });

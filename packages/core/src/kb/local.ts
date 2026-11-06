@@ -1,3 +1,4 @@
+import { localDate } from '../util/date.js';
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { basename, extname, join } from 'node:path';
 import type { KnowledgeHit, KnowledgeProvider } from './types.js';
@@ -136,7 +137,7 @@ export class LocalMarkdownKB implements KnowledgeProvider {
         .replace(/[^a-z0-9\u3400-\u9fff]+/g, '-')
         .replace(/^-|-$/g, '')
         .slice(0, 60) || 'note';
-    const file = join(dir, `${new Date().toISOString().slice(0, 10)}-${slug}.md`);
+    const file = join(dir, `${localDate()}-${slug}.md`);
     writeFileSync(file, `# ${title}\n\n${text.trim()}\n`);
     return file;
   }

@@ -1,3 +1,4 @@
+import { localDate } from './util/date.js';
 import { appendFileSync, existsSync, readFileSync, readdirSync, statSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
@@ -38,7 +39,7 @@ export class SessionLog {
   }
 
   static create(meta: { title?: string; mode: string; cwd: string; model: string; parent?: string }): SessionLog {
-    const id = `${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${randomUUID().slice(0, 8)}`;
+    const id = `${localDate().replace(/-/g, '')}-${randomUUID().slice(0, 8)}`;
     const log = SessionLog.open(id);
     log.append({
       type: 'session/meta',

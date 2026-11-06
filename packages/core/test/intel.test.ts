@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { analyzeIntelDay, launchdPlist, listIntelReports, listProposals, markdownToHtml, parseChangelog, parseFeed, runIntel, type IntelSource } from '../src/index.js';
+import { analyzeIntelDay, fileIdeas, launchdPlist, listIntelReports, listProposals, markdownToHtml, parseChangelog, parseFeed, runIntel, type IntelSource } from '../src/index.js';
 import { tempHome } from './helpers.js';
 
 const sources: IntelSource[] = [
@@ -15,8 +15,8 @@ const now = new Date('2026-11-07T09:00:00Z');
 function fakeFetch(releases: any[]): typeof fetch {
   return (async (url: string) => {
     const u = String(url);
+    if (u.includes('/contents/')) return new Response('# Changelog\n\n## 2.1.0\n- Added hooks\n\n## 2.0.9\n- Fix\n');
     if (u.includes('api.github.com')) return new Response(JSON.stringify(releases));
-    if (u.includes('raw.githubusercontent.com')) return new Response('# Changelog\n\n## 2.1.0\n- Added hooks\n\n## 2.0.9\n- Fix\n');
     if (u.endsWith('feed.xml'))
       return new Response('<rss><channel><item><title>Agents &amp; MCP</title><link>https://example.com/a</link><guid>a1</guid><pubDate>Thu, 05 Nov 2026 10:00:00 GMT</pubDate><description><![CDATA[<p>New MCP features</p>]]></description></item></channel></rss>');
     return new Response('not found', { status: 404 });
@@ -70,13 +70,28 @@ describe('intel', () => {
     expect(listIntelReports()[0].pending).toBe(false);
   });
 
+  it('files at most 8 ideas, highest priority first, and strips the JSON block', () => {
+    const ideas = Array.from({ length: 12 }, (_, i) => ({ title: `Idea ${i}`, content: 'c', priority: i === 11 ? 'P1' : 'P3' }));
+    const { report, proposals } = fileIdeas(`# Report\nBody\n\n\`\`\`json\n${JSON.stringify(ideas)}\n\`\`\``, '2026-11-07');
+    expect(proposals).toBe(8);
+    expect(report).toBe('# Report\nBody\n');
+    expect(listProposals('pending').map((p) => p.title)).toContain('Idea 11');
+    expect(fileIdeas('# No ideas here', 'd')).toEqual({ report: '# No ideas here', proposals: 0 });
+  });
+
+  it('uses the local calendar date for report names', async () => {
+    const late = new Date(2026, 10, 7, 1, 30);
+    const r = await runIntel({ sources: [], now: late });
+    expect(r.date).toBe('2026-11-07');
+  });
+
   it('renders markdown with mermaid and builds a launchd plist', () => {
     const html = markdownToHtml('# T\n\n```mermaid\nflowchart LR\nA-->B\n```\n\n| a | b |\n|---|---|\n| 1 | 2 |\n- x');
     expect(html).toContain('<pre class="mermaid">');
     expect(html).toContain('<td>1</td>');
     const { xml } = launchdPlist({ nodePath: '/usr/bin/node', cliPath: '/x/cli.js', hour: 9, minute: 5 });
     expect(xml).toContain('<integer>9</integer>');
-    expect(xml).toContain('intel run');
+    expect(xml).toContain('<string>intel</string>');
     expect(xml).not.toContain('API_KEY');
   });
 });

@@ -121,7 +121,16 @@ Use English.`;
 
 export function transcriptOf(sessionId: string, maxChars = 60_000): string {
   const log = SessionLog.open(sessionId);
-  const parts: string[] = [];
+  const parts: string[] = [
+    'NOTE: tool arguments and outputs below are abridged by the transcript builder, not by the agent.',
+  ];
+  const header = log.last('request/header');
+  if (header) {
+    const ruleSources = [...header.systemPrompt.matchAll(/^## (.+(?:AGENTS\.md|CLAUDE\.md|rules\/.+|\.mdc).*)$/gm)].map((m) => m[1]);
+    parts.push(
+      `CONTEXT: mode prompt + environment were in the system prompt. Rules injected automatically (no need to read them with tools): ${ruleSources.join(', ') || 'none'}. Tools available: ${header.tools.join(', ')}.`,
+    );
+  }
   for (const e of log.all()) {
     if (e.type === 'user/message') parts.push(`USER: ${e.text}`);
     else if (e.type === 'assistant/message') {
@@ -136,7 +145,15 @@ export function transcriptOf(sessionId: string, maxChars = 60_000): string {
 export async function reflectSession(complete: Complete, sessionId: string, memory = ''): Promise<Proposal[]> {
   const transcript = transcriptOf(sessionId);
   if (!transcript.trim()) return [];
-  const out = await complete(REFLECT_SYSTEM, `Existing memory:\n${memory || '(empty)'}\n\nTranscript:\n${transcript}`);
+  const known = listProposals()
+    .filter((p) => p.status !== 'rejected')
+    .slice(0, 60)
+    .map((p) => `- [${p.type}] ${p.title}`)
+    .join('\n');
+  const out = await complete(
+    REFLECT_SYSTEM,
+    `Existing memory:\n${memory || '(empty)'}\n\nAlready proposed (do not repeat these or close paraphrases):\n${known || '(none)'}\n\nTranscript:\n${transcript}`,
+  );
   const items = extractJson<Partial<Proposal>[]>(out);
   if (!Array.isArray(items)) throw new Error(`Reflection returned no JSON proposals: ${out.slice(0, 300)}`);
   return items

@@ -1,10 +1,11 @@
 import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron';
-import { spawnSync } from 'node:child_process';
+
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   HarnessHost,
   acceptProposal,
+  importCredentialEnv,
   listIntelReports,
   listProposals,
   listSchedules,
@@ -17,26 +18,8 @@ import {
 } from '@sun/core';
 import { API_METHODS, type ApiMethod } from '../shared/api';
 
-/** GUI apps on macOS do not inherit the login shell env; import it so API keys from ~/.zshrc work. */
-function importShellEnv(): void {
-  if (process.platform === 'win32' || process.env.SUN_SKIP_SHELL_ENV) return;
-  try {
-    const shellPath = process.env.SHELL || '/bin/zsh';
-    const r = spawnSync(shellPath, ['-ilc', 'env -0'], { encoding: 'utf8', timeout: 8000 });
-    if (r.status !== 0 || !r.stdout) return;
-    for (const pair of r.stdout.split('\0')) {
-      const i = pair.indexOf('=');
-      if (i > 0) {
-        const k = pair.slice(0, i);
-        if (!(k in process.env)) process.env[k] = pair.slice(i + 1);
-      }
-    }
-  } catch {
-    // Keys can still be configured in ~/.sun/config.json.
-  }
-}
-
-importShellEnv();
+// GUI apps on macOS do not inherit the login shell env; pick up API keys from ~/.sun/.env and shell rc files.
+if (!process.env.SUN_SKIP_SHELL_ENV) importCredentialEnv();
 
 const here = dirname(fileURLToPath(import.meta.url));
 

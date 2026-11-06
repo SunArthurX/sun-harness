@@ -6,7 +6,7 @@
     "sun": "./dist/index.js"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json && chmod +x dist/index.js",
+    "build": "tsc -p tsconfig.json && chmod +x dist/index.js && node ../../scripts/bundle-cli.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {

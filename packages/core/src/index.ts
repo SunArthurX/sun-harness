@@ -29,3 +29,4 @@ export { BUILTIN_TOOLS, htmlToText } from './tools/builtin.js';
 export { SERVICE_TOOLS } from './tools/services.js';
 export { markdownToHtml, htmlPage } from './util/markdown.js';
 export { extractJson } from './util/json.js';
+export * from './env.js';

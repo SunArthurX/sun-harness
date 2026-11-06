@@ -1,3 +1,4 @@
+import { localDate } from './util/date.js';
 import { platform, release } from 'node:os';
 import type { ModeDef } from './modes.js';
 import type { ProjectContext } from './rules.js';
@@ -23,7 +24,7 @@ export function buildSystemPrompt(p: PromptParts): string {
       `- Workspace: ${p.cwd}`,
       p.project && p.project.root !== p.cwd ? `- Project root: ${p.project.root}` : '',
       `- OS: ${platform()} ${release()}`,
-      `- Date: ${now.toISOString().slice(0, 10)}`,
+      `- Date: ${localDate(now)}`,
       `- Model: ${p.model}`,
     ]
       .filter(Boolean)
