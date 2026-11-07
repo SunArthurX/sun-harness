@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.1 — 2026-11-07
+
+- Post-edit diagnostics through language servers (LSP client: typescript-language-server, pyright, gopls, rust-analyzer), with the in-process TypeScript language service (global TypeScript when the project's has no JS API, e.g. TypeScript 7) and syntax checks as fallbacks.
+- Linux sandbox fix: hidden files are covered with an empty regular file instead of `/dev/null` (bash could not read its rc file inside bubblewrap); bubblewrap verified end to end in a Debian container.
+
 ## 0.4.0 — 2026-11-07
 
 Optimization plan, measured with a new eval suite. Teaching pages 17–22.

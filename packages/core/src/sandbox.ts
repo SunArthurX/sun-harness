@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 import { existsSync, realpathSync, statSync, writeFileSync } from 'node:fs';
 import { createServer, request as httpRequest, type Server } from 'node:http';
 import { connect, type AddressInfo } from 'node:net';
-import { homedir, platform } from 'node:os';
+import { homedir, platform, tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { CREDENTIAL_NAME, RC_FILES } from './env.js';
 import { ensureDir, homePath, sunHome } from './paths.js';
@@ -146,13 +146,20 @@ function seatbelt(cfg: SandboxConfig, scrub: string[], proxy?: () => number | un
 
 // ---------------- Linux bubblewrap ----------------
 
+function emptyFile(): string {
+  const f = join(tmpdir(), 'sun-sandbox-empty');
+  if (!existsSync(f)) writeFileSync(f, '');
+  return f;
+}
+
 export function bwrapArgs(cwd: string, cfg: SandboxConfig): string[] {
   const args = ['--ro-bind', '/', '/', '--dev', '/dev', '--proc', '/proc', '--tmpfs', '/tmp'];
   // Hide credentials first; writable binds come after so a workspace under ~/.sun is mounted on top.
   for (const p of cfg.denyRead.map(expand)) {
     if (!existsSync(p)) continue;
     if (statSync(p).isDirectory()) args.push('--tmpfs', p);
-    else args.push('--ro-bind', '/dev/null', p);
+    // An empty regular file: device nodes such as /dev/null are not readable through a bind inside the namespace.
+    else args.push('--ro-bind', emptyFile(), p);
   }
   const sun = real(sunHome());
   if (existsSync(sun)) {

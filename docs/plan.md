@@ -109,6 +109,7 @@ Derived from a first-principles comparison with Codex / Claude Code (coding), Ma
 - [x] Tolerant `edit_file`, atomic `apply_patch`, read-before-overwrite + stale-read refusal (narrowed after evals), post-edit syntax diagnostics
 - [x] Checkpoints + undo (CLI, chat, desktop, gateway); done gate (verify loop) with detected or configured commands
 - [x] Capability gating, malformed tool-JSON repair, parallel read-only tools
+- [x] LSP diagnostics after edits (typescript-language-server, pyright, gopls, rust-analyzer; fallbacks) — 0.4.1
 - [x] Prompt-cache accounting (DeepSeek, OpenAI/DashScope, Anthropic) + Anthropic and DashScope cache markers; repository map + `repo_map`
 - [x] Plan mode with plan approval; best-of-N in worktrees judged by project tests (`sun run --best-of`, `sun eval run --best-of`) (`specs/020`, teach 18)
 
@@ -145,7 +146,6 @@ Filled from intel reports (`~/.sun/evolution/proposals`); each item becomes a sp
 | Desktop attaches to remote gateways (pinned), device management UI | — | Desktop |
 | Developer ID signing + notarization; auto-update | — | Desktop |
 | Session export/import and sharing | Codex, Claude Code | Log |
-| Full LSP diagnostics (types) after edits, not only syntax | Claude Code, Cursor | Tools |
 | Learned router (from metrics) instead of keyword heuristics | — | Model |
 | Browser: multi-tab, file upload/download, Playwright via connectOverCDP | Manus | Tools |
 | DingTalk event stream (`dws event`) as a trigger kind | — | Architecture |

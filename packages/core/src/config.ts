@@ -7,6 +7,7 @@ import { DEFAULT_ROUTER, type RouterConfig } from './assistant/router.js';
 import { DEFAULT_BRIEFING, type BriefingConfig } from './assistant/briefing.js';
 import type { TriggerDef } from './assistant/triggers.js';
 import { DEFAULT_VOICE, type VoiceConfig } from './assistant/voice.js';
+import { DEFAULT_LSP, type LspConfig } from './lsp.js';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { ensureDir, homePath, sunHome } from './paths.js';
 import { AnthropicProvider } from './providers/anthropic.js';
@@ -94,6 +95,8 @@ export interface SunConfig {
   /** Event triggers: file watches and webhooks that start sessions. */
   triggers: TriggerDef[];
   voice: VoiceConfig;
+  /** Language servers for diagnostics after edits (specs/020). */
+  lsp: LspConfig;
   /** Chat bots run inside the gateway (sun serve). Allowlists are platform user ids; empty = nobody. */
   bots: BotsConfig;
 }
@@ -197,6 +200,7 @@ export function defaultConfig(): SunConfig {
     briefing: structuredClone(DEFAULT_BRIEFING),
     triggers: [],
     voice: structuredClone(DEFAULT_VOICE),
+    lsp: structuredClone(DEFAULT_LSP),
     bots: {
       defaultMode: 'assistant',
       approvals: 'chat',

@@ -1,9 +1,10 @@
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { buildRepoMap, runBestOfN, extractDefinitions, planTodos, sessionMetrics, syntaxDiagnostics } from '../src/index.js';
+import { buildRepoMap, runBestOfN, typeDiagnostics, extractDefinitions, planTodos, sessionMetrics, syntaxDiagnostics } from '../src/index.js';
 import { call, mockHost, tempHome, tempWorkspace } from './helpers.js';
 
 describe('repo map', () => {
@@ -38,6 +39,25 @@ describe('post-edit diagnostics', () => {
     expect(syntaxDiagnostics(ws, join(ws, 'bad.json'))).toBeTruthy();
   });
 
+  it('reports TypeScript type errors through the language service, incrementally', () => {
+    const ws = mkdtempSync(join(fileURLToPath(new URL('.', import.meta.url)), '.tmp-ts-'));
+    try {
+      writeFileSync(join(ws, 'package.json'), '{"type":"module"}');
+      writeFileSync(join(ws, 'tsconfig.json'), JSON.stringify({ compilerOptions: { strict: true, noEmit: true, target: 'es2022', module: 'nodenext' }, include: ['*.ts'] }));
+      writeFileSync(join(ws, 'lib.ts'), 'export function twice(n: number): number {\n  return n * 2;\n}\n');
+      writeFileSync(join(ws, 'main.ts'), "import { twice } from './lib.js';\nconst s: string = twice(2);\nexport { s };\n");
+      const d = typeDiagnostics(ws, join(ws, 'main.ts'));
+      expect(d?.join('\n')).toMatch(/line 2: TS2322 Type 'number' is not assignable to type 'string'/);
+      // A later edit to another file is seen by the cached service (versions follow mtimes).
+      writeFileSync(join(ws, 'lib.ts'), 'export function twice(n: number): string {\n  return String(n * 2);\n}\n');
+      const later = new Date(Date.now() + 5000);
+      utimesSync(join(ws, 'lib.ts'), later, later);
+      expect(typeDiagnostics(ws, join(ws, 'main.ts'))).toEqual([]);
+    } finally {
+      rmSync(ws, { recursive: true, force: true });
+    }
+  });
+
   it('appends a warning to the edit tool result', async () => {
     tempHome();
     const ws = tempWorkspace();
@@ -46,7 +66,7 @@ describe('post-edit diagnostics', () => {
     await host.send(s.id, 'write');
     await host.wait(s.id);
     const result = host.getEvents(s.id).find((e) => e.type === 'tool/result') as any;
-    expect(result.output).toContain('WARNING: syntax errors after this edit');
+    expect(result.output).toContain('WARNING: errors after this edit');
   });
 });
 

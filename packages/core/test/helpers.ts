@@ -22,6 +22,8 @@ export function testConfig(patch: Partial<SunConfig> = {}): SunConfig {
     providers: { ...PROVIDER_PRESETS },
     defaultModel: 'mock/a',
     approval: 'full-auto',
+    // Language servers are exercised by their own test; spawning one per test workspace would only slow the suite.
+    lsp: { ...defaultConfig().lsp, enabled: false },
     ...patch,
   };
 }

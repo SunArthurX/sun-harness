@@ -64,3 +64,4 @@ export * from './assistant/triggers.js';
 export * from './assistant/voice.js';
 export * from './assistant/metrics.js';
 export { localDate } from './util/date.js';
+export * from './lsp.js';

@@ -18,7 +18,7 @@ The host creates one sandbox per session (`sandboxFor`), from `meta.sandbox` (se
 |---|---|---|
 | `auto` (default) | seatbelt on macOS if `sandbox-exec` can apply a profile here; bubblewrap on Linux if `bwrap` exists; otherwise none | OS |
 | `seatbelt` | macOS | profile: `(allow default)`, `(deny file-write*)` except workspace, git common dir, `/private/tmp`, `/private/var/folders`, package caches, `sandbox.writable`; `(deny file-read-data)` on `sandbox.denyRead` and `~/.sun` (re-allowing `skills`, `plugins`, `kb`, `workspace`, `worktrees`, and the workspace) |
-| `bwrap` | Linux | `--ro-bind / /`, tmpfs over denied paths and `~/.sun`, read-only re-binds of the readable parts, `--bind` for writable roots, `--unshare-net` when network is off |
+| `bwrap` | Linux | `--ro-bind / /`, tmpfs over denied directories, an empty regular file over denied files (a bound `/dev/null` is unreadable inside the namespace, which broke bash reading `~/.bashrc`), tmpfs over `~/.sun` with read-only re-binds of the readable parts, `--bind` for writable roots, `--unshare-net` when network is off. Verified in a Debian container: workspace writes, read-only `/root`, hidden `~/.ssh`, scrubbed secrets, no network, loopback |
 | `docker` | opt-in | container `sun-sb-<session>` (`sandbox.docker.image`, default `node:22-bookworm-slim`), only the workspace bind-mounted at the same path, `--network none` when off; started on first command, removed on session delete and host dispose; Linux runs as the host uid |
 | `off` | — | none |
 

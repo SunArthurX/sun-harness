@@ -43,6 +43,8 @@ flowchart LR
 <div class="qa"><p class="q">The best-of-N test failed after enabling the sandbox. Why?</p><p class="a"><code>npm test</code> crashed with <code>EPERM: lstat '/…/home'</code>. Denying <code>file-read*</code> also denies <em>metadata</em>, and Node's module resolution calls <code>realpath</code>, which <code>lstat</code>s every parent directory. The fix is <code>file-read-data</code>: contents stay hidden, directory listings and stats work.</p></div>
 <div class="qa"><p class="q">Worktree commits failed inside the sandbox?</p><p class="a">A worktree's <code>.git</code> is a file pointing to the main repository's <code>.git/worktrees/&lt;name&gt;</code>; commits write there. The sandbox adds <code>git rev-parse --git-common-dir</code> to the writable roots.</p></div>
 
+<div class="qa"><p class="q">Did bubblewrap work on real Linux?</p><p class="a">Not at first. Run in a Debian container, every command printed <code>bash: /root/.bashrc: Permission denied</code>. Denied files were hidden by bind-mounting <code>/dev/null</code> over them, but inside the new namespace a bound device node is not readable, and bash touches its rc file. Binding an empty regular file instead fixed it; the container then confirmed workspace writes, a read-only <code>/root</code>, a hidden <code>~/.ssh</code>, a scrubbed secret, no outside network, and working loopback.</p></div>
+
 <h2>Network: off, on, or an allowlist</h2>
 <div class="mermaid">
 sequenceDiagram

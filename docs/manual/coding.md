@@ -12,7 +12,12 @@ What the harness does around every coding session so edits land, tests run, and 
 
 If a file changes on disk after the agent read it (you edited it, or a formatter ran), the next edit is refused with "re-read it", so your changes are never overwritten blindly.
 
-After every edit the touched files are syntax-checked (JavaScript, Python, JSON, and TypeScript when the project has `typescript` installed). A broken file shows up in the same tool result as `WARNING: syntax errors after this edit`.
+After every edit the touched files are checked, and problems show up in the same tool result as `WARNING: errors after this edit (syntax or types)`:
+
+- with a language server installed, real diagnostics including type errors: `npm i -g typescript-language-server typescript` (TS/JS), `pip install pyright` (Python), `gopls` (Go), `rust-analyzer` (Rust);
+- otherwise TypeScript checks through the TypeScript package, and syntax checks for JavaScript, Python and JSON.
+
+Turn language servers off or change the wait with `"lsp": { "enabled": false, "timeoutMs": 8000 }`.
 
 ## Verification (the done gate)
 

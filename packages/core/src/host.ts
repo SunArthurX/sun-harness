@@ -17,6 +17,7 @@ import { briefingFile, briefingPrompt } from './assistant/briefing.js';
 import { TriggerWatchers, renderTrigger } from './assistant/triggers.js';
 import { transcribe } from './assistant/voice.js';
 import { conversationMetrics, type ModeMetrics } from './assistant/metrics.js';
+import { disposeLspClients } from './lsp.js';
 import { createSandbox, secretEnvNames, startAllowlistProxy, type ExecSandbox, type SandboxMode } from './sandbox.js';
 import { JobManager, restorableJobIds, type JobResult } from './jobs.js';
 import { createWorktree, mergeWorktree, removeWorktree, worktreeDiff, worktreeStatus, type WorktreeInfo, type WorktreeStatus } from './worktree.js';
@@ -890,6 +891,7 @@ export class HarnessHost {
     return {
       fileState: this.fileStateOf(log.id),
       sandbox: this.sandboxFor(log),
+      lsp: this.config.lsp,
       checkpoint: (paths) => this.checkpoint(log, paths),
       setTodos: (items) => this.append(log, { type: 'todo/update', items }),
       kbSearch: (q, k, provider) => this.kbSearchText(q, k ?? 6, provider),
@@ -1147,6 +1149,7 @@ export class HarnessHost {
     for (const sb of this.sandboxes.values()) sb.dispose?.();
     await this.browser.dispose().catch(() => undefined);
     for (const k of this.kernels.values()) k.dispose();
+    disposeLspClients();
     this.proxy?.server.close();
     await Promise.all([...this.mcp.values()].map((m) => m.closeAll()));
   }

@@ -298,7 +298,7 @@ export const writeFileTool: Tool = {
     const content = String(args.content ?? '');
     writeFileSync(p, content);
     written(ctx, p, content);
-    return `${existed ? 'Overwrote' : 'Created'} ${relative(ctx.cwd, p) || p} (${content.split('\n').length} lines)` + diagnosticsNote(ctx.cwd, [p]);
+    return `${existed ? 'Overwrote' : 'Created'} ${relative(ctx.cwd, p) || p} (${content.split('\n').length} lines)` + (await diagnosticsNote(ctx.cwd, [p], ctx.services.lsp));
   },
 };
 
@@ -336,7 +336,7 @@ export const editFileTool: Tool = {
     writeFileSync(p, r.text);
     written(ctx, p, r.text);
     const note = r.how === 'exact' ? '' : r.how === 'newlines' ? ' (matched after normalizing line endings)' : ' (matched ignoring whitespace; replacement re-indented)';
-    return `Edited ${relative(ctx.cwd, p) || p}: ${r.count} replacement${r.count > 1 ? 's' : ''}${note}` + diagnosticsNote(ctx.cwd, [p]);
+    return `Edited ${relative(ctx.cwd, p) || p}: ${r.count} replacement${r.count > 1 ? 's' : ''}${note}` + (await diagnosticsNote(ctx.cwd, [p], ctx.services.lsp));
   },
 };
 
@@ -391,6 +391,6 @@ Use a few context lines around each change. "*** Move to: path" after Update Fil
       }
     }
     const summary = ops.map((o) => `${o.kind === 'add' ? 'A' : o.kind === 'delete' ? 'D' : o.moveTo ? 'R' : 'M'} ${o.moveTo ? `${o.path} -> ${o.moveTo}` : o.path}`).join('\n');
-    return summary + diagnosticsNote(ctx.cwd, writes.filter((w) => w.content !== null).map((w) => w.abs));
+    return summary + (await diagnosticsNote(ctx.cwd, writes.filter((w) => w.content !== null).map((w) => w.abs), ctx.services.lsp));
   },
 };
