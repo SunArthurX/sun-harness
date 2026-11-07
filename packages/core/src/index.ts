@@ -36,3 +36,5 @@ export * from './gateway.js';
 export * from './launchd.js';
 export * from './kb/hybrid.js';
 export * from './remote.js';
+export * from './bots/bridge.js';
+export * from './bots/adapters.js';

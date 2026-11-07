@@ -10,6 +10,7 @@ import {
   HarnessHost,
   RemoteHost,
   GatewayClient,
+  startBots,
   addRemote,
   createDevice,
   ensureTls,
@@ -349,12 +350,16 @@ async function serve(values: { port?: string; host?: string; tls?: boolean; inse
   host.startBackground(60_000, { intel: true });
   const webRoot = webRootCandidates().find((p) => existsSync(join(p, 'index.html')));
   const tls = values.tls ? ensureTls({ hosts: values.host ? [values.host] : [] }) : undefined;
-  const gw = await startGateway(host, { port: Number(values.port) || 4471, hostname: values.host, webRoot, tls, insecure: values.insecure });
+  const bots = startBots(host, host.config.bots);
+  const gw = await startGateway(host, { port: Number(values.port) || 4471, hostname: values.host, webRoot, tls, insecure: values.insecure, routes: bots.routes });
   console.log(`${c.bold('sun-harness gateway')} ${gw.url}  (pid ${process.pid}, home ${sunHome()})`);
   if (tls) console.log(`TLS certificate fingerprint (SHA-256): ${tls.fingerprint}`);
+  if (bots.started.length) console.log(`Bots: ${bots.started.join(', ')}${bots.routes['/bots/webhook'] ? `  (webhook: POST ${gw.url}/bots/webhook)` : ''}${bots.routes['/bots/dingtalk'] ? `  (DingTalk callback: ${gw.url}/bots/dingtalk)` : ''}`);
+  if (bots.skipped.length) console.log(c.yellow(`Bots not started: ${bots.skipped.join(', ')}`));
   if (values.host && values.host !== '127.0.0.1') console.log(c.dim(`Reachable on: ${lanAddresses().map((a) => `${gw.url.split(':')[0]}://${a}:${new URL(gw.url).port}`).join('  ')}  — create a device token: sun gateway token create <name>`));
   console.log(webRoot ? `Web UI: ${gw.url}/#token=${gw.token}` : c.dim('Web UI not built (pnpm build).'));
   const stop = async () => {
+    bots.stop();
     await gw.close();
     await host.dispose();
     process.exit(0);

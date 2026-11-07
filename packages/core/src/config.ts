@@ -3,6 +3,7 @@ import { ensureDir, homePath, sunHome } from './paths.js';
 import { AnthropicProvider } from './providers/anthropic.js';
 import { OpenAICompatProvider } from './providers/openai.js';
 import type { Provider } from './providers/types.js';
+import type { BotsConfig } from './bots/adapters.js';
 
 export type ApprovalMode = 'suggest' | 'auto-edit' | 'full-auto';
 
@@ -60,6 +61,8 @@ export interface SunConfig {
   evolution: { autoReflect: boolean };
   /** Tool calls (MCP) still running after promoteAfterMs move to the background (0 disables). */
   jobs: { promoteAfterMs: number; killOnExit: boolean };
+  /** Chat bots run inside the gateway (sun serve). Allowlists are platform user ids; empty = nobody. */
+  bots: BotsConfig;
 }
 
 export const PROVIDER_PRESETS: Record<string, ProviderConfig> = {
@@ -148,6 +151,13 @@ export function defaultConfig(): SunConfig {
     intel: { sources: DEFAULT_INTEL_SOURCES, hour: 9, minute: 0 },
     evolution: { autoReflect: false },
     jobs: { promoteAfterMs: 30000, killOnExit: false },
+    bots: {
+      defaultMode: 'assistant',
+      approvals: 'chat',
+      telegram: { enabled: false, tokenEnv: 'TELEGRAM_BOT_TOKEN', allowedUsers: [] },
+      dingtalk: { enabled: false, appSecretEnv: 'DINGTALK_APP_SECRET', allowedUsers: [] },
+      webhook: { enabled: false, allowedUsers: [] },
+    },
   };
 }
 

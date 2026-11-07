@@ -13,6 +13,7 @@ import { ensureDir, homePath, sunHome } from './paths.js';
 import { readSse } from './providers/sse.js';
 import { listSchedules, removeSchedule } from './schedule.js';
 import { fingerprintOf, matchDevice } from './remote.js';
+import type { RouteHandler } from './bots/adapters.js';
 import type { ApprovalDecision, LiveEvent, RunStatus, SessionEvent, SessionSummary } from './types.js';
 
 export const VERSION = '0.2.0';
@@ -142,6 +143,8 @@ export interface GatewayOptions {
   tls?: { cert: string; key: string };
   /** Allow plain HTTP on a non-loopback address (not recommended). */
   insecure?: boolean;
+  /** Extra POST routes (chat bots). Handlers get `authorized` (owner or device token) and the raw body; they do their own auth. */
+  routes?: Record<string, RouteHandler>;
 }
 
 const LOOPBACK = new Set(['127.0.0.1', 'localhost', '::1']);
@@ -178,6 +181,12 @@ export async function startGateway(host: HarnessHost, opts: GatewayOptions = {})
 
   const handler = async (req: IncomingMessage, res: ServerResponse) => {
     const url = new URL(req.url ?? '/', 'http://localhost');
+    const route = opts.routes?.[url.pathname];
+    if (route && req.method === 'POST') {
+      let body = '';
+      for await (const chunk of req) body += chunk;
+      return route(req, res, { authorized: authed(req, url), body });
+    }
     if (url.pathname.startsWith('/api/')) {
       if (!authed(req, url)) return send(res, 401, { ok: false, error: 'unauthorized' });
       if (url.pathname === '/api/health') return send(res, 200, { ok: true, home: sunHome(), version: VERSION, pid: process.pid });

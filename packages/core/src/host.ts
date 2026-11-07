@@ -433,22 +433,29 @@ export class HarnessHost {
     return [...this.approvals.values()].map((a) => a.pending);
   }
 
-  private approvers = 0;
+  private approvers = new Set<(sessionId: string) => boolean>();
 
-  /** A UI that can answer approvals (desktop window, interactive terminal). Without one, approvals are denied, not awaited. */
-  registerApprover(): () => void {
-    this.approvers++;
-    let done = false;
-    return () => {
-      if (!done) (this.approvers--, (done = true));
-    };
+  /**
+   * A UI that can answer approvals (desktop window, interactive terminal, chat bot). `scope` limits it to the sessions
+   * it shows (a bot only sees its chats). Approvals no registered approver can see are denied, not awaited.
+   */
+  registerApprover(scope: (sessionId: string) => boolean = () => true): () => void {
+    const entry = (id: string) => scope(id);
+    this.approvers.add(entry);
+    return () => void this.approvers.delete(entry);
+  }
+
+  private hasApprover(sessionId: string): boolean {
+    for (const a of this.approvers) if (a(sessionId)) return true;
+    return false;
   }
 
   private requestApproval(req: ApprovalRequest, displaySessionId: string, signal: AbortSignal): Promise<{ decision: ApprovalDecision; reason?: string }> {
-    if (this.config.denyInsteadOfPrompting || this.approvers === 0) {
+    const nobody = !this.hasApprover(displaySessionId);
+    if (this.config.denyInsteadOfPrompting || nobody) {
       return Promise.resolve({
         decision: 'deny',
-        reason: `No human is available to approve "${req.name}" (${this.approvers === 0 ? 'headless run' : 'denyInsteadOfPrompting'}), so it was denied. Continue without it, or finish and explain what approval you need.`,
+        reason: `No human is available to approve "${req.name}" (${nobody ? 'headless run' : 'denyInsteadOfPrompting'}), so it was denied. Continue without it, or finish and explain what approval you need.`,
       });
     }
     return new Promise((resolve) => {
