@@ -4,7 +4,7 @@ import { AnthropicProvider, OpenAICompatProvider, ProviderError, classifyHttpErr
 
 let server: Server;
 let base = '';
-let mode: 'openai' | 'anthropic' | 'quota' | 'glm-quota' = 'openai';
+let mode: 'openai' | 'anthropic' | 'quota' | 'glm-quota' | 'stall' = 'openai';
 let lastBody: any;
 
 beforeAll(async () => {
@@ -22,6 +22,11 @@ beforeAll(async () => {
         return res.end('{"error":{"code":"1113","message":"余额不足或无可用资源包,请充值。"}}');
       }
       res.writeHead(200, { 'content-type': 'text/event-stream' });
+      if (mode === 'stall') {
+        // Headers and one chunk, then silence (connection kept open).
+        res.write(`data: ${JSON.stringify({ choices: [{ delta: { content: 'Hel' } }] })}\n\n`);
+        return;
+      }
       const send = (o: unknown, event?: string) => res.write(`${event ? `event: ${event}\n` : ''}data: ${JSON.stringify(o)}\n\n`);
       if (mode === 'openai') {
         send({ choices: [{ delta: { reasoning_content: 'think ' } }] });
@@ -93,6 +98,28 @@ describe('providers', () => {
     expect(lastBody.messages[0].content).toEqual([{ type: 'text', text: 'sys', cache_control: eph }]);
     expect(lastBody.messages[1].content).toBe('hi');
     expect(lastBody.messages[3].content).toEqual([{ type: 'text', text: 'a\nb', cache_control: eph }]);
+  });
+
+  it('sends images as image_url (OpenAI-compatible) and base64 image blocks (Anthropic)', async () => {
+    mode = 'openai';
+    const img = { mime: 'image/png', data: 'AAAA' };
+    await new OpenAICompatProvider({ id: 'x', baseUrl: base, apiKey: 'k' }).complete({ model: 'm', system: '', messages: [{ role: 'user', content: 'see', images: [img] }], tools: [] });
+    expect(lastBody.messages[0].content).toEqual([{ type: 'text', text: 'see' }, { type: 'image_url', image_url: { url: 'data:image/png;base64,AAAA' } }]);
+    mode = 'anthropic';
+    await new AnthropicProvider({ id: 'a', baseUrl: base, apiKey: 'k' }).complete({ model: 'claude', system: 's', messages: [{ role: 'user', content: 'see', images: [img] }], tools: [] });
+    expect(lastBody.messages[0].content.slice(0, 2)).toEqual([{ type: 'image', source: { type: 'base64', media_type: 'image/png', data: 'AAAA' } }, { type: 'text', text: 'see', cache_control: { type: 'ephemeral' } }]);
+  });
+
+  it('aborts a stalled stream with a retryable network error', async () => {
+    mode = 'stall';
+    const p = new OpenAICompatProvider({ id: 'x', baseUrl: base, apiKey: 'k' });
+    const t = Date.now();
+    const err = await p.complete({ model: 'm', system: '', messages: [{ role: 'user', content: 'hi' }], tools: [], timeouts: { firstByteMs: 2000, idleMs: 300 } }).catch((e) => e);
+    expect(err).toBeInstanceOf(ProviderError);
+    expect(err.kind).toBe('network');
+    expect(err.message).toMatch(/stream stalled: no data for 0 s|stream stalled/);
+    expect(Date.now() - t).toBeLessThan(2000);
+    mode = 'openai';
   });
 
   it('Anthropic: streams text and tool_use blocks; merges tool results into user turns', async () => {

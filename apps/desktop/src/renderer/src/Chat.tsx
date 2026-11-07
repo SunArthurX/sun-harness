@@ -4,6 +4,7 @@ import { api } from './api';
 import { MODE_META, StatusDot } from './App';
 import { Markdown } from './markdown';
 import { BrowserPanel } from './Browser';
+import { Composer } from './Composer';
 
 type ResultEvent = Extract<SessionEvent, { type: 'tool/result' }>;
 
@@ -35,6 +36,38 @@ function summarizeArgs(call: ToolCall): string {
   }
 }
 
+/** Colored unified diff; compact shows the first changed lines only. */
+function DiffView({ diff, compact }: { diff: string; compact?: boolean }) {
+  const lines = diff.split('\n').filter((l) => !/^(---|\+\+\+) /.test(l));
+  const added = lines.filter((l) => l.startsWith('+')).length;
+  const removed = lines.filter((l) => l.startsWith('-')).length;
+  const shown = compact ? lines.filter((l) => /^[+-]/.test(l)).slice(0, 8) : lines;
+  return (
+    <div className={`diff ${compact ? 'compact' : ''}`}>
+      <div className="diff-stat mono small">
+        <span className="add">+{added}</span> <span className="del">−{removed}</span>
+      </div>
+      <pre>
+        {shown.map((l, i) => (
+          <span key={i} className={l.startsWith('+') ? 'add' : l.startsWith('-') ? 'del' : l.startsWith('@@') ? 'hunk' : ''}>
+            {l}
+            {'\n'}
+          </span>
+        ))}
+        {compact && lines.filter((l) => /^[+-]/.test(l)).length > 8 ? '…\n' : ''}
+      </pre>
+    </div>
+  );
+}
+
+function AttachmentThumb({ path }: { path: string }) {
+  const [src, setSrc] = useState<string>();
+  useEffect(() => {
+    api.readAttachment(path).then((a) => setSrc(`data:${a.mime};base64,${a.data}`), () => undefined);
+  }, [path]);
+  return src ? <img className="thumb-img" src={src} alt="attachment" /> : <span className="chip small">image</span>;
+}
+
 function ToolCard({ call, result, pending }: { call: ToolCall; result?: ResultEvent; pending: boolean }) {
   const [open, setOpen] = useState(false);
   const state = result ? (result.isError ? 'err' : 'ok') : pending ? 'run' : 'idle';
@@ -47,8 +80,10 @@ function ToolCard({ call, result, pending }: { call: ToolCall; result?: ResultEv
         <span className="tool-arg">{summarizeArgs(call)}</span>
         <span className="tool-meta">{result?.durationMs !== undefined ? `${(result.durationMs / 1000).toFixed(1)}s` : state === 'run' ? '…' : ''}</span>
       </button>
+      {!open && result?.diff && <DiffView diff={result.diff} compact />}
       {open && (
         <div className="tool-body">
+          {result?.diff && <DiffView diff={result.diff} />}
           <div className="tool-label">arguments</div>
           <pre>{(() => {
             try {
@@ -363,7 +398,11 @@ export function Chat({
   const [events, setEvents] = useState<SessionEvent[]>([]);
   const [draft, setDraft] = useState('');
   const [thinking, setThinking] = useState('');
-  const [input, setInput] = useState('');
+  const [inject, setInject] = useState<{ text: string; n: number; replace?: boolean } | undefined>(() => {
+    const p = sessionStorage.getItem(`sun.prefill.${summary.id}`);
+    if (p !== null) sessionStorage.removeItem(`sun.prefill.${summary.id}`);
+    return p !== null ? { text: p, n: 1, replace: true } : undefined;
+  });
   const [models, setModels] = useState<string[]>([]);
   const [modes, setModes] = useState<{ id: string; label: string }[]>([]);
   const [showChanges, setShowChanges] = useState(false);
@@ -443,12 +482,53 @@ export function Chat({
     setTimeout(() => setUndoMsg(''), 4000);
   };
 
-  const submit = async () => {
-    const text = input.trim();
-    if (!text) return;
-    setInput('');
-    stick.current = true;
-    await api.send(summary.id, text);
+  const [notice, setNotice] = useState('');
+  const [costUsd, setCostUsd] = useState<number>();
+  useEffect(() => {
+    if (!running) api.cost(summary.id).then((c) => setCostUsd(c.usd), () => undefined);
+  }, [summary.id, running, events.length]);
+  const flash = (t: string) => {
+    setNotice(t);
+    setTimeout(() => setNotice(''), 5000);
+  };
+  const download = (name: string, text: string, type: string) => {
+    const url = URL.createObjectURL(new Blob([text], { type }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = name;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+  const exportAs = async (format: 'markdown' | 'html' | 'jsonl') => {
+    const text = await api.exportSession(summary.id, format);
+    download(`${summary.title.replace(/[^\w-]+/g, '-').slice(0, 50) || summary.id}.${format === 'markdown' ? 'md' : format}`, text, format === 'html' ? 'text/html' : 'text/plain');
+  };
+  const localCommand = async (cmd: string): Promise<boolean> => {
+    if (cmd.startsWith('/compact')) {
+      flash((await api.compact(summary.id).catch((e) => (flash(String(e.message ?? e)), false))) ? 'Older history compacted into a summary.' : 'Nothing to compact yet.');
+      return true;
+    }
+    if (cmd.startsWith('/cost')) {
+      const c = await api.cost(summary.id);
+      flash(c.byModel.map((m) => `${m.model}: ${(m.input / 1000).toFixed(1)}k in (${Math.round((m.cached / Math.max(1, m.input)) * 100)}% cached), ${(m.output / 1000).toFixed(1)}k out${m.usd !== undefined ? ` · $${m.usd.toFixed(4)}` : ''}`).join(' · ') || 'No usage yet.');
+      return true;
+    }
+    if (cmd.startsWith('/export')) {
+      const f = cmd.split(/\s+/)[1] ?? 'markdown';
+      await exportAs(f.startsWith('h') ? 'html' : f.startsWith('j') ? 'jsonl' : 'markdown');
+      return true;
+    }
+    return false;
+  };
+  const rewind = async (seq: number) => {
+    const files = confirm('Rewind to before this message?\n\nOK: also undo the file edits made from here on.\nCancel: conversation only (files stay as they are).');
+    try {
+      const r = await api.fork(summary.id, seq, files);
+      sessionStorage.setItem(`sun.prefill.${r.session.id}`, r.text);
+      onOpen(r.session.id);
+    } catch (e) {
+      flash(String((e as Error).message ?? e).replace(/^Error invoking remote method 'sun:call': (Error: )?/, ''));
+    }
   };
 
   return (
@@ -511,6 +591,18 @@ export function Chat({
           </button>
         )}
         <span className="spacer" />
+        {notice && <span className="small notice">{notice}</span>}
+        {costUsd !== undefined && costUsd > 0 && (
+          <span className="muted small mono" title="Estimated from logged usage and the pricing table (config.pricing)">
+            ${costUsd < 0.01 ? costUsd.toFixed(4) : costUsd.toFixed(2)}
+          </span>
+        )}
+        <select className="small" value="" title="Export this session" onChange={(e) => e.target.value && void exportAs(e.target.value as 'markdown')}>
+          <option value="">Export…</option>
+          <option value="markdown">Markdown</option>
+          <option value="html">HTML</option>
+          <option value="jsonl">JSONL (re-importable)</option>
+        </select>
         {usage > 0 && (
           <span className="muted small mono" title={`${cached} of ${inputTokens} input tokens served from the provider's prompt cache`}>
             {(usage / 1000).toFixed(1)}k tok{cached > 0 ? ` · ${Math.round((cached / Math.max(1, inputTokens)) * 100)}% cached` : ''}
@@ -557,7 +649,24 @@ export function Chat({
               ) : (
                 <div key={e.seq} className={`msg user ${e.source === 'schedule' ? 'scheduled' : ''}`}>
                   {e.source === 'schedule' && <div className="muted small">⏲ scheduled</div>}
-                  <Markdown text={e.text} />
+                  {e.source === 'memory' && <div className="muted small">✧ recalled memories</div>}
+                  {e.command && <div className="muted small mono">/{e.command.name}</div>}
+                  <Markdown text={e.command ? e.command.input : e.text.replace(/\n\n<attached (file|dir)="[^"]*">[\s\S]*?<\/attached>/g, (_m, _k) => '')} />
+                  {(e.text.match(/<attached (?:file|dir)="([^"]*)"/g) ?? []).map((m) => (
+                    <span key={m} className="chip mono small">@{m.replace(/^<attached (?:file|dir)="|"$/g, '')}</span>
+                  ))}
+                  {e.images && e.images.length > 0 && (
+                    <div className="thumbs">
+                      {e.images.map((im) => (
+                        <AttachmentThumb key={im.path} path={im.path} />
+                      ))}
+                    </div>
+                  )}
+                  {(!e.source || e.source === 'user') && !running && (
+                    <button className="rewind" title="Rewind: new session from before this message (optionally undo file edits)" onClick={() => rewind(e.seq)}>
+                      ↶ Rewind
+                    </button>
+                  )}
                 </div>
               );
             case 'assistant/message':
@@ -656,43 +765,34 @@ export function Chat({
         )}
       </div>
 
-      <div className="composer">
-        <textarea
-          value={input}
-          placeholder={running ? 'Queue a follow-up… (sent when the current run ends)' : `Message ${MODE_META[summary.mode]?.label ?? summary.mode}… (Enter to send, Shift+Enter for newline)`}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
-              e.preventDefault();
-              submit();
-            }
-          }}
-          rows={Math.min(8, Math.max(2, input.split('\n').length))}
-        />
-        <div className="composer-actions">
-          <VoiceButton onText={(t) => setInput((v) => (v ? `${v} ${t}` : t))} />
-          <button
-            className={`btn-ghost small ${speak ? 'on' : ''}`}
-            title={speak ? 'Stop reading replies aloud' : 'Read replies aloud'}
-            onClick={() => {
-              localStorage.setItem('sun.speak', speak ? '0' : '1');
-              if (speak) speechSynthesis.cancel();
-              setSpeak(!speak);
-            }}
-          >
-            {speak ? '🔊' : '🔈'}
-          </button>
-          {running ? (
-            <button className="btn-danger" onClick={() => api.abort(summary.id)}>
-              ■ Stop
+      <Composer
+        cwd={summary.cwd}
+        running={running}
+        inject={inject}
+        placeholder={running ? 'Queue a follow-up… (sent when the current run ends)' : `Message ${MODE_META[summary.mode]?.label ?? summary.mode}… (@ file, / command, paste images · Enter to send)`}
+        onSend={async (text, images) => {
+          stick.current = true;
+          await api.sendMessage(summary.id, text, images);
+        }}
+        onLocalCommand={localCommand}
+        onAbort={() => api.abort(summary.id)}
+        extra={
+          <>
+            <VoiceButton onText={(t) => setInject({ text: t, n: Date.now() })} />
+            <button
+              className={`btn-ghost small ${speak ? 'on' : ''}`}
+              title={speak ? 'Stop reading replies aloud' : 'Read replies aloud'}
+              onClick={() => {
+                localStorage.setItem('sun.speak', speak ? '0' : '1');
+                if (speak) speechSynthesis.cancel();
+                setSpeak(!speak);
+              }}
+            >
+              {speak ? '🔊' : '🔈'}
             </button>
-          ) : (
-            <button className="btn-primary" onClick={submit} disabled={!input.trim()}>
-              Send ↵
-            </button>
-          )}
-        </div>
-      </div>
+          </>
+        }
+      />
     </div>
   );
 }

@@ -1,5 +1,5 @@
 /** Minimal Server-Sent Events reader over a fetch Response body. Yields each event's `data` payload. */
-export async function* readSse(body: ReadableStream<Uint8Array>): AsyncGenerator<{ event?: string; data: string }> {
+export async function* readSse(body: ReadableStream<Uint8Array>, onChunk?: () => void): AsyncGenerator<{ event?: string; data: string }> {
   const reader = body.getReader();
   const decoder = new TextDecoder();
   let buf = '';
@@ -7,6 +7,7 @@ export async function* readSse(body: ReadableStream<Uint8Array>): AsyncGenerator
     while (true) {
       const { value, done } = await reader.read();
       if (done) break;
+      onChunk?.();
       buf += decoder.decode(value, { stream: true });
       let idx: number;
       while ((idx = buf.search(/\r?\n\r?\n/)) >= 0) {

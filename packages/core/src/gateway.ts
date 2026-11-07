@@ -1,4 +1,6 @@
 import { readBriefing } from './assistant/briefing.js';
+import type { CustomCommand } from './ux/commands.js';
+import type { CostReport } from './ux/pricing.js';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { createServer as createHttpsServer, request as httpsRequest } from 'node:https';
 import { Readable } from 'node:stream';
@@ -17,7 +19,7 @@ import { fingerprintOf, matchDevice } from './remote.js';
 import type { RouteHandler } from './bots/adapters.js';
 import type { ApprovalDecision, LiveEvent, RunStatus, SessionEvent, SessionSummary } from './types.js';
 
-export const VERSION = '0.4.1';
+export const VERSION = '0.5.0';
 
 type Method = (...args: any[]) => unknown;
 
@@ -42,6 +44,16 @@ export function hostMethods(host: HarnessHost, info: { mode: 'local' | 'gateway'
     sandboxInfo: (id?: string) => host.sandboxInfo(id),
     browserInfo: (id?: string) => host.browserInfo(id),
     deliverables: (id: string) => host.deliverables(id),
+    sendMessage: (id: string, text: string, images?: { data: string; mime: string }[]) => host.send(id, text, 'user', { images }),
+    listCommands: (cwd?: string) => host.listCommands(cwd),
+    completePaths: (cwd: string, query: string) => host.completePaths(cwd, query),
+    cost: (id: string) => host.cost(id),
+    compact: (id: string) => host.compact(id),
+    fork: (id: string, beforeSeq: number, restoreFiles?: boolean) => host.fork(id, { beforeSeq, restoreFiles }),
+    exportSession: (id: string, format?: 'markdown' | 'html' | 'jsonl') => host.exportSession(id, format),
+    importSession: (jsonl: string) => host.importSession(jsonl),
+    searchSessions: (query: string) => host.searchSessions(query),
+    readAttachment: (path: string) => host.readAttachment(path),
     metrics: (days?: number) => host.metrics(days),
     runBriefing: () => host.runBriefing(),
     readBriefing: (date: string) => readBriefing(date),
@@ -417,7 +429,6 @@ export class GatewayClient {
  */
 export interface SessionHost {
   createSession(input: Parameters<HarnessHost['createSession']>[0]): SessionSummary | Promise<SessionSummary>;
-  send(id: string, text: string): Promise<void>;
   resume(id: string, opts?: { model?: string }): void | Promise<void>;
   abort(id: string): void | Promise<void>;
   switchModel(id: string, model: string): void | Promise<void>;
@@ -433,6 +444,12 @@ export interface SessionHost {
   listJobs(sessionId?: string): { state: string }[] | Promise<{ state: string }[]>;
   reflect(id: string): Promise<{ id: string; type: string; title: string }[]>;
   undo(id: string, opts?: { steps?: number }): { undone: string[]; restored: string[] } | Promise<{ undone: string[]; restored: string[] }>;
+  compact(id: string): Promise<boolean>;
+  cost(id: string): CostReport | Promise<CostReport>;
+  listCommands(cwd?: string): CustomCommand[] | Promise<CustomCommand[]>;
+  exportSession(id: string, format?: 'markdown' | 'html' | 'jsonl'): string | Promise<string>;
+  fork(id: string, opts: { beforeSeq: number; restoreFiles?: boolean }): { session: SessionSummary; text: string } | Promise<{ session: SessionSummary; text: string }>;
+  send(id: string, text: string, source?: 'user', opts?: { images?: { data: string; mime: string }[] }): Promise<void>;
   /** Resolves when every live subscription is connected (remote hosts); send only after this. */
   ready?(): Promise<void>;
   dispose(): Promise<void>;
@@ -450,8 +467,8 @@ export class RemoteHost implements SessionHost {
   createSession(input: Parameters<HarnessHost['createSession']>[0]) {
     return this.client.call<SessionSummary>('createSession', input);
   }
-  send(id: string, text: string) {
-    return this.client.call<void>('send', id, text);
+  send(id: string, text: string, _source?: 'user', opts: { images?: { data: string; mime: string }[] } = {}) {
+    return opts.images?.length ? this.client.call<void>('sendMessage', id, text, opts.images) : this.client.call<void>('send', id, text);
   }
   resume(id: string, opts: { model?: string } = {}) {
     return this.client.call<void>('resume', id, opts.model);
@@ -464,6 +481,21 @@ export class RemoteHost implements SessionHost {
   }
   undo(id: string, opts: { steps?: number } = {}) {
     return this.client.call<{ undone: string[]; restored: string[] }>('undo', id, opts.steps);
+  }
+  compact(id: string) {
+    return this.client.call<boolean>('compact', id);
+  }
+  cost(id: string) {
+    return this.client.call<CostReport>('cost', id);
+  }
+  listCommands(cwd?: string) {
+    return this.client.call<CustomCommand[]>('listCommands', cwd);
+  }
+  exportSession(id: string, format?: 'markdown' | 'html' | 'jsonl') {
+    return this.client.call<string>('exportSession', id, format);
+  }
+  fork(id: string, opts: { beforeSeq: number; restoreFiles?: boolean }) {
+    return this.client.call<{ session: SessionSummary; text: string }>('fork', id, opts.beforeSeq, opts.restoreFiles);
   }
   switchMode(id: string, mode: string) {
     return this.client.call<void>('switchMode', id, mode);

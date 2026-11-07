@@ -9,6 +9,41 @@ export interface ModelRequest {
   temperature?: number;
   signal?: AbortSignal;
   onDelta?: (d: { text?: string; reasoning?: string }) => void;
+  /** Give up on a silent connection: no response headers within firstByteMs, or no stream data for idleMs. */
+  timeouts?: { firstByteMs: number; idleMs: number };
+}
+
+export const DEFAULT_STREAM_TIMEOUTS = { firstByteMs: 90_000, idleMs: 120_000 };
+
+/**
+ * A stalled stream (provider accepted the request, then went silent) would otherwise hang a run forever.
+ * The watchdog aborts the request; the error is a retryable network error.
+ */
+export function streamWatchdog(outer: AbortSignal | undefined, t: { firstByteMs: number; idleMs: number } = DEFAULT_STREAM_TIMEOUTS) {
+  const ctl = new AbortController();
+  let stalled: string | undefined;
+  const fire = (why: string) => {
+    stalled = why;
+    ctl.abort();
+  };
+  const onOuter = () => ctl.abort();
+  outer?.addEventListener('abort', onOuter, { once: true });
+  let timer = setTimeout(() => fire(`no response within ${Math.round(t.firstByteMs / 1000)} s`), t.firstByteMs);
+  return {
+    signal: ctl.signal,
+    kick() {
+      clearTimeout(timer);
+      timer = setTimeout(() => fire(`stream stalled: no data for ${Math.round(t.idleMs / 1000)} s`), t.idleMs);
+    },
+    stop() {
+      clearTimeout(timer);
+      outer?.removeEventListener('abort', onOuter);
+    },
+    /** A ProviderError for a stall, or undefined when the abort came from outside. */
+    stallError(): ProviderError | undefined {
+      return stalled ? new ProviderError('network', stalled) : undefined;
+    },
+  };
 }
 
 export interface ModelResponse {

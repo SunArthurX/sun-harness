@@ -33,6 +33,8 @@ export interface AgentDeps {
   approvalMode(): ApprovalMode;
   /** Done gate: verify commands for the session's cwd (empty = none), run when a coding run ends after edits. */
   verify?: { commands(cwd: string): string[]; maxAttempts: number; timeoutMs: number; sandbox?(): import('./sandbox.js').ExecSandbox | undefined };
+  /** Whether a model accepts images; when absent every model is assumed to. */
+  vision?(modelRef: string): boolean;
   /** Resolve a routing pseudo-model ("auto") to a concrete model for the next request. */
   routeModel?(ref: string): string;
   /** Extra inputs for the approval policy (e.g. whether shell commands are sandboxed). */
@@ -210,7 +212,13 @@ export class Agent {
     if (!header || header.systemPrompt !== system || header.model !== modelRef || header.tools.join() !== names.join()) {
       this.emit({ type: 'request/header', model: modelRef, systemPrompt: system, tools: names });
     }
-    const messages = deriveMessages(this.d.log.all());
+    let messages = deriveMessages(this.d.log.all());
+    if (this.d.vision && !this.d.vision(modelRef)) {
+      // A text-only model gets a note instead of the image (deterministic from the log and the model ref).
+      messages = messages.map((m) =>
+        m.role === 'user' && m.images?.length ? { role: 'user', content: `${m.content}\n[${m.images.length} image(s) attached; ${modelRef} cannot see images — switch to a vision model to use them]` } : m,
+      );
+    }
     const sleep = this.d.sleep ?? defaultSleep;
     for (let attempt = 0; ; attempt++) {
       try {
@@ -220,6 +228,7 @@ export class Agent {
           messages,
           tools: tools.map(toSchema),
           signal,
+          timeouts: this.d.config.streamTimeouts,
           onDelta: (dl) => this.d.onLive?.({ kind: 'delta', sessionId: this.id, ...dl }),
         });
       } catch (e) {
@@ -252,7 +261,7 @@ export class Agent {
       }
     });
 
-    const runOne = async (p: Prepared): Promise<{ output: string; isError: boolean; ms: number } | 'aborted'> => {
+    const runOne = async (p: Prepared): Promise<{ output: string; isError: boolean; ms: number; diff?: string } | 'aborted'> => {
       const started = Date.now();
       if (p.error) return { output: p.error, isError: true, ms: 0 };
       const { call, tool, args } = p as Required<Pick<Prepared, 'call' | 'tool' | 'args'>>;
@@ -269,23 +278,24 @@ export class Agent {
         if (decision === 'deny') return { output: reason ?? 'The user denied this tool call. Do not retry it; ask or choose another approach.', isError: true, ms: Date.now() - started };
       }
       try {
-        let output = await tool.execute(args, { cwd, sessionId: this.id, signal, services: this.d.services });
+        const display: { diff?: string } = {};
+        let output = await tool.execute(args, { cwd, sessionId: this.id, signal, services: this.d.services, display });
         const extra = await this.d.hooks?.postToolUse?.({ sessionId: this.id, tool: call.name, args, output, cwd });
         if (extra) output += `\n\n[hook] ${extra}`;
-        return { output: this.guardUntrusted(tool, truncate(output)), isError: false, ms: Date.now() - started };
+        return { output: this.guardUntrusted(tool, truncate(output)), isError: false, ms: Date.now() - started, diff: display.diff };
       } catch (e) {
         if (signal.aborted) return { output: '[Aborted by user]', isError: true, ms: Date.now() - started };
         return { output: `Error: ${(e as Error).message}`, isError: true, ms: Date.now() - started };
       }
     };
 
-    const record = (p: Prepared, r: { output: string; isError: boolean; ms: number }) => {
+    const record = (p: Prepared, r: { output: string; isError: boolean; ms: number; diff?: string }) => {
       let output = r.output;
       if (r.isError) {
         const n = this.identicalFailures(p.call);
         if (n > 0) output += `\n\n[harness] This exact call (same tool, same arguments) has now failed ${n + 1} times. Do not send it again: change the arguments or the approach (re-read the file, use a different tool, or ask the user).`;
       }
-      this.emit({ type: 'tool/result', callId: p.call.id, name: p.call.name, output, isError: r.isError, durationMs: r.ms });
+      this.emit({ type: 'tool/result', callId: p.call.id, name: p.call.name, output, isError: r.isError, durationMs: r.ms, ...(r.diff ? { diff: r.diff } : {}) });
     };
 
     let i = 0;
@@ -368,6 +378,14 @@ export class Agent {
   }
 
   /** Summarize older history into a context/compaction event when the context is too large (or forced). */
+  /** Compact now (user /compact); true when a compaction event was written. */
+  async compactNow(signal: AbortSignal): Promise<boolean> {
+    const before = this.d.log.last('context/compaction')?.seq;
+    const ref = this.d.routeModel?.(this.d.log.currentModel()) ?? this.d.log.currentModel();
+    await this.maybeCompact(ref, signal, true);
+    return this.d.log.last('context/compaction')?.seq !== before;
+  }
+
   private async maybeCompact(modelRef: string, signal: AbortSignal, force: boolean): Promise<void> {
     const events = this.d.log.all();
     const messages = deriveMessages(events);

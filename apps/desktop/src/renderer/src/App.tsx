@@ -1,5 +1,5 @@
 import type { PendingApproval, SessionSummary } from '@sun/core';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from './api';
 import { Chat } from './Chat';
 import { EvolutionPage, IntelPage, KnowledgePage, ExtensionsPage, SettingsPage } from './pages';
@@ -51,17 +51,59 @@ export function App() {
   const [newMode, setNewMode] = useState<string | null>(null);
   const [hostMode, setHostMode] = useState<{ mode: string; gateway?: string }>();
 
+  const [query, setQuery] = useState('');
+  const [hits, setHits] = useState<{ id: string; title: string; mode: string; snippet: string }[]>([]);
+  const [palette, setPalette] = useState(false);
+  const statuses = useRef(new Map<string, string>());
   const refresh = useCallback(async () => setSessions(await api.listSessions()), []);
 
+  /** OS notification when a session finishes, pauses, fails, or needs approval while the window is in the background. */
+  const notify = useCallback((list: SessionSummary[]) => {
+    for (const s of list) {
+      const prev = statuses.current.get(s.id);
+      statuses.current.set(s.id, s.status);
+      if (!prev || prev === s.status || document.hasFocus() || s.parent) continue;
+      const what = s.status === 'awaiting_approval' ? 'needs your approval' : s.status === 'idle' && prev === 'running' ? 'finished' : s.status === 'paused' ? `paused (${s.statusReason ?? ''})` : s.status === 'error' ? 'failed' : '';
+      if (!what || typeof Notification === 'undefined' || Notification.permission !== 'granted') continue;
+      const n = new Notification(`sun-harness · ${what}`, { body: s.title, silent: s.status === 'idle' });
+      n.onclick = () => {
+        window.focus();
+        setPage('chat');
+        setNewMode(null);
+        setCurrent(s.id);
+      };
+    }
+  }, []);
+
   useEffect(() => {
-    refresh();
+    refresh().then(() => undefined);
     api.pendingApprovals().then(setApprovals);
     api.appInfo().then(setHostMode);
+    if (typeof Notification !== 'undefined' && Notification.permission === 'default') void Notification.requestPermission();
     return window.sun.onLive((e) => {
-      if (e.kind === 'sessions') setSessions(e.sessions);
-      else if (e.kind === 'approvals') setApprovals(e.approvals);
+      if (e.kind === 'sessions') {
+        setSessions(e.sessions);
+        notify(e.sessions);
+      } else if (e.kind === 'approvals') setApprovals(e.approvals);
     });
-  }, [refresh]);
+  }, [refresh, notify]);
+
+  useEffect(() => {
+    if (query.trim().length < 2) return setHits([]);
+    const t = setTimeout(() => api.searchSessions(query).then(setHits, () => setHits([])), 200);
+    return () => clearTimeout(t);
+  }, [query]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setPalette((v) => !v);
+      } else if (e.key === 'Escape') setPalette(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   const { groups, children } = useMemo(() => groupSessions(sessions), [sessions]);
   const currentSummary = sessions.find((s) => s.id === current);
@@ -99,8 +141,24 @@ export function App() {
               + New
             </button>
           </div>
+          <input className="session-search" placeholder="Search sessions…  (⌘K for everything)" value={query} onChange={(e) => setQuery(e.target.value)} />
           <div className="session-list">
-            {groups.map((g) => (
+            {query.trim().length >= 2 && (
+              <div>
+                <div className="group-label">Matches</div>
+                {hits.map((h) => (
+                  <button key={h.id} className={`session ${current === h.id ? 'on' : ''}`} onClick={() => (setCurrent(h.id), setNewMode(null))}>
+                    <span className="session-title">
+                      {h.title}
+                      <span className="muted small hit-snippet">{h.snippet}</span>
+                    </span>
+                    <span className={`mode-tag m-${h.mode}`}>{MODE_META[h.mode]?.label ?? h.mode}</span>
+                  </button>
+                ))}
+                {!hits.length && <p className="muted pad small">No matches.</p>}
+              </div>
+            )}
+            {query.trim().length < 2 && groups.map((g) => (
               <div key={g.label}>
                 <div className="group-label">{g.label}</div>
                 {g.items.map((s) => (
@@ -131,6 +189,16 @@ export function App() {
         </aside>
       )}
 
+      {palette && (
+        <Palette
+          sessions={sessions}
+          onClose={() => setPalette(false)}
+          onPage={(p) => (setPage(p), setPalette(false))}
+          onSession={(id) => (setPage('chat'), setNewMode(null), setCurrent(id), setPalette(false))}
+          onNew={(mode) => (setPage('chat'), setNewMode(mode), setPalette(false))}
+          onImported={(id) => (refresh(), setPage('chat'), setNewMode(null), setCurrent(id), setPalette(false))}
+        />
+      )}
       <main className="main">
         {page === 'chat' &&
           (current && currentSummary && newMode === null ? (
@@ -196,6 +264,73 @@ function Welcome({ initialMode, onStart }: { initialMode: string; onStart: (mode
         </button>
       </div>
       {error && <p className="welcome-error">{error}</p>}
+    </div>
+  );
+}
+
+type PaletteItem = { label: string; hint?: string; run: () => void };
+
+/** ⌘K: jump to any session or screen, start a session, import a transcript. */
+function Palette({
+  sessions,
+  onClose,
+  onPage,
+  onSession,
+  onNew,
+  onImported,
+}: {
+  sessions: SessionSummary[];
+  onClose: () => void;
+  onPage: (p: Page) => void;
+  onSession: (id: string) => void;
+  onNew: (mode: string) => void;
+  onImported: (id: string) => void;
+}) {
+  const [q, setQ] = useState('');
+  const [sel, setSel] = useState(0);
+  const file = useRef<HTMLInputElement>(null);
+  const items: PaletteItem[] = [
+    ...Object.entries(MODE_META).map(([id, m]) => ({ label: `New ${m.label} session`, hint: m.blurb, run: () => onNew(id) })),
+    ...NAV.map((n) => ({ label: `Go to ${n.label}`, run: () => onPage(n.id) })),
+    { label: 'Import session (JSONL)…', hint: 'from sun export --format jsonl', run: () => file.current?.click() },
+    { label: 'Run daily briefing now', run: () => void api.runBriefing().then((r) => onSession(r.sessionId)) },
+    ...sessions.filter((s) => !s.parent).slice(0, 200).map((s) => ({ label: s.title, hint: `${MODE_META[s.mode]?.label ?? s.mode} · ${s.updatedAt.slice(0, 10)}`, run: () => onSession(s.id) })),
+  ];
+  const ql = q.toLowerCase();
+  const shown = items.filter((i) => !ql || i.label.toLowerCase().includes(ql) || i.hint?.toLowerCase().includes(ql)).slice(0, 14);
+  return (
+    <div className="palette-backdrop" onMouseDown={onClose}>
+      <div className="palette" onMouseDown={(e) => e.stopPropagation()}>
+        <input
+          autoFocus
+          placeholder="Type a command or a session name…"
+          value={q}
+          onChange={(e) => (setQ(e.target.value), setSel(0))}
+          onKeyDown={(e) => {
+            if (e.key === 'ArrowDown') (e.preventDefault(), setSel((v) => Math.min(v + 1, shown.length - 1)));
+            else if (e.key === 'ArrowUp') (e.preventDefault(), setSel((v) => Math.max(v - 1, 0)));
+            else if (e.key === 'Enter' && shown[sel]) shown[sel].run();
+          }}
+        />
+        <div className="palette-list">
+          {shown.map((i, k) => (
+            <button key={`${i.label}-${k}`} className={k === sel ? 'on' : ''} onMouseEnter={() => setSel(k)} onClick={i.run}>
+              <span>{i.label}</span>
+              {i.hint && <span className="muted small">{i.hint}</span>}
+            </button>
+          ))}
+        </div>
+        <input
+          ref={file}
+          type="file"
+          accept=".jsonl,application/json"
+          hidden
+          onChange={async (e) => {
+            const f = e.target.files?.[0];
+            if (f) onImported((await api.importSession(await f.text())).id);
+          }}
+        />
+      </div>
     </div>
   );
 }

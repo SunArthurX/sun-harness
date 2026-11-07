@@ -33,6 +33,8 @@ const HELP = `sun-harness bot
 /status — current session, model, state
 /stop — stop the current run · /resume [model] — continue a paused run
 /approve [always] · /deny — answer a pending approval
+/compact — summarize older history · /cost — tokens and estimated cost
+/commands — custom commands (from .sun/commands, ~/.sun/commands)
 /id — show your user id`;
 
 function chunks(text: string, max: number): string[] {
@@ -173,8 +175,27 @@ export class BotBridge {
         const ok = this.host.approve(pending.callId, decision, pending.promptId);
         return this.say(chatId, ok ? `${decision === 'deny' ? 'Denied' : 'Approved'} ${pending.name}.` : 'That approval was already answered.');
       }
-      default:
+      case '/compact':
+        if (!sid) return this.say(chatId, 'No session yet.');
+        return this.say(chatId, (await this.host.compact(sid).catch((e: Error) => (void this.say(chatId, e.message), false))) ? 'Compacted.' : 'Nothing to compact yet.');
+      case '/cost': {
+        if (!sid) return this.say(chatId, 'No session yet.');
+        const c = this.host.cost(sid);
+        return this.say(chatId, c.byModel.map((m) => `${m.model}: ${m.input} in (${m.cached} cached), ${m.output} out${m.usd !== undefined ? `, $${m.usd.toFixed(4)}` : ''}`).join('\n') || 'No usage yet.');
+      }
+      case '/commands': {
+        const list = this.host.listCommands(this.opts.cwd);
+        return this.say(chatId, list.map((x) => `/${x.name}${x.argumentHint ? ` ${x.argumentHint}` : ''} — ${x.description}`).join('\n') || 'No custom commands.');
+      }
+      default: {
+        // Custom slash commands are expanded by the host like any typed message.
+        const name = cmd.replace(/@.*$/, '').slice(1);
+        if (this.host.listCommands(this.opts.cwd ?? summary?.cwd).some((x) => x.name === name)) {
+          const id = sid && summary ? sid : this.newSession(chatId);
+          return this.host.send(id, text);
+        }
         return this.say(chatId, `Unknown command ${cmd}.\n${HELP}`);
+      }
     }
   }
 

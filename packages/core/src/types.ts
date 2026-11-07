@@ -9,7 +9,7 @@ export interface ToolCall {
 
 export type ChatMessage =
   | { role: 'system'; content: string }
-  | { role: 'user'; content: string }
+  | { role: 'user'; content: string; images?: { mime: string; data: string }[] }
   | { role: 'assistant'; content: string; toolCalls?: ToolCall[]; reasoning?: string }
   | { role: 'tool'; toolCallId: string; name: string; content: string };
 
@@ -61,9 +61,19 @@ export type SessionEventBody =
       approval?: 'suggest' | 'auto-edit' | 'full-auto';
       /** Per-session shell sandbox; overrides config.sandbox.mode. */
       sandbox?: 'off' | 'auto' | 'seatbelt' | 'bwrap' | 'docker';
+      /** Set when the session was forked (rewound) from another session before event `seq`. */
+      forkOf?: { session: string; seq: number };
     }
   | { type: 'session/title'; title: string }
-  | { type: 'user/message'; text: string; source?: 'user' | 'hook' | 'schedule' | 'system' | 'job' | 'verify' | 'memory' | 'trigger' }
+  | {
+      type: 'user/message';
+      text: string;
+      source?: 'user' | 'hook' | 'schedule' | 'system' | 'job' | 'verify' | 'memory' | 'trigger';
+      /** Images sent with the message (files under ~/.sun/attachments; loaded when the request is built). */
+      images?: { path: string; mime: string }[];
+      /** The custom slash command this message was expanded from, and what the user typed. */
+      command?: { name: string; input: string };
+    }
   | { type: 'request/header'; model: string; systemPrompt: string; tools: string[] }
   | {
       type: 'assistant/message';
@@ -73,7 +83,7 @@ export type SessionEventBody =
       usage?: Usage;
       model: string;
     }
-  | { type: 'tool/result'; callId: string; name: string; output: string; isError: boolean; durationMs?: number }
+  | { type: 'tool/result'; callId: string; name: string; output: string; isError: boolean; durationMs?: number; /** For humans (not sent to the model): unified diff of the edit. */ diff?: string }
   | { type: 'approval/request'; callId: string; name: string; arguments: string; risk: ToolRisk }
   | { type: 'approval/decision'; callId: string; decision: ApprovalDecision; reason?: string }
   | { type: 'run/status'; status: RunStatus; reason?: PauseReason | string; detail?: string }

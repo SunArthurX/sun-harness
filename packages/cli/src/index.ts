@@ -49,6 +49,8 @@ import {
   type LiveEvent,
   type PendingApproval,
   type SandboxMode,
+  formatUsd,
+  imageMime,
   type MemoryKind,
   MCP_PRESETS,
   addMcpPreset,
@@ -83,6 +85,8 @@ Usage:
   sun run "<prompt>" --best-of N [--model a,b] [--apply]   N parallel worktree attempts judged by the project's tests
   sun undo <sessionId> [--steps n]   Revert the session's last file edits (checkpoints)
   sun browser status | login [url] [--profile name] | stop   Agent browser (CDP); login opens the profile visibly so you can sign in
+  sun export <sessionId> [--format markdown|html|jsonl] [-o file] | sun import <file.jsonl> | sun search <text> | sun commands
+  sun run "<prompt>" --output stream-json [--image shot.png]   JSON lines for scripts; attach images
   sun memory list | search <query> | add <text> [--kind preference] | rm <id> | extract <sessionId>   Long-term memory
   sun briefing run | show [date] | enable [--at 08:30] | disable    Daily briefing (runs in the gateway/desktop background)
   sun trigger list | fire <id> [payload]    Event triggers (file watches, webhooks: POST /trigger/<id>)
@@ -110,7 +114,7 @@ Usage:
 
 Session commands (chat, run, resume, sessions) use --remote <name>, else the default remote, else a local gateway; --local runs in-process.
 
-Chat commands: /model <ref>  /mode <id> (coding|plan|agent|assistant)  /undo [n]  /voice [seconds]  /resume  /abort  /reflect  /sessions  /help  /exit
+Chat commands: /model <ref>  /mode <id> (coding|plan|agent|assistant)  /undo [n]  /rewind [n] [files]  /compact  /cost  /export [md|html|jsonl] [file]  /voice [seconds]  /<custom>  /resume  /abort  /reflect  /sessions  /help  /exit
 Home: ${sunHome()}`;
 
 function printEvent(e: LiveEvent, sessionId: string, state: { streamed: boolean; reasoning: boolean }): void {
@@ -220,7 +224,8 @@ function wireApprovals(host: SessionHost, rl?: ReturnType<typeof createInterface
   });
 }
 
-async function chat(host: SessionHost, sessionId: string): Promise<void> {
+async function chat(host: SessionHost, initialSession: string): Promise<void> {
+  let sessionId = initialSession;
   const rl = createInterface({ input: process.stdin, output: process.stdout });
   const state = { streamed: false, reasoning: false };
   host.subscribe((e) => printEvent(e, sessionId, state));
@@ -253,7 +258,11 @@ async function chat(host: SessionHost, sessionId: string): Promise<void> {
       const [cmd, ...rest] = line.slice(1).split(/\s+/);
       const arg = rest.join(' ');
       if (cmd === 'exit' || cmd === 'quit') break;
-      if (cmd === 'help') console.log(HELP);
+      if (cmd === 'help') {
+        console.log(HELP);
+        const custom = await host.listCommands();
+        if (custom.length) console.log(`\nCustom commands:\n${custom.map((x) => `  /${x.name}${x.argumentHint ? ` ${x.argumentHint}` : ''}  ${c.dim(x.description)}`).join('\n')}`);
+      }
       else if (cmd === 'model') {
         if (!arg) console.log((await host.readyModels()).join('\n'));
         else await host.switchModel(sessionId, arg), console.log(`Model → ${arg}`);
@@ -278,12 +287,39 @@ async function chat(host: SessionHost, sessionId: string): Promise<void> {
         const props = await host.reflect(sessionId);
         for (const p of props) console.log(`${p.id}  [${p.type}] ${p.title}`);
         console.log(c.dim('Accept with: sun evolve accept <id>'));
+      } else if (cmd === 'compact') {
+        console.log((await host.compact(sessionId)) ? 'Compacted older history into a summary.' : c.dim('Nothing to compact yet.'));
+      } else if (cmd === 'cost' || cmd === 'status') {
+        await statusLine(host, sessionId, true);
+      } else if (cmd === 'export') {
+        const [fmt = 'markdown', file] = rest;
+        const format = fmt.startsWith('h') ? 'html' : fmt.startsWith('j') ? 'jsonl' : 'markdown';
+        const out = file ?? join(process.cwd(), `${sessionId}.${format === 'markdown' ? 'md' : format}`);
+        writeFileSync(out, await host.exportSession(sessionId, format));
+        console.log(`Exported to ${out}`);
+      } else if (cmd === 'rewind') {
+        const users = (await host.getEvents(sessionId)).filter((e) => e.type === 'user/message' && (!e.source || e.source === 'user')) as Extract<LiveEventSession, { type: 'user/message' }>[];
+        const n = Number(rest[0]);
+        if (!n) {
+          users.forEach((u, i) => console.log(`${String(i + 1).padStart(3)}  ${(u.command?.input ?? u.text).split('\n')[0].slice(0, 100)}`));
+          console.log(c.dim('/rewind <n> [files] — new session with the conversation before message n; "files" also undoes its file edits.'));
+        } else if (!users[n - 1]) console.log(`No message ${n}.`);
+        else {
+          const r = await host.fork(sessionId, { beforeSeq: users[n - 1].seq, restoreFiles: rest[1] === 'files' });
+          sessionId = r.session.id;
+          console.log(`Rewound into session ${sessionId}. Message ${n} was:\n${c.dim(r.text)}\nType it again (edited) or anything else.`);
+        }
+      } else if ((await host.listCommands()).some((x) => x.name === cmd)) {
+        await host.send(sessionId, line);
+        await host.wait(sessionId);
+        await statusLine(host, sessionId);
       } else console.log(`Unknown command /${cmd}`);
       prompt();
       continue;
     }
     await host.send(sessionId, line);
     await host.wait(sessionId);
+    await statusLine(host, sessionId);
     prompt();
   }
   await host.wait(sessionId);
@@ -324,6 +360,25 @@ async function bestOfCommand(host: HarnessHost, prompt: string, values: { 'best-
     console.log(r.applied ? c.green('Merged into the checkout (staged, squash). Other attempts discarded.') : c.dim(`Review: sun worktree diff ${r.winner.sessionId}   Keep: sun worktree merge ${r.winner.sessionId}`));
   }
   process.exitCode = r.winner ? 0 : 1;
+}
+
+type LiveEventSession = Awaited<ReturnType<SessionHost['getEvents']>>[number];
+
+/** One dim line after each turn: model, mode, tokens, cache share, estimated cost (Claude Code-style status). */
+async function statusLine(host: SessionHost, sessionId: string, verbose = false): Promise<void> {
+  const s = (await host.listSessions()).find((x) => x.id === sessionId);
+  const cost = await host.cost(sessionId);
+  let input = 0;
+  let cached = 0;
+  let output = 0;
+  for (const m of cost.byModel) {
+    input += m.input;
+    cached += m.cached;
+    output += m.output;
+  }
+  const parts = [s?.model, s?.mode, `${((input + output) / 1000).toFixed(1)}k tok`, input ? `${Math.round((cached / input) * 100)}% cached` : '', cost.byModel.length ? `${formatUsd(cost.usd)}${cost.unpriced.length ? '+' : ''}` : ''].filter(Boolean);
+  console.log(c.dim(parts.join(' · ')));
+  if (verbose) for (const m of cost.byModel) console.log(c.dim(`  ${m.model}: ${m.input} in (${m.cached} cached) / ${m.output} out${m.usd !== undefined ? ` · ${formatUsd(m.usd)}` : ' · no price (add "pricing" in config)'}`));
 }
 
 async function listSessions(host: SessionHost): Promise<void> {
@@ -565,7 +620,7 @@ async function sessionCommands(
   host: SessionHost,
   cmd: string,
   args: string[],
-  values: { mode?: string; model?: string; json?: boolean; chat?: boolean; worktree?: boolean; steps?: string; sandbox?: string },
+  values: { mode?: string; model?: string; json?: boolean; chat?: boolean; worktree?: boolean; steps?: string; sandbox?: string; output?: string; image?: string[] },
   sessionCwd: string | undefined,
   approval: ApprovalMode | undefined,
 ): Promise<void> {
@@ -580,10 +635,14 @@ async function sessionCommands(
       if (!prompt) throw new Error('Usage: sun run "<prompt>"');
       const s = await host.createSession({ cwd: sessionCwd, mode: values.mode, model: values.model, worktree: values.worktree, approval, sandbox: values.sandbox as SandboxMode | undefined });
       const state = { streamed: false, reasoning: false };
-      if (!values.json) host.subscribe((e) => printEvent(e, s.id, state));
+      const stream = values.output === 'stream-json';
+      // stream-json: one JSON object per line (live deltas and durable events), then a final {"type":"result"}.
+      if (stream) host.subscribe((e) => ('sessionId' in e && e.sessionId === s.id) && console.log(JSON.stringify(e)));
+      else if (!values.json) host.subscribe((e) => printEvent(e, s.id, state));
       wireApprovals(host);
       await host.ready?.();
-      await host.send(s.id, prompt);
+      const images = (values.image ?? []).map((f) => ({ data: readFileSync(f).toString('base64'), mime: imageMime(f) ?? 'image/png' }));
+      await host.send(s.id, prompt, 'user', { images });
       let r = await host.wait(s.id);
       // Background jobs deliver their results as new turns; stay until they and those turns finish.
       while ((await host.listJobs(s.id)).some((j) => j.state === 'running') || (await host.isRunning(s.id))) {
@@ -591,7 +650,9 @@ async function sessionCommands(
         r = (await host.wait(s.id)) ?? r;
       }
       const last = [...(await host.getEvents(s.id))].reverse().find((e) => e.type === 'assistant/message') as { text: string } | undefined;
-      if (values.json) console.log(JSON.stringify({ sessionId: s.id, status: r?.status, reason: r?.reason, text: last?.text ?? '' }, null, 2));
+      const cost = await host.cost(s.id);
+      if (stream) console.log(JSON.stringify({ type: 'result', sessionId: s.id, status: r?.status, reason: r?.reason, text: last?.text ?? '', costUsd: cost.usd }));
+      else if (values.json) console.log(JSON.stringify({ sessionId: s.id, status: r?.status, reason: r?.reason, text: last?.text ?? '', costUsd: cost.usd }, null, 2));
       else console.log(c.dim(`\nsession ${s.id} · ${r?.status}${r?.reason ? ` (${r.reason})` : ''}`));
       process.exitCode = r?.status === 'idle' ? 0 : r?.status === 'paused' ? 3 : 1;
       break;
@@ -654,6 +715,9 @@ async function main(): Promise<void> {
       token: { type: 'string' },
       'best-of': { type: 'string' },
       kind: { type: 'string' },
+      output: { type: 'string', short: 'o' },
+      image: { type: 'string', multiple: true },
+      format: { type: 'string' },
       at: { type: 'string' },
       days: { type: 'string' },
       seconds: { type: 'string' },
@@ -804,6 +868,29 @@ async function main(): Promise<void> {
       } else throw new Error(`Unknown browser command ${sub}`);
       break;
     }
+    case 'export': {
+      if (!args[0]) throw new Error('Usage: sun export <sessionId> [--format markdown|html|jsonl] [-o file]');
+      const format = (values.format ?? 'markdown') as 'markdown' | 'html' | 'jsonl';
+      const text = host.exportSession(args[0], format);
+      if (values.output) {
+        writeFileSync(values.output, text);
+        console.log(`Exported to ${values.output}`);
+      } else process.stdout.write(text + '\n');
+      break;
+    }
+    case 'import': {
+      if (!args[0]) throw new Error('Usage: sun import <session.jsonl>');
+      const s = host.importSession(readFileSync(args[0], 'utf8'));
+      console.log(`Imported as ${s.id} (${s.title}). Continue with: sun resume ${s.id} --chat`);
+      break;
+    }
+    case 'search':
+      for (const r of host.searchSessions(args.join(' '))) console.log(`${r.id}  ${c.dim(r.mode.padEnd(9))} ${r.title.slice(0, 50).padEnd(50)} ${c.dim(r.snippet.slice(0, 80))}`);
+      break;
+    case 'commands':
+      for (const x of host.listCommands(cwd)) console.log(`/${x.name}${x.argumentHint ? ` ${x.argumentHint}` : ''}  ${c.dim(`${x.description} · ${x.scope} · ${x.source}`)}`);
+      if (!host.listCommands(cwd).length) console.log(c.dim('No custom commands. Add Markdown files to .sun/commands/ (project) or ~/.sun/commands/ (user).'));
+      break;
     case 'memory': {
       const sub = args[0] ?? 'list';
       const store = host.memoryStore;

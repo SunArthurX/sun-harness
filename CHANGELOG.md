@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.5.0 — 2026-11-07
+
+UX absorbed from Claude Code, Codex, Cursor, Manus and Cline (`specs/025`, teaching page 23).
+
+- Custom slash commands: Markdown in `.sun/commands`, `~/.sun/commands`, `.claude/commands`; frontmatter `description`, `argument-hint`, `mode`, `model`; `$ARGUMENTS`, `$1`…`$9`; CLI, desktop `/` menu, bots; `sun commands`.
+- `@path` mentions attach files, folder listings and images; desktop path completion.
+- Images: paste, drop or ⊕ attach in the desktop, `--image` and `@shot.png` in the CLI; stored in `~/.sun/attachments`; OpenAI `image_url` and Anthropic image blocks; text-only models get a note (`providers.<id>.vision`).
+- Inline diffs on edit tool results (tool cards, exports).
+- Cost: built-in pricing table + `pricing` config; session bar, `/cost`, CLI status line, `--json`/stream-json `costUsd`.
+- Rewind: fork a session from any user message, optionally undoing file edits (desktop ↶ Rewind, `/rewind`).
+- Export Markdown / HTML / JSONL and import JSONL (`sun export`, `sun import`, `/export`, desktop Export menu, ⌘K import).
+- Desktop: OS notifications, ⌘K palette, full-text session search (`sun search`).
+- `/compact` on demand (CLI, desktop, bots); `sun run --output stream-json`.
+- Stream watchdog: silent model connections are abandoned and retried (`streamTimeouts`).
+
 ## 0.4.1 — 2026-11-07
 
 - Post-edit diagnostics through language servers (LSP client: typescript-language-server, pyright, gopls, rust-analyzer), with the in-process TypeScript language service (global TypeScript when the project's has no JS API, e.g. TypeScript 7) and syntax checks as fallbacks.

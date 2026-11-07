@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" /><meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>23 · UX from competitors — sun-harness</title>
+<link rel="stylesheet" href="teach.css" />
+<script type="module">import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs'; mermaid.initialize({ startOnLoad: true, theme: 'neutral' });</script>
+</head>
+<body>
+<header class="top"><div class="wrap"><a class="brand" href="index.html">sun<em>harness</em> · teach</a><nav><a href="index.html">All pages</a></nav></div></header>
+<main class="wrap">
+<p class="muted">Release 0.5.0 · spec <code>specs/025-ux-from-competitors.md</code></p>
+<h1>23 · Borrow the <em>pleasant</em> parts</h1>
+<p class="lede">Phases 0–5 made the harness succeed more often. This step makes it nicer to use, by taking the habits users already have from Claude Code, Codex, Cursor, Manus and Cline, and fitting them to sun-harness's rules: what the model sees is logged, the log is append-only, and every surface behaves the same.</p>
+
+<h2>The comparison</h2>
+<table>
+<tr><th>Habit</th><th>Where users learned it</th><th>How it fits the rules</th></tr>
+<tr><td>Custom <code>/commands</code></td><td>Claude Code, Codex</td><td>expanded in the host; the log keeps both the prompt and what was typed</td></tr>
+<tr><td><code>@file</code> mentions, completion</td><td>Cursor, Claude Code</td><td>attachments are inlined into the logged message</td></tr>
+<tr><td>Inline diffs</td><td>Cursor, Cline</td><td>a human-only field on the tool result; not sent to the model</td></tr>
+<tr><td><code>/cost</code></td><td>Claude Code, Cursor</td><td>derived from logged usage and a price table</td></tr>
+<tr><td>Rewind</td><td>Claude Code, Cursor</td><td>a fork: a new log from before a message; the old one stays</td></tr>
+<tr><td>Export, share</td><td>Codex, ChatGPT</td><td>Markdown / HTML / JSONL straight from the log; JSONL imports</td></tr>
+<tr><td>⌘K, search, notifications</td><td>Claude Desktop, Raycast, Manus</td><td>desktop-only; read state, never change it</td></tr>
+<tr><td>Images</td><td>Claude Code, Cursor</td><td>copied to attachments, logged by path, loaded per request</td></tr>
+<tr><td>Status line, stream-json, <code>/compact</code></td><td>Claude Code</td><td>views of the log; compaction is the existing mechanism, on demand</td></tr>
+</table>
+
+<h2>One pipeline for every surface</h2>
+<div class="mermaid">
+flowchart LR
+  D[desktop composer] --> H
+  C[CLI chat / run] --> H
+  B[chat bot] --> H
+  W[web UI] --> H
+  H["host.send → prepareUserMessage"] --> CMD{"starts with /name?"}
+  CMD -->|custom command| EXP["expand $ARGUMENTS and $1..$9, apply mode/model"]
+  CMD -->|no| MEN
+  EXP --> MEN["@mentions: files, folders, images"]
+  MEN --> IMG["images → ~/.sun/attachments"]
+  IMG --> LOG[("user/message: text, command, images")]
+  LOG --> DER[deriveMessages loads images] --> VIS{"vision model?"}
+  VIS -->|yes| P["provider: image_url / image block"]
+  VIS -->|no| NOTE["text note: images attached"]
+</div>
+<div class="qa"><p class="q">Why expand commands and mentions in the host, not in each UI?</p><p class="a">Because then a bot, the CLI and the desktop cannot disagree, and the log records the real prompt. The original input is kept next to it (<code>user/message.command.input</code>), so the desktop shows what you typed while the model sees the expansion. The first live run did exactly what the docs promise: <code>/jsdoc @src/greet.js</code> became the command's prompt with <code>$1 = @src/greet.js</code>, and the mention then attached the file.</p></div>
+
+<h2>Rewind without rewriting history</h2>
+<div class="mermaid">
+flowchart TD
+  O[original session log] -->|events before message n| F["new session · forkOf = original, seq"]
+  O -->|restoreFiles| U["undo checkpoints after n, logged in the original"]
+  F --> P2["composer prefilled with message n"]
+</div>
+<p>Claude Code's rewind feels like going back in time; in an append-only design going back means branching. The fork copies events, carries the mode and model as they were at that point, and copies the checkpoint snapshots so <em>Undo</em> still works in the new branch.</p>
+
+<h2>What it looks like</h2>
+<figure><img src="img/ux-diff.png" alt="Edit tool card with a colored diff"/><figcaption>A real <code>/jsdoc @src/greet.js</code> run on deepseek-chat: the command chip, and the edit card with its diff (+5 −0).</figcaption></figure>
+<figure><img src="img/ux-mention.png" alt="@ path completion in the composer"/><figcaption><code>@src/</code> opens path completion (git-tracked files, ranked by prefix, base name, substring, subsequence).</figcaption></figure>
+<figure><img src="img/ux-commands.png" alt="Slash command menu"/><figcaption><code>/</code> lists custom commands with their argument hints, next to <code>/compact</code>, <code>/cost</code>, <code>/export</code>.</figcaption></figure>
+<figure><img src="img/ux-rewind.png" alt="Rewind button, cost and export in the session bar"/><figcaption>↶ Rewind on a user message; the session bar shows the estimated cost ($0.0022) and the Export menu.</figcaption></figure>
+<figure><img src="img/ux-palette.png" alt="Command palette"/><figcaption>⌘K: new sessions, screens, import, briefing, and every session by name.</figcaption></figure>
+<figure><img src="img/ux-search.png" alt="Session search"/><figcaption>Full-text search over titles and messages, with snippets.</figcaption></figure>
+
+<h2>Images, end to end</h2>
+<pre><code>$ sun run --model qwen/qwen3-vl-plus --image cart.png --output stream-json "What does the cart line say?"
+{"kind":"event", … "type":"user/message", … "images":[{"path":"…/attachments/…/1.png","mime":"image/png"}] …}
+{"kind":"event", … "type":"assistant/message","text":"The cart line says: “Cart: 1 item (Solar lamp)”." …}
+{"type":"result", … "status":"idle", … "costUsd":0.0013}</code></pre>
+<p>The screenshot was the one the browser agent had taken on page 20. A text-only model in the same session gets "2 image(s) attached; this model cannot see images" instead of a provider error.</p>
+
+<h2>A bug the live test found: silent streams</h2>
+<div class="qa"><p class="q">The session stayed "working" for minutes after an edit. What happened?</p><p class="a">The tool result was logged, the next request went out, and the HTTPS connection to the provider stayed open with no data. Nothing had a deadline, so a truly dead connection would have hung the run forever. Codex and Claude Code put timeouts on streams; sun now does too. A watchdog aborts a request with no headers within 90 s or no data for 120 s and raises a retryable <code>network</code> error; after the retries the session pauses as <code>network</code>, which auto-resume picks up. That provider answered after more than two minutes this time, but the test (<code>idleMs: 300</code> against a server that sends one chunk and goes quiet) now proves the failure mode is handled.</p></div>
+
+<h2>Verified</h2>
+<table>
+<tr><th>Check</th><th>Result</th></tr>
+<tr><td>commands: precedence, frontmatter, <code>$ARGUMENTS</code>/<code>$1</code>, namespaces, mode switch, bots</td><td>pass</td></tr>
+<tr><td>mentions: files, folders, images; emails, missing and outside paths ignored; completion ranking</td><td>pass</td></tr>
+<tr><td>diff, pricing with cache discount and prefix rules, vision detection</td><td>pass</td></tr>
+<tr><td>images stored, sent to a vision model, replaced by a note for a text model; OpenAI and Anthropic wire formats</td><td>pass</td></tr>
+<tr><td>rewind with file restore and copied checkpoints; export Markdown/HTML/JSONL; import; search; /compact</td><td>pass</td></tr>
+<tr><td>stalled stream aborted in &lt; 2 s with <code>idleMs: 300</code></td><td>pass</td></tr>
+<tr><td>live: qwen3-vl-plus read a screenshot; deepseek-chat ran <code>/jsdoc @src/greet.js</code>; desktop screenshots above</td><td>pass</td></tr>
+</table>
+<p class="lesson">Users bring habits from the tools they already use. Adopt the habits, keep your own invariants: here every one of them became a view of, or an append to, the same log.</p>
+
+<div class="nav"><a href="22-assistant.html">← 22 · Assistant</a><a href="index.html">All pages →</a></div>
+</main>
+</body>
+</html>

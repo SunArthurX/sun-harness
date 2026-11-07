@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync 
 import { dirname, relative } from 'node:path';
 import { resolveIn } from '../policy.js';
 import { diagnosticsNote } from '../diagnostics.js';
+import { unifiedDiff } from '../ux/diff.js';
 import type { Tool, ToolContext } from './types.js';
 
 // ---------------- tolerant search/replace ----------------
@@ -296,6 +297,7 @@ export const writeFileTool: Tool = {
     ctx.services.checkpoint?.([p]);
     mkdirSync(dirname(p), { recursive: true });
     const content = String(args.content ?? '');
+    if (ctx.display) ctx.display.diff = unifiedDiff(existed ? readFileSync(p, 'utf8') : '', content, relative(ctx.cwd, p) || p);
     writeFileSync(p, content);
     written(ctx, p, content);
     return `${existed ? 'Overwrote' : 'Created'} ${relative(ctx.cwd, p) || p} (${content.split('\n').length} lines)` + (await diagnosticsNote(ctx.cwd, [p], ctx.services.lsp));
@@ -335,6 +337,7 @@ export const editFileTool: Tool = {
     ctx.services.checkpoint?.([p]);
     writeFileSync(p, r.text);
     written(ctx, p, r.text);
+    if (ctx.display) ctx.display.diff = unifiedDiff(before, r.text, relative(ctx.cwd, p) || p);
     const note = r.how === 'exact' ? '' : r.how === 'newlines' ? ' (matched after normalizing line endings)' : ' (matched ignoring whitespace; replacement re-indented)';
     return `Edited ${relative(ctx.cwd, p) || p}: ${r.count} replacement${r.count > 1 ? 's' : ''}${note}` + (await diagnosticsNote(ctx.cwd, [p], ctx.services.lsp));
   },
@@ -381,6 +384,15 @@ Use a few context lines around each change. "*** Move to: path" after Update Fil
       }
     }
     ctx.services.checkpoint?.(writes.flatMap((w) => (w.from ? [w.from, w.abs] : [w.abs])));
+    if (ctx.display) {
+      ctx.display.diff = writes
+        .map((w) => {
+          const src = w.from ?? w.abs;
+          return unifiedDiff(existsSync(src) ? readFileSync(src, 'utf8') : '', w.content ?? '', relative(ctx.cwd, w.abs) || w.abs);
+        })
+        .filter(Boolean)
+        .join('\n');
+    }
     for (const w of writes) {
       if (w.content === null) rmSync(w.abs, { force: true });
       else {

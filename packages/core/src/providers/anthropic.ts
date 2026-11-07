@@ -1,6 +1,6 @@
 import type { ChatMessage, ToolCall } from '../types.js';
 import { readSse } from './sse.js';
-import { classifyHttpError, toProviderError, wireArguments, type ModelRequest, type ModelResponse, type Provider } from './types.js';
+import { streamWatchdog, classifyHttpError, toProviderError, wireArguments, type ModelRequest, type ModelResponse, type Provider } from './types.js';
 
 export interface AnthropicOptions {
   id: string;
@@ -25,7 +25,10 @@ export class AnthropicProvider implements Provider {
     };
     for (const m of messages) {
       if (m.role === 'system') continue;
-      if (m.role === 'user') push('user', { type: 'text', text: m.content || ' ' });
+      if (m.role === 'user') {
+        for (const i of m.images ?? []) push('user', { type: 'image', source: { type: 'base64', media_type: i.mime, data: i.data } });
+        push('user', { type: 'text', text: m.content || ' ' });
+      }
       else if (m.role === 'tool') push('user', { type: 'tool_result', tool_use_id: m.toolCallId, content: m.content });
       else {
         if (m.content) push('assistant', { type: 'text', text: m.content });
@@ -58,6 +61,7 @@ export class AnthropicProvider implements Provider {
     if (lastBlock) lastBlock.cache_control = { type: 'ephemeral' };
     if (req.temperature !== undefined) body.temperature = req.temperature;
 
+    const wd = streamWatchdog(req.signal, req.timeouts);
     let res: Response;
     try {
       res = await fetch(`${(this.opts.baseUrl ?? 'https://api.anthropic.com').replace(/\/$/, '')}/v1/messages`, {
@@ -68,15 +72,18 @@ export class AnthropicProvider implements Provider {
           'anthropic-version': this.opts.version ?? '2023-06-01',
         },
         body: JSON.stringify(body),
-        signal: req.signal,
+        signal: wd.signal,
       });
     } catch (e) {
-      throw toProviderError(e, req.signal);
+      wd.stop();
+      throw wd.stallError() ?? toProviderError(e, req.signal);
     }
     if (!res.ok || !res.body) {
+      wd.stop();
       const text = await res.text().catch(() => '');
       throw classifyHttpError(res.status, text, res.headers.get('retry-after'));
     }
+    wd.kick();
 
     let text = '';
     let reasoning = '';
@@ -84,7 +91,7 @@ export class AnthropicProvider implements Provider {
     const usage = { inputTokens: 0, outputTokens: 0, cachedTokens: 0 };
     const blocks = new Map<number, { kind: string; call?: ToolCall }>();
     try {
-      for await (const { data } of readSse(res.body)) {
+      for await (const { data } of readSse(res.body, () => wd.kick())) {
         let ev: any;
         try {
           ev = JSON.parse(data);
@@ -129,7 +136,9 @@ export class AnthropicProvider implements Provider {
         }
       }
     } catch (e) {
-      throw toProviderError(e, req.signal);
+      throw wd.stallError() ?? toProviderError(e, req.signal);
+    } finally {
+      wd.stop();
     }
     const toolCalls = [...blocks.entries()]
       .sort((a, b) => a[0] - b[0])

@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import type { ChatMessage, SessionEvent, ToolCall } from './types.js';
 
 /**
@@ -29,10 +30,19 @@ export function deriveMessages(events: readonly SessionEvent[]): ChatMessage[] {
   for (const e of events) {
     if (e.seq < start) continue;
     switch (e.type) {
-      case 'user/message':
+      case 'user/message': {
         flushPending();
-        out.push({ role: 'user', content: e.text });
+        const images = (e.images ?? []).flatMap((i) => {
+          try {
+            return [{ mime: i.mime, data: readFileSync(i.path).toString('base64') }];
+          } catch {
+            return [];
+          }
+        });
+        const missing = (e.images?.length ?? 0) - images.length;
+        out.push({ role: 'user', content: missing ? `${e.text}\n[${missing} attached image(s) no longer available]` : e.text, ...(images.length ? { images } : {}) });
         break;
+      }
       case 'assistant/message':
         flushPending();
         out.push({
@@ -74,6 +84,7 @@ export function estimateTokens(messages: ChatMessage[]): number {
   let n = 0;
   for (const m of messages) {
     const text = m.content + ('toolCalls' in m && m.toolCalls ? JSON.stringify(m.toolCalls) : '');
+    if ('images' in m && m.images) n += 1000 * m.images.length;
     const cjk = (text.match(/[\u3000-\u9fff\uac00-\ud7af]/g) || []).length;
     n += Math.ceil((text.length - cjk) / 4) + cjk + 4;
   }

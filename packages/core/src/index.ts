@@ -65,3 +65,8 @@ export * from './assistant/voice.js';
 export * from './assistant/metrics.js';
 export { localDate } from './util/date.js';
 export * from './lsp.js';
+export * from './ux/commands.js';
+export * from './ux/mentions.js';
+export * from './ux/diff.js';
+export * from './ux/pricing.js';
+export * from './ux/export.js';

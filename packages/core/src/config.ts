@@ -8,6 +8,7 @@ import { DEFAULT_BRIEFING, type BriefingConfig } from './assistant/briefing.js';
 import type { TriggerDef } from './assistant/triggers.js';
 import { DEFAULT_VOICE, type VoiceConfig } from './assistant/voice.js';
 import { DEFAULT_LSP, type LspConfig } from './lsp.js';
+import type { ModelPrice } from './ux/pricing.js';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { ensureDir, homePath, sunHome } from './paths.js';
 import { AnthropicProvider } from './providers/anthropic.js';
@@ -30,6 +31,8 @@ export interface ProviderConfig {
   noKey?: boolean;
   /** OpenAI-compatible APIs with explicit prompt caching (DashScope): mark the system prompt and the last message. */
   cacheControl?: boolean;
+  /** Models that accept images: true for all, a list of model names, or unset to guess from the name. */
+  vision?: boolean | string[];
   /** Default context window (tokens) for this provider's models. */
   contextWindow?: number;
   /** Per-model context windows (tokens), overriding built-in knowledge. */
@@ -97,6 +100,10 @@ export interface SunConfig {
   voice: VoiceConfig;
   /** Language servers for diagnostics after edits (specs/020). */
   lsp: LspConfig;
+  /** Abort silent model connections (no headers within firstByteMs, no data for idleMs) and retry. */
+  streamTimeouts: { firstByteMs: number; idleMs: number };
+  /** USD per million tokens by `provider/model` (prefix* allowed); merged over the built-in table. */
+  pricing?: Record<string, ModelPrice>;
   /** Chat bots run inside the gateway (sun serve). Allowlists are platform user ids; empty = nobody. */
   bots: BotsConfig;
 }
@@ -201,6 +208,7 @@ export function defaultConfig(): SunConfig {
     triggers: [],
     voice: structuredClone(DEFAULT_VOICE),
     lsp: structuredClone(DEFAULT_LSP),
+    streamTimeouts: { firstByteMs: 90_000, idleMs: 120_000 },
     bots: {
       defaultMode: 'assistant',
       approvals: 'chat',
@@ -337,4 +345,16 @@ export function createProviderFactory(cfg: SunConfig): ProviderFactory {
     }
     return { provider, model };
   };
+}
+
+const VISION_NAME = /vl\b|vl-|vision|gpt-4o|gpt-4\.1|gpt-5|o3|o4|claude|gemini|llava|pixtral|glm-4(\.\d+)?v|kimi-vl|minicpm-v/i;
+
+/** Whether a model ref accepts image input (provider `vision` setting, else a name heuristic). */
+export function supportsVision(cfg: SunConfig, ref: string): boolean {
+  const { provider, model } = parseModelRef(ref);
+  const v = cfg.providers[provider]?.vision;
+  if (v === true) return true;
+  if (v === false) return false;
+  if (Array.isArray(v)) return v.includes(model);
+  return VISION_NAME.test(model);
 }

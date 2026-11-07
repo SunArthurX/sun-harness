@@ -1,6 +1,6 @@
 import type { ChatMessage, ToolCall } from '../types.js';
 import { readSse } from './sse.js';
-import { classifyHttpError, ProviderError, toProviderError, wireArguments, type ModelRequest, type ModelResponse, type Provider } from './types.js';
+import { streamWatchdog, classifyHttpError, ProviderError, toProviderError, wireArguments, type ModelRequest, type ModelResponse, type Provider } from './types.js';
 
 export interface OpenAICompatOptions {
   id: string;
@@ -33,6 +33,8 @@ export class OpenAICompatProvider implements Provider {
         out.push(msg);
       } else if (m.role === 'tool') {
         out.push({ role: 'tool', tool_call_id: m.toolCallId, content: m.content });
+      } else if (m.role === 'user' && m.images?.length) {
+        out.push({ role: 'user', content: [{ type: 'text', text: m.content }, ...m.images.map((i) => ({ type: 'image_url', image_url: { url: `data:${i.mime};base64,${i.data}` } }))] });
       } else {
         out.push({ role: m.role, content: m.content });
       }
@@ -62,6 +64,7 @@ export class OpenAICompatProvider implements Provider {
     if (req.maxTokens) body.max_tokens = req.maxTokens;
     if (req.temperature !== undefined) body.temperature = req.temperature;
 
+    const wd = streamWatchdog(req.signal, req.timeouts);
     let res: Response;
     try {
       res = await fetch(`${this.opts.baseUrl.replace(/\/$/, '')}/chat/completions`, {
@@ -72,15 +75,18 @@ export class OpenAICompatProvider implements Provider {
           ...this.opts.headers,
         },
         body: JSON.stringify(body),
-        signal: req.signal,
+        signal: wd.signal,
       });
     } catch (e) {
-      throw toProviderError(e, req.signal);
+      wd.stop();
+      throw wd.stallError() ?? toProviderError(e, req.signal);
     }
     if (!res.ok || !res.body) {
+      wd.stop();
       const text = await res.text().catch(() => '');
       throw classifyHttpError(res.status, text, res.headers.get('retry-after'));
     }
+    wd.kick();
 
     let text = '';
     let reasoning = '';
@@ -88,7 +94,7 @@ export class OpenAICompatProvider implements Provider {
     let usage: ModelResponse['usage'];
     const calls = new Map<number, ToolCall>();
     try {
-      for await (const { data } of readSse(res.body)) {
+      for await (const { data } of readSse(res.body, () => wd.kick())) {
         if (data === '[DONE]') break;
         let chunk: any;
         try {
@@ -125,7 +131,9 @@ export class OpenAICompatProvider implements Provider {
         if (choice.finish_reason) finishReason = choice.finish_reason;
       }
     } catch (e) {
-      throw toProviderError(e, req.signal);
+      throw wd.stallError() ?? toProviderError(e, req.signal);
+    } finally {
+      wd.stop();
     }
     const toolCalls = [...calls.entries()]
       .sort((a, b) => a[0] - b[0])

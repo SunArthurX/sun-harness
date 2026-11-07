@@ -8,6 +8,9 @@ sun resume <sessionId> [--model provider/model] [--chat]
 sun undo <sessionId> [--steps n]                         revert the last edit steps (checkpoints)
 sun sandbox status | test                                which shell sandbox is used; self-test
 sun browser status | login [url] [--profile name] | stop  agent browser; sign in to a profile
+sun export <session> [--format markdown|html|jsonl] [-o file] | sun import <file.jsonl>
+sun search <text> | sun commands
+sun run "<prompt>" --output stream-json [--image shot.png]
 sun memory list | search <q> | add <text> [--kind k] | rm <id> | extract <session>
 sun briefing run | show [date] | enable [--at 08:30] | disable
 sun trigger list | fire <id> [payload]
@@ -53,6 +56,11 @@ In an interactive terminal, approvals prompt `[y]es / [n]o / [a]lways`. Anything
 |---|---|
 | `/model [ref]` | list ready models, or switch this session |
 | `/mode <id>` | switch mode (`coding`, `plan`, `agent`, `assistant`) |
+| `/compact` | summarize older history now |
+| `/cost` (`/status`) | tokens, cache share and estimated cost per model |
+| `/rewind [n] [files]` | list your messages, or start a new session from before message n (`files`: also undo file edits) |
+| `/export [md\|html\|jsonl] [file]` | save the transcript |
+| `/<custom>` | run a custom command ([Everyday](everyday.md#custom-slash-commands)) |
 | `/voice [seconds]` | record from the microphone, transcribe, and send |
 | `/undo [n]` | revert the last n edit steps (default 1); see [Coding](coding.md#undo) |
 | `/resume [model]` | resume a paused session, optionally on another model |

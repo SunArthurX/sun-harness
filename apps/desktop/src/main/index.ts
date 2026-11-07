@@ -88,8 +88,10 @@ function createWindow(): void {
 }
 
 app.whenReady().then(async () => {
-  // The renderer may use the microphone (voice input); every other permission request is refused.
-  session.defaultSession.setPermissionRequestHandler((_wc, permission, cb, details) => cb(permission === 'media' && (details as { mediaTypes?: string[] }).mediaTypes?.every((t) => t === 'audio') !== false));
+  // The renderer may use the microphone (voice input) and show notifications; every other permission is refused.
+  session.defaultSession.setPermissionRequestHandler((_wc, permission, cb, details) =>
+    cb(permission === 'notifications' || (permission === 'media' && (details as { mediaTypes?: string[] }).mediaTypes?.every((t) => t === 'audio') !== false)),
+  );
   await connect();
   createWindow();
   app.on('activate', () => BrowserWindow.getAllWindows().length === 0 && createWindow());

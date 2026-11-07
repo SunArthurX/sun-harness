@@ -133,6 +133,15 @@ Derived from a first-principles comparison with Codex / Claude Code (coding), Ma
 - [x] Daily briefing (file, desktop, bot chats); file-watch and webhook triggers; voice input (DashScope ASR / Whisper) and read-aloud
 - [x] Conversation efficiency metrics (`sun metrics`, desktop) (`specs/024`, teach 22)
 
+## 0.5.0 — UX absorbed from competitors `[x]`
+- [x] Custom slash commands (`.sun/commands`, `~/.sun/commands`, compat `.claude/commands`) in CLI, desktop, bots
+- [x] @file / @folder / @image mentions with desktop completion
+- [x] Inline diffs on edit tool results; cost tracking with a pricing table (`/cost`, session bar, status line)
+- [x] Rewind (fork from any user message, optional file restore); export Markdown/HTML/JSONL, import JSONL
+- [x] Desktop OS notifications, ⌘K command palette, full-text session search
+- [x] `/compact`, CLI status line, `sun run --output stream-json`; image input (paste, drop, attach, `--image`) with vision gating
+- [x] Stream watchdog for silent provider connections (`specs/025`, teach 23)
+
 ## Iteration backlog (research loop)
 
 Filled from intel reports (`~/.sun/evolution/proposals`); each item becomes a spec before code.
@@ -145,7 +154,6 @@ Filled from intel reports (`~/.sun/evolution/proposals`); each item becomes a sp
 | DingTalk Stream / Feishu long-connection modes (no public URL); Slack native adapter | Hermes Agent | Architecture |
 | Desktop attaches to remote gateways (pinned), device management UI | — | Desktop |
 | Developer ID signing + notarization; auto-update | — | Desktop |
-| Session export/import and sharing | Codex, Claude Code | Log |
 | Learned router (from metrics) instead of keyword heuristics | — | Model |
 | Browser: multi-tab, file upload/download, Playwright via connectOverCDP | Manus | Tools |
 | DingTalk event stream (`dws event`) as a trigger kind | — | Architecture |

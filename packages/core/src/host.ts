@@ -1,7 +1,7 @@
 import { localDate } from './util/date.js';
-import { existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
-import { dirname, join, relative } from 'node:path';
+import { dirname, extname, join, relative } from 'node:path';
 import { FileState } from './tools/edit.js';
 import { detectVerifyCommands } from './verify.js';
 import { buildRepoMap } from './repomap.js';
@@ -18,11 +18,15 @@ import { TriggerWatchers, renderTrigger } from './assistant/triggers.js';
 import { transcribe } from './assistant/voice.js';
 import { conversationMetrics, type ModeMetrics } from './assistant/metrics.js';
 import { disposeLspClients } from './lsp.js';
+import { expandCommand, loadCommands, type CustomCommand } from './ux/commands.js';
+import { completePaths, expandMentions, imageMime } from './ux/mentions.js';
+import { DEFAULT_PRICING, sessionCost, type CostReport, type ModelPrice } from './ux/pricing.js';
+import { sessionToHtml, sessionToMarkdown } from './ux/export.js';
 import { createSandbox, secretEnvNames, startAllowlistProxy, type ExecSandbox, type SandboxMode } from './sandbox.js';
 import { JobManager, restorableJobIds, type JobResult } from './jobs.js';
 import { createWorktree, mergeWorktree, removeWorktree, worktreeDiff, worktreeStatus, type WorktreeInfo, type WorktreeStatus } from './worktree.js';
 import { Agent, type AgentHooks, type ApprovalRequest, type RunResult } from './agent.js';
-import { availableModels, compactionLimit, contextWindowOf, createProviderFactory, isProviderReady, loadConfig, parseModelRef, providerKey, saveConfig, type ApprovalMode, type ProviderFactory, type SunConfig } from './config.js';
+import { availableModels, compactionLimit, contextWindowOf, createProviderFactory, isProviderReady, loadConfig, parseModelRef, providerKey, saveConfig, supportsVision, type ApprovalMode, type ProviderFactory, type SunConfig } from './config.js';
 import { createShellHooks } from './hooks.js';
 import { HttpKnowledgeProvider } from './kb/company.js';
 import { LocalMarkdownKB } from './kb/local.js';
@@ -41,7 +45,7 @@ import { discoverSkills, loadSkillBody, skillDirs, type Skill } from './skills.j
 import { BUILTIN_TOOLS } from './tools/builtin.js';
 import { SERVICE_TOOLS } from './tools/services.js';
 import type { Tool, ToolServices } from './tools/types.js';
-import type { ApprovalDecision, LiveEvent, PendingApproval, SessionEvent, SessionSummary, TodoItem } from './types.js';
+import type { ApprovalDecision, LiveEvent, PendingApproval, SessionEvent, SessionEventBody, SessionSummary, TodoItem } from './types.js';
 import { analyzeIntelDay, listIntelReports, loadIntelState, runIntel, type IntelRunResult } from './intel.js';
 import { reflectSession, type Proposal } from './evolution.js';
 
@@ -92,7 +96,7 @@ export class HarnessHost {
   private pluginListeners: ((sessionId: string, e: SessionEvent) => void)[] = [];
   private listeners = new Set<(e: LiveEvent) => void>();
   private runs = new Map<string, { controller: AbortController; promise: Promise<RunResult> }>();
-  private queued = new Map<string, { text: string; source: 'user' | 'schedule' | 'system' | 'job' | 'verify' | 'trigger' }[]>();
+  private queued = new Map<string, Parameters<SessionLog['append']>[0][]>();
   private approvals = new Map<string, { pending: PendingApproval; resolve: (d: ApprovalDecision) => void }>();
   private mcp = new Map<string, McpManager>();
   private personalKb: LocalMarkdownKB;
@@ -268,13 +272,14 @@ export class HarnessHost {
   }
 
   /** Send a user message. If a run is active, the message is queued and delivered when it ends. */
-  async send(id: string, text: string, source: 'user' | 'schedule' | 'system' | 'job' | 'verify' | 'trigger' = 'user'): Promise<void> {
-    if (this.runs.has(id)) {
-      this.queued.set(id, [...(this.queued.get(id) ?? []), { text, source }]);
-      return;
-    }
+  async send(id: string, text: string, source: 'user' | 'schedule' | 'system' | 'job' | 'verify' | 'trigger' = 'user', opts: { images?: { data: string; mime: string }[] } = {}): Promise<void> {
     const log = SessionLog.open(id);
     if (!log.meta()) throw new Error(`No session ${id}`);
+    const body = this.prepareUserMessage(log, text, source, opts.images ?? []);
+    if (this.runs.has(id)) {
+      this.queued.set(id, [...(this.queued.get(id) ?? []), body]);
+      return;
+    }
     const closed = log.last('worktree/closed');
     if (closed) throw new Error(`This session's worktree was ${closed.action}; start a new session to continue.`);
     if (!log.all().some((e) => e.type === 'user/message') && this.opts.shellHooks !== false) {
@@ -282,12 +287,157 @@ export class HarnessHost {
       if (ctx) this.append(log, { type: 'user/message', text: `[sessionStart hook context]\n${ctx}`, source: 'hook' });
     }
     if (source === 'user') this.recallMemories(log, text);
-    this.append(log, { type: 'user/message', text, source });
+    this.append(log, body);
     if (log.meta()!.title === 'New session' && !log.last('session/title')) {
       const t = text.replace(/\s+/g, ' ').trim();
       this.append(log, { type: 'session/title', title: t.length > 60 ? t.slice(0, 57) + '...' : t || 'Untitled' });
     }
     this.startRun(id);
+  }
+
+  /**
+   * Turn what the user typed into the logged message: a custom /command expands to its prompt (and may switch mode or
+   * model), @mentions attach files, and images are copied into ~/.sun/attachments so the log stays reconstructable.
+   */
+  private prepareUserMessage(log: SessionLog, text: string, source: NonNullable<Extract<SessionEvent, { type: 'user/message' }>['source']>, images: { data: string; mime: string }[]): Extract<SessionEventBody, { type: 'user/message' }> {
+    if (source !== 'user') return { type: 'user/message', text, source };
+    const cwd = log.meta()!.cwd;
+    let body = text;
+    let command: { name: string; input: string } | undefined;
+    const cmd = text.trim().startsWith('/') ? expandCommand(text, loadCommands(cwd)) : undefined;
+    if (cmd) {
+      body = cmd.prompt;
+      command = { name: cmd.command.name, input: text };
+      if (cmd.command.mode && this.modes.has(cmd.command.mode) && cmd.command.mode !== log.currentMode()) this.append(log, { type: 'mode/switch', from: log.currentMode(), to: cmd.command.mode });
+      if (cmd.command.model && cmd.command.model !== log.currentModel()) this.append(log, { type: 'model/switch', from: log.currentModel(), to: cmd.command.model, reason: `/${cmd.command.name}` });
+    }
+    const m = expandMentions(body, cwd);
+    const dir = ensureDir(homePath('attachments', log.id));
+    let n = readdirSync(dir).length;
+    const stored: { path: string; mime: string }[] = [];
+    for (const f of m.images) {
+      const p = join(dir, `${++n}${extname(f).toLowerCase()}`);
+      copyFileSync(f, p);
+      stored.push({ path: p, mime: imageMime(f)! });
+    }
+    for (const i of images) {
+      const ext = i.mime.split('/')[1]?.replace('jpeg', 'jpg') ?? 'png';
+      const p = join(dir, `${++n}.${ext}`);
+      writeFileSync(p, Buffer.from(i.data, 'base64'));
+      stored.push({ path: p, mime: i.mime });
+    }
+    return { type: 'user/message', text: m.text, source, ...(stored.length ? { images: stored } : {}), ...(command ? { command } : {}) };
+  }
+
+  /** Base64 of an image attachment (only files under ~/.sun/attachments), for thumbnails in the UI. */
+  readAttachment(path: string): { data: string; mime: string } {
+    const root = realpathSync(ensureDir(homePath('attachments')));
+    const abs = realpathSync(path);
+    if (!abs.startsWith(root + '/')) throw new Error('Not an attachment.');
+    return { data: readFileSync(abs).toString('base64'), mime: imageMime(abs) ?? 'application/octet-stream' };
+  }
+
+  listCommands(cwd?: string): CustomCommand[] {
+    return loadCommands(cwd ?? process.cwd());
+  }
+
+  completePaths(cwd: string, query: string): string[] {
+    return completePaths(cwd, query);
+  }
+
+  /** Estimated cost from logged usage and the pricing table (config.pricing overrides the defaults). */
+  cost(sessionId: string): CostReport {
+    return sessionCost(SessionLog.open(sessionId).all(), { ...DEFAULT_PRICING, ...(this.config.pricing ?? {}) });
+  }
+
+  /** /compact: summarize older history now. */
+  async compact(sessionId: string): Promise<boolean> {
+    if (this.runs.has(sessionId)) throw new Error('Wait for the run to finish (or stop it) before compacting.');
+    const agent = await this.buildAgent(SessionLog.open(sessionId), new AbortController());
+    return agent.compactNow(new AbortController().signal);
+  }
+
+  /**
+   * Rewind: a new session with the conversation before the user message at `beforeSeq` (the log is append-only, so the
+   * original stays intact). With restoreFiles, file edits made from that message on are undone first.
+   */
+  fork(sessionId: string, opts: { beforeSeq: number; restoreFiles?: boolean }): { session: SessionSummary; text: string } {
+    if (this.runs.has(sessionId)) throw new Error('Stop the run before rewinding.');
+    const src = SessionLog.open(sessionId);
+    const meta = src.meta();
+    if (!meta) throw new Error(`No session ${sessionId}`);
+    const target = src.all().find((e) => e.seq === opts.beforeSeq);
+    if (!target || target.type !== 'user/message') throw new Error('Rewind needs the position of a user message.');
+    if (opts.restoreFiles) {
+      const later = this.listCheckpoints(sessionId).filter((c) => !c.undone && (src.all().find((e) => e.type === 'checkpoint' && e.id === c.id)?.seq ?? -1) > opts.beforeSeq);
+      if (later.length) this.undo(sessionId, { to: later[0].id });
+    }
+    const before = src.all().filter((e) => e.seq < opts.beforeSeq);
+    const at = (type: 'mode/switch' | 'model/switch') => [...before].reverse().find((e) => e.type === type) as { to: string } | undefined;
+    const title = ([...before].reverse().find((e) => e.type === 'session/title') as { title: string } | undefined)?.title ?? meta.title;
+    const log = SessionLog.create({ title: `${title} (rewound)`, mode: at('mode/switch')?.to ?? meta.mode, cwd: meta.cwd, model: at('model/switch')?.to ?? meta.model, approval: meta.approval, sandbox: meta.sandbox, forkOf: { session: sessionId, seq: opts.beforeSeq } });
+    for (const e of before) {
+      if (e.type === 'session/meta' || e.type === 'run/status' || e.type === 'session/title') continue;
+      const { seq: _s, ...body } = e;
+      log.append(body as SessionEventBody);
+      if (e.type === 'checkpoint') {
+        const f = homePath('checkpoints', sessionId, `${e.id}.json`);
+        if (existsSync(f)) {
+          ensureDir(homePath('checkpoints', log.id));
+          copyFileSync(f, homePath('checkpoints', log.id, `${e.id}.json`));
+        }
+      }
+    }
+    this.broadcastSessions();
+    return { session: log.summary()!, text: target.command?.input ?? target.text };
+  }
+
+  exportSession(sessionId: string, format: 'markdown' | 'html' | 'jsonl' = 'markdown'): string {
+    const log = SessionLog.open(sessionId);
+    if (!log.meta()) throw new Error(`No session ${sessionId}`);
+    if (format === 'jsonl') return readFileSync(log.file, 'utf8');
+    return format === 'html' ? sessionToHtml(log.all()) : sessionToMarkdown(log.all());
+  }
+
+  /** Import a session exported as JSONL (new id; events and timestamps kept). */
+  importSession(jsonl: string): SessionSummary {
+    const events = jsonl
+      .split('\n')
+      .filter((l) => l.trim())
+      .map((l) => JSON.parse(l) as SessionEvent);
+    const meta = events.find((e) => e.type === 'session/meta') as Extract<SessionEvent, { type: 'session/meta' }> | undefined;
+    if (!meta) throw new Error('Not a sun-harness session export (no session/meta line).');
+    const log = SessionLog.create({ title: meta.title, mode: meta.mode, cwd: existsSync(meta.cwd) ? meta.cwd : this.defaultCwd(meta.mode), model: meta.model, approval: meta.approval });
+    for (const e of events) {
+      if (e.type === 'session/meta') continue;
+      const { seq: _s, ...body } = e;
+      log.append(body as SessionEventBody);
+    }
+    this.broadcastSessions();
+    return log.summary()!;
+  }
+
+  /** Full-text search over session titles and messages. */
+  searchSessions(query: string, limit = 30): { id: string; title: string; mode: string; updatedAt: string; snippet: string }[] {
+    const q = query.trim().toLowerCase();
+    if (!q) return [];
+    const out: { id: string; title: string; mode: string; updatedAt: string; snippet: string; rank: number }[] = [];
+    for (const s of this.listSessions()) {
+      if (s.title.toLowerCase().includes(q)) {
+        out.push({ id: s.id, title: s.title, mode: s.mode, updatedAt: s.updatedAt, snippet: s.title, rank: 0 });
+        continue;
+      }
+      for (const e of SessionLog.open(s.id).all()) {
+        const text = e.type === 'user/message' || e.type === 'assistant/message' ? e.text : '';
+        const i = text.toLowerCase().indexOf(q);
+        if (i >= 0) {
+          out.push({ id: s.id, title: s.title, mode: s.mode, updatedAt: s.updatedAt, snippet: `${i > 40 ? '…' : ''}${text.slice(Math.max(0, i - 40), i + q.length + 60).replace(/\s+/g, ' ')}…`, rank: 1 });
+          break;
+        }
+      }
+      if (out.length >= limit * 2) break;
+    }
+    return out.sort((a, b) => a.rank - b.rank).slice(0, limit).map(({ rank: _r, ...x }) => x);
   }
 
   /** Resume a paused/errored/aborted session, optionally on another model (quota recovery path). */
@@ -328,12 +478,36 @@ export class HarnessHost {
     const controller = new AbortController();
     if (parentSignal) parentSignal.addEventListener('abort', () => controller.abort(), { once: true });
     const promise = (async () => {
-      const log = SessionLog.open(id);
+      const agent = await this.buildAgent(SessionLog.open(id), controller);
+      return agent.run(controller.signal);
+    })();
+    this.runs.set(id, { controller, promise });
+    this.broadcastSessions();
+    promise
+      .then((r) => {
+        if (r?.status === 'idle') this.extractMemories(id).catch(() => undefined);
+      })
+      .catch(() => undefined)
+      .finally(() => {
+        this.runs.delete(id);
+        const q = this.queued.get(id);
+        if (q?.length) {
+          this.queued.delete(id);
+          const log = SessionLog.open(id);
+          for (const b of q) this.append(log, b);
+          this.startRun(id);
+        } else this.broadcastSessions();
+      });
+    return promise;
+  }
+
+  private async buildAgent(log: SessionLog, controller: AbortController): Promise<Agent> {
+      const id = log.id;
       const cwd = log.meta()!.cwd;
       await this.ensureProxy();
       const tools = await this.toolsFor(log);
       const hooks: AgentHooks | undefined = this.opts.shellHooks === false ? undefined : createShellHooks(cwd);
-      const agent = new Agent({
+      return new Agent({
         log,
         config: this.config,
         resolveModel: (ref) => this.factory(ref),
@@ -341,6 +515,7 @@ export class HarnessHost {
         systemPrompt: (modelRef) => this.systemPrompt(log, modelRef),
         approvalMode: () => log.meta()?.approval ?? this.config.approval,
         routeModel: (ref) => (ref === 'auto' ? this.routeAuto(log) : ref),
+        vision: (ref) => supportsVision(this.config, ref),
         policy: () => {
           const taints = log.all().filter((e): e is Extract<SessionEvent, { type: 'context/taint' }> => e.type === 'context/taint');
           return {
@@ -359,26 +534,6 @@ export class HarnessHost {
         hooks,
         onLive: (e) => this.broadcast(e),
       });
-      return agent.run(controller.signal);
-    })();
-    this.runs.set(id, { controller, promise });
-    this.broadcastSessions();
-    promise
-      .then((r) => {
-        if (r?.status === 'idle') this.extractMemories(id).catch(() => undefined);
-      })
-      .catch(() => undefined)
-      .finally(() => {
-        this.runs.delete(id);
-        const q = this.queued.get(id);
-        if (q?.length) {
-          this.queued.delete(id);
-          const log = SessionLog.open(id);
-          for (const t of q) this.append(log, { type: 'user/message', text: t.text, source: t.source });
-          this.startRun(id);
-        } else this.broadcastSessions();
-      });
-    return promise;
   }
 
   private modeAllows(modeId: string, t: Tool, isChild: boolean): boolean {

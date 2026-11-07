@@ -22,6 +22,9 @@
 | `taint` | `{enabled: true, untrusted: []}` | prompt-injection guard; extra untrusted tool globs |
 | `maxParallelTools` | `6` | concurrent tool calls per step (read-only tools, subagents) |
 | `browser` | `{mode: "local", headless: true, profile: "default", chromePath?, cdpUrl?, docker: {image: "sun-harness/browser:latest"}, viewport: {width: 1280, height: 800}}` | agent browser ([Browser](browser.md)); `mode`: local, docker, cdp |
+| `pricing` | built-in table | `{"provider/model": {input, cached?, output}}` in USD per million tokens; `prefix*` keys allowed |
+| `streamTimeouts` | `{firstByteMs: 90000, idleMs: 120000}` | abandon and retry silent model connections |
+| `providers.<id>.vision` | name heuristic | `true` or a model list: which models receive images |
 | `lsp` | `{enabled: true, timeoutMs: 8000, servers: {typescript, python, go, rust}}` | language servers for diagnostics after edits ([Coding](coding.md#how-edits-work)) |
 | `sandbox` | `{mode: "auto", network: "on", allow: [...], writable: [], denyRead: [...], scrubEnv: true, autoApprove: false, docker: {image: "node:22-bookworm-slim"}}` | shell sandbox ([Shell sandbox](sandbox.md)); `mode`: auto, seatbelt, bwrap, docker, off; `network`: on, off, allowlist |
 | `rules` | `{globalMaxChars: 12000, projectMaxChars: 40000}` | separate prompt budgets for global and project rules |

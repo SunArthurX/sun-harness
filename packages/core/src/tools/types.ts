@@ -33,6 +33,8 @@ export interface ToolContext {
   sessionId: string;
   signal: AbortSignal;
   services: ToolServices;
+  /** Per-call output for humans only (logged on tool/result, never sent to the model). */
+  display?: { diff?: string };
 }
 
 export interface Tool {
