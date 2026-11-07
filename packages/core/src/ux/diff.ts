@@ -1,7 +1,9 @@
 /** Unified diff of two texts (line LCS; context 3), for showing edits to humans. */
 export function unifiedDiff(before: string, after: string, path: string, context = 3): string {
-  const a = before === '' ? [] : before.split('\n');
-  const b = after === '' ? [] : after.split('\n');
+  // A final newline ends the last line; it is not an extra empty line.
+  const lines = (s: string) => (s === '' ? [] : (s.endsWith('\n') ? s.slice(0, -1) : s).split('\n'));
+  const a = lines(before);
+  const b = lines(after);
   // Trim the common prefix/suffix first: edits are usually small, LCS stays cheap.
   let start = 0;
   while (start < a.length && start < b.length && a[start] === b[start]) start++;

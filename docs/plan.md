@@ -146,6 +146,11 @@ Derived from a first-principles comparison with Codex / Claude Code (coding), Ma
 - [x] Per-conversation context usage: report (system sections, tools, messages by kind, attachments, images, provider usage, suggestions), desktop ring + panel + sidebar percent, `sun context`, `/context` (CLI, bots), HTML export
 - [x] Steering messages mid-run; model-written titles; Esc / ↑ / ⌘N shortcuts; pin and archive (`specs/026`, teach 24)
 
+## 0.7.0 — Automations and changed files `[x]`
+- [x] Competitor analysis (ChatGPT Tasks, Cursor Automations, Manus, Zapier/n8n; Cursor, Codex, Claude Code, Cline, GitHub review) in `specs/027`
+- [x] Natural-language schedules (EN + ZH), proposal flow on every surface, automations with history, catch-up, notifications; ⏲ Automations menu; `sun automations`; bot `/automations`
+- [x] Changed files per turn and per session (A/M/D, diffs, full file, tree), per-file revert; CLI `/changes` `/diff` `/revert`, `sun changes`; bot summaries (teach 25)
+
 ## Iteration backlog (research loop)
 
 Filled from intel reports (`~/.sun/evolution/proposals`); each item becomes a spec before code.

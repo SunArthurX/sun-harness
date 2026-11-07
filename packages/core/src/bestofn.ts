@@ -53,7 +53,7 @@ export async function runBestOfN(host: HarnessHost, o: BestOfNOptions): Promise<
   const timer = o.timeoutMs ? setTimeout(abortAll, o.timeoutMs) : undefined;
   const candidates = await Promise.all(
     sessions.map(async (s, k): Promise<Candidate> => {
-      await host.send(s.id, o.prompt);
+      await host.send(s.id, o.prompt, 'user', { noDetect: true });
       await host.wait(s.id);
       const log = SessionLog.open(s.id);
       const cwd = log.meta()!.cwd;

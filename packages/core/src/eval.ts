@@ -167,7 +167,7 @@ async function runTask(o: RunEvalOptions, task: EvalTask): Promise<EvalResult> {
     };
   }
   const s = host.createSession({ cwd: dir, mode: 'coding', model: o.model, approval: 'full-auto', title: `[eval] ${task.id}` });
-  await host.send(s.id, task.prompt);
+  await host.send(s.id, task.prompt, 'user', { noDetect: true });
   const deadline = Date.now() + (o.timeoutMs ?? 10 * 60_000);
   let timedOut = false;
   while (host.isRunning(s.id) || host.listJobs(s.id).some((j) => j.state === 'running')) {

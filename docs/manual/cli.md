@@ -11,6 +11,8 @@ sun browser status | login [url] [--profile name] | stop  agent browser; sign in
 sun export <session> [--format markdown|html|jsonl] [-o file] | sun import <file.jsonl>
 sun search <text> | sun commands
 sun context <session> [--json | --format html -o report.html]   what fills the context
+sun changes <session> [--diff | --json]                         files the session changed
+sun automations [list] | add "<when>" "<prompt>" | preview <when> | run | pause | resume | edit | rm | history <id>
 sun pin | unpin | archive | unarchive <session>   ·   sun sessions [--all]
 sun run "<prompt>" --output stream-json [--image shot.png]
 sun memory list | search <q> | add <text> [--kind k] | rm <id> | extract <session>
@@ -58,6 +60,8 @@ In an interactive terminal, approvals prompt `[y]es / [n]o / [a]lways`. Anything
 |---|---|
 | `/model [ref]` | list ready models, or switch this session |
 | `/mode <id>` | switch mode (`coding`, `plan`, `agent`, `assistant`) |
+| `/changes [all]` | files changed in the last turn (or the whole session) |
+| `/diff [path]` · `/revert <path>` | show a diff · restore a file to before the session |
 | `/context` | what fills the context: categories, largest items, suggestions |
 | `/compact` | summarize older history now |
 | `/cost` (`/status`) | tokens, cache share and estimated cost per model |

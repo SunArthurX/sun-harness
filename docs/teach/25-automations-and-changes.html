@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" /><meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>25 · Automations and changes — sun-harness</title>
+<link rel="stylesheet" href="teach.css" />
+<script type="module">import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs'; mermaid.initialize({ startOnLoad: true, theme: 'neutral' });</script>
+</head>
+<body>
+<header class="top"><div class="wrap"><a class="brand" href="index.html">sun<em>harness</em> · teach</a><nav><a href="index.html">All pages</a></nav></div></header>
+<main class="wrap">
+<p class="muted">Release 0.7.0 · spec <code>specs/027-automations-and-changes.md</code></p>
+<h1>25 · Work that <em>runs itself</em>, changes you can <em>see</em></h1>
+<p class="lede">Two habits users bring from other tools: ChatGPT Tasks taught them to just say "every morning…", and Cursor, Codex and GitHub taught them to look at "N files changed" before trusting an agent. This release adds both, starting from an analysis of what each competitor does well.</p>
+
+<h2>What the competitors teach</h2>
+<table>
+<tr><th>Need</th><th>Best seen in</th><th>Lesson taken</th></tr>
+<tr><td>Create a schedule</td><td>ChatGPT Tasks</td><td>plain language in the chat, confirmed by the user, never silently</td></tr>
+<tr><td>Manage schedules</td><td>Cursor Automations, Manus</td><td>one menu, run history, each run is a session you can open</td></tr>
+<tr><td>Reliability</td><td>Zapier, n8n</td><td>missed runs and failures are first-class; notify on completion</td></tr>
+<tr><td>Headless runs</td><td>Claude Code <code>-p</code>, Codex exec</td><td>a run needs no human; approvals must fail closed</td></tr>
+<tr><td>Turn summary</td><td>Codex, Cursor</td><td>"N files changed +a −d" right after the answer</td></tr>
+<tr><td>Review</td><td>GitHub PRs, Cursor</td><td>file tree + diff, per-file revert</td></tr>
+</table>
+
+<h2>From a sentence to an automation</h2>
+<div class="mermaid">
+flowchart TD
+  M["typed message: 每个工作日早上9点帮我总结…"] --> P{"parseSchedule: recurrence or verb + time?"}
+  P -->|no| RUN[normal answer]
+  P -->|yes| LOG["log the message + automation/proposal (no run)"]
+  LOG --> CARD["card: title, editable time, next 3 runs"]
+  CARD -->|Create| A[(automation)]
+  CARD -->|Create and run now| A
+  CARD -->|Just answer now| RUN
+  A --> ACK["assistant message from the harness: Scheduled …"]
+  A --> TICK["background tick each minute"]
+  TICK -->|due or missed| S["new session [automation] title"]
+  S --> REC["runs[]: running → idle / paused / error"]
+  REC --> N["desktop notification · bot chats"]
+</div>
+<div class="qa"><p class="q">How do you avoid turning ordinary prompts into schedules?</p><p class="a">With rules, tested on purpose with sentences that must not match. A recurrence ("every weekday", "每周一", "every 30 minutes") is an intent by itself; a one-shot time ("tomorrow at 3pm", "2小时后") only counts with a scheduling verb (remind, run, check, 提醒, 执行…). The negative list found two real bugs: "every <em>mon</em>th" matched the weekday "mon" (day names now need a word boundary, monthly is checked first), and "fix the <em>daily</em> report generator bug" became a 9:00 schedule (bare "daily", "hourly", "monthly" now count only at the start or end of a message). And nothing is created without a click: a proposal is a question, not an action.</p></div>
+<div class="qa"><p class="q">The message was logged but never answered. Isn't the conversation broken for the model?</p><p class="a">It would be. When the user creates the automation, the harness appends an assistant message of its own (<code>model: "harness"</code>): "Scheduled 'summarize my mail' — every weekday at 09:00 …". The model's next request therefore sees a question and its answer, and the log stays the single truth.</p></div>
+
+<figure><img src="img/auto-proposal.png" alt="Schedule this? card"/><figcaption>A Chinese request in a live session: “every weekday at 09:00”, the next three runs, and the three choices.</figcaption></figure>
+<figure><img src="img/auto-form.png" alt="Automations page with the new-automation form"/><figcaption>The ⏲ Automations menu: the form understands “每隔30分钟” as <code>*/30 * * * *</code> and shows the next runs; below, the automation created from the chat.</figcaption></figure>
+
+<h2>Missed runs</h2>
+<p>A laptop is closed at 9:00 more often than a server is down. On each tick the scheduler also asks, for cron automations: did a scheduled minute pass since the last run, within 24 hours? If so it runs once, marked as a catch-up (the prompt says so, the history shows it). The test simulates a Friday 10:15 run missed until noon.</p>
+
+<h2>What did this turn change?</h2>
+<div class="mermaid">
+flowchart LR
+  CP["checkpoints (before-snapshots) in seq range"] --> B["first snapshot per file = before"]
+  NX["next snapshot after the range, else the file on disk"] --> AF[after]
+  B --> D{"before vs after"}
+  AF --> D
+  D -->|null → text| ADD[added]
+  D -->|text → null| DEL[deleted]
+  D -->|text → other text| MOD[modified + unified diff]
+  D -->|equal| SKIP[omitted]
+</div>
+<p>Checkpoints already existed for undo (page 18); they are exactly the "before" pictures a review needs. A turn is the range from the message that started it to the run status that ended it, so the card for an older turn still shows what <em>that</em> turn did, even after later turns edited the same file again (the "after" is the next snapshot, not today's file). A revert is itself checkpointed, which makes it undoable, and the agent is told to re-read the file.</p>
+<figure><img src="img/changes-turn.png" alt="Turn changes card with an expanded diff"/><figcaption>A live deepseek-chat turn: 4 files changed +22 −1; src/util/math.js expanded with Diff / File, Open, Copy path, Revert.</figcaption></figure>
+<figure><img src="img/changes-view.png" alt="Session review with a file tree"/><figcaption>▤ Changes: the session review, tree on the left (A/M with +/−), diff with both line numbers on the right.</figcaption></figure>
+<div class="qa"><p class="q">Why did a new one-line file show "+2"?</p><p class="a">The diff split <code>"b\n"</code> into two lines, <code>"b"</code> and an empty one. A final newline ends the last line; it is not a line of its own. The fix lives in <code>unifiedDiff</code>, so tool cards, exports, CLI and the review all count the same.</p></div>
+
+<h2>Everywhere, not just the desktop</h2>
+<table>
+<tr><th>Surface</th><th>Automations</th><th>Changes</th></tr>
+<tr><td>Desktop / web</td><td>proposal card, ⏲ menu, notifications</td><td>turn card, ▤ Changes review</td></tr>
+<tr><td>CLI</td><td><code>y/b/n</code> prompt, <code>sun automations …</code></td><td>summary after each turn and <code>sun run</code>, <code>/changes</code>, <code>/diff</code>, <code>/revert</code>, <code>sun changes</code></td></tr>
+<tr><td>Chat bots</td><td><code>/yes /both /no</code>, <code>/automations</code>, results to configured chats</td><td>"📝 N files changed" after a turn</td></tr>
+</table>
+
+<h2>Verified</h2>
+<table>
+<tr><th>Check</th><th>Result</th></tr>
+<tr><td>10 English/Chinese recurring phrases, one-shot rules, 5 sentences that must not schedule</td><td>pass</td></tr>
+<tr><td>next runs, missed-run detection, descriptions</td><td>pass</td></tr>
+<tr><td>proposal: no run, create with harness acknowledgement, double answer refused; "run" answers normally; <code>noDetect</code></td><td>pass</td></tr>
+<tr><td>create / preview / pause / edit / run / history / catch-up / delete</td><td>pass</td></tr>
+<tr><td>changes per session and per turn (A/M/D, counts, diffs), revert (undoable, model told), workspace-only file reader</td><td>pass</td></tr>
+<tr><td>live: Chinese proposal, Create & run now, Automations page, 4-file coding turn on deepseek-chat (screenshots above)</td><td>pass</td></tr>
+</table>
+<p class="lesson">Let people say what they want in their own words, but make the machine show what it understood before it acts; and after it acts, show exactly what changed and how to take it back.</p>
+
+<div class="nav"><a href="24-context-usage.html">← 24 · Context usage</a><a href="index.html">All pages →</a></div>
+</main>
+</body>
+</html>

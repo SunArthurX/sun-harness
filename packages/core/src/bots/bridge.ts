@@ -36,6 +36,7 @@ const HELP = `sun-harness bot
 /approve [always] · /deny — answer a pending approval
 /compact — summarize older history · /cost — tokens and estimated cost · /context — what fills the context
 /commands — custom commands (from .sun/commands, ~/.sun/commands)
+/automations — scheduled automations · /yes /both /no — answer a scheduling proposal
 /id — show your user id`;
 
 function chunks(text: string, max: number): string[] {
@@ -188,6 +189,22 @@ export class BotBridge {
         if (!sid) return this.say(chatId, 'No session yet.');
         return this.say(chatId, formatContextReport(await this.host.contextUsage(sid), false));
       }
+      case '/yes':
+      case '/both':
+      case '/no': {
+        if (!sid) return this.say(chatId, 'No session yet.');
+        const events = this.host.getEvents(sid);
+        const resolved = new Set(events.filter((x) => x.type === 'automation/resolved').map((x) => (x as { proposalId: string }).proposalId));
+        const p = [...events].reverse().find((x) => x.type === 'automation/proposal' && !resolved.has(x.proposalId)) as { proposalId: string } | undefined;
+        if (!p) return this.say(chatId, 'Nothing is waiting for a scheduling decision.');
+        const action = cmd === '/no' ? 'run' : cmd === '/both' ? 'both' : 'create';
+        this.host.resolveProposal(sid, p.proposalId, action);
+        return action === 'run' ? undefined : this.say(chatId, 'Automation created. /automations lists them.');
+      }
+      case '/automations': {
+        const list = this.host.listAutomations();
+        return this.say(chatId, list.map((a) => `${a.enabled ? '●' : '○'} ${a.id} ${a.title} — ${a.description}${a.nextRun ? ` · next ${new Date(a.nextRun).toLocaleString()}` : ''}${a.lastStatus ? ` · last ${a.lastStatus}` : ''}`).join('\n') || 'No automations. Say e.g. “every weekday at 9 summarize my mail”.');
+      }
       case '/commands': {
         const list = this.host.listCommands(this.opts.cwd);
         return this.say(chatId, list.map((x) => `/${x.name}${x.argumentHint ? ` ${x.argumentHint}` : ''} — ${x.description}`).join('\n') || 'No custom commands.');
@@ -214,11 +231,29 @@ export class BotBridge {
       }
       return;
     }
+    if (e.kind === 'automation') {
+      if (e.status === 'running') return;
+      for (const target of e.chats ?? []) {
+        const [platform, ...id] = target.split(':');
+        if (platform === this.transport.platform) await this.say(id.join(':'), `⏲ ${e.title} (${e.status})\n\n${e.text?.trim() || '(no answer)'}`);
+      }
+      return;
+    }
     if (e.kind !== 'event') return;
     const chatId = this.chatOf(e.sessionId);
     if (!chatId) return;
     const ev = e.event;
+    if (ev.type === 'automation/proposal') {
+      await this.say(chatId, `⏲ Schedule this? “${ev.title}” — ${ev.description}.\nReply /yes to create the automation, /both to create it and answer now, or /no to just answer now.`);
+      return;
+    }
     if (ev.type === 'assistant/message' && ev.text.trim()) await this.say(chatId, ev.text.trim());
+    else if (ev.type === 'run/status' && ev.status === 'idle') {
+      const events = this.host.getEvents(e.sessionId);
+      const start = [...events].reverse().find((x) => x.type === 'user/message' && (!x.source || x.source === 'user'));
+      const changes = start ? this.host.sessionChanges(e.sessionId, { fromSeq: start.seq }) : [];
+      if (changes.length) await this.say(chatId, `📝 ${changes.length} file${changes.length > 1 ? 's' : ''} changed\n${changes.map((c) => `${c.status === 'added' ? 'A' : c.status === 'deleted' ? 'D' : 'M'} ${c.path} (+${c.additions} −${c.deletions})`).join('\n')}`);
+    }
     else if (ev.type === 'run/status' && (ev.status === 'paused' || ev.status === 'error')) {
       await this.say(chatId, `${ev.status === 'paused' ? '⏸ Paused' : '✗ Error'} (${ev.reason ?? ''}). ${ev.status === 'paused' ? 'Send /resume when ready, or /resume <provider/model>.' : (ev.detail ?? '').slice(0, 300)}`);
     }

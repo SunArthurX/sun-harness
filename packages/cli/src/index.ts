@@ -49,6 +49,8 @@ import {
   type LiveEvent,
   type PendingApproval,
   type SandboxMode,
+  type Automation,
+  type FileChange,
   formatContextReport,
   formatUsd,
   imageMime,
@@ -88,6 +90,8 @@ Usage:
   sun browser status | login [url] [--profile name] | stop   Agent browser (CDP); login opens the profile visibly so you can sign in
   sun export <sessionId> [--format markdown|html|jsonl] [-o file] | sun import <file.jsonl> | sun search <text> | sun commands
   sun context <sessionId> [--format html -o report.html]   What fills the session's context (and how to shrink it)
+  sun changes <sessionId> [--diff | --json]   Files the session changed (A/M/D, +/−); diffs
+  sun automations list | add "<when>" "<prompt>" | preview <when> | run <id> | pause | resume | edit <id> [--schedule --prompt --title] | rm | history <id>
   sun pin | unpin | archive | unarchive <sessionId>        Organize sessions (sun sessions --all shows archived)
   sun run "<prompt>" --output stream-json [--image shot.png]   JSON lines for scripts; attach images
   sun memory list | search <query> | add <text> [--kind preference] | rm <id> | extract <sessionId>   Long-term memory
@@ -117,7 +121,7 @@ Usage:
 
 Session commands (chat, run, resume, sessions) use --remote <name>, else the default remote, else a local gateway; --local runs in-process.
 
-Chat commands: /model <ref>  /mode <id> (coding|plan|agent|assistant)  /undo [n]  /rewind [n] [files]  /context  /compact  /cost  /export [md|html|jsonl] [file]  /voice [seconds]  /<custom>  /resume  /abort  /reflect  /sessions  /help  /exit
+Chat commands: /model <ref>  /mode <id> (coding|plan|agent|assistant)  /undo [n]  /rewind [n] [files]  /changes [all]  /diff [path]  /revert <path>  /context  /compact  /cost  /export [md|html|jsonl] [file]  /voice [seconds]  /<custom>  /resume  /abort  /reflect  /sessions  /help  /exit
 Home: ${sunHome()}`;
 
 function printEvent(e: LiveEvent, sessionId: string, state: { streamed: boolean; reasoning: boolean }): void {
@@ -229,6 +233,7 @@ function wireApprovals(host: SessionHost, rl?: ReturnType<typeof createInterface
 
 async function chat(host: SessionHost, initialSession: string): Promise<void> {
   let sessionId = initialSession;
+  let pendingProposal: string | undefined;
   const rl = createInterface({ input: process.stdin, output: process.stdout });
   const state = { streamed: false, reasoning: false };
   host.subscribe((e) => printEvent(e, sessionId, state));
@@ -292,6 +297,21 @@ async function chat(host: SessionHost, initialSession: string): Promise<void> {
         console.log(c.dim('Accept with: sun evolve accept <id>'));
       } else if (cmd === 'compact') {
         console.log((await host.compact(sessionId)) ? 'Compacted older history into a summary.' : c.dim('Nothing to compact yet.'));
+      } else if (cmd === 'changes') {
+        const ev = await host.getEvents(sessionId);
+        const lastUser = [...ev].reverse().find((e) => e.type === 'user/message' && (!e.source || e.source === 'user'));
+        printChanges(await host.sessionChanges(sessionId, arg === 'all' || !lastUser ? {} : { fromSeq: lastUser.seq }), arg === 'all' ? 'this session' : 'the last turn');
+      } else if (cmd === 'diff') {
+        const changes = await host.sessionChanges(sessionId);
+        const pick = arg ? changes.filter((x) => x.path === arg || x.path.endsWith(`/${arg}`)) : changes;
+        if (!pick.length) console.log(arg ? `No changes to ${arg}.` : 'No changes in this session.');
+        for (const ch of pick) console.log(colorDiff(ch.diff || `(${ch.status}${ch.binary ? ', binary' : ''})`));
+      } else if (cmd === 'revert') {
+        if (!arg) console.log('Usage: /revert <path>');
+        else {
+          await host.revertFile(sessionId, arg);
+          console.log(`Reverted ${arg} to its state before this session (/undo brings the edit back).`);
+        }
       } else if (cmd === 'context') {
         console.log(formatContextReport(await host.contextUsage(sessionId)));
       } else if (cmd === 'cost' || cmd === 'status') {
@@ -322,9 +342,31 @@ async function chat(host: SessionHost, initialSession: string): Promise<void> {
       prompt();
       continue;
     }
+    if (pendingProposal) {
+      const answer = line.toLowerCase();
+      const action = /^(y|yes|是|好)/.test(answer) ? 'create' : /^(b|both)/.test(answer) ? 'both' : 'run';
+      const r = await host.resolveProposal(sessionId, pendingProposal, action);
+      pendingProposal = undefined;
+      if (r.automation) console.log(c.green(`Automation ${r.automation.id} created: ${r.automation.title} — ${r.automation.description}`));
+      if (action !== 'create') {
+        await host.wait(sessionId);
+        await turnSummary(host, sessionId);
+      }
+      prompt();
+      continue;
+    }
     await host.send(sessionId, line);
     await host.wait(sessionId);
-    await statusLine(host, sessionId);
+    const evs = await host.getEvents(sessionId);
+    const lastUserSeq = [...evs].reverse().find((e) => e.type === 'user/message')?.seq ?? -1;
+    const lastEv = evs.find((e) => e.type === 'automation/proposal' && e.seq > lastUserSeq) as Extract<LiveEventSession, { type: 'automation/proposal' }> | undefined;
+    if (lastEv) {
+      pendingProposal = lastEv.proposalId;
+      console.log(`${c.yellow('⏲ Schedule this?')} “${lastEv.title}” — ${lastEv.description}\n${c.dim('[y] create the automation · [b] create and also answer now · [n] just answer now')}`);
+      prompt();
+      continue;
+    }
+    await turnSummary(host, sessionId);
     prompt();
   }
   await host.wait(sessionId);
@@ -384,6 +426,33 @@ async function statusLine(host: SessionHost, sessionId: string, verbose = false)
   const parts = [s?.model, s?.mode, `${((input + output) / 1000).toFixed(1)}k tok`, input ? `${Math.round((cached / input) * 100)}% cached` : '', cost.byModel.length ? `${formatUsd(cost.usd)}${cost.unpriced.length ? '+' : ''}` : ''].filter(Boolean);
   console.log(c.dim(parts.join(' · ')));
   if (verbose) for (const m of cost.byModel) console.log(c.dim(`  ${m.model}: ${m.input} in (${m.cached} cached) / ${m.output} out${m.usd !== undefined ? ` · ${formatUsd(m.usd)}` : ' · no price (add "pricing" in config)'}`));
+}
+
+function colorDiff(d: string): string {
+  return d
+    .split('\n')
+    .map((l) => (l.startsWith('+') && !l.startsWith('+++') ? c.green(l) : l.startsWith('-') && !l.startsWith('---') ? c.red(l) : l.startsWith('@@') ? c.cyan(l) : l))
+    .join('\n');
+}
+
+function printChanges(changes: FileChange[], scope: string): void {
+  if (!changes.length) return void console.log(c.dim(`No file changes in ${scope}.`));
+  const add = changes.reduce((n, x) => n + x.additions, 0);
+  const del = changes.reduce((n, x) => n + x.deletions, 0);
+  console.log(`${c.bold(`${changes.length} file${changes.length > 1 ? 's' : ''} changed`)} in ${scope} ${c.green(`+${add}`)} ${c.red(`−${del}`)}`);
+  for (const x of changes) console.log(`  ${x.status === 'added' ? c.green('A') : x.status === 'deleted' ? c.red('D') : c.yellow('M')} ${x.path}  ${c.dim(x.binary ? 'binary' : `+${x.additions} −${x.deletions}`)}`);
+  console.log(c.dim('  /diff [path] shows the diff · /revert <path> restores a file · /changes all for the whole session'));
+}
+
+/** After each turn: the status line, and the files this turn changed (Codex/Cursor-style summary). */
+async function turnSummary(host: SessionHost, sessionId: string): Promise<void> {
+  const ev = await host.getEvents(sessionId);
+  const lastUser = [...ev].reverse().find((e) => e.type === 'user/message' && (!e.source || e.source === 'user'));
+  if (lastUser) {
+    const changes = await host.sessionChanges(sessionId, { fromSeq: lastUser.seq });
+    if (changes.length) printChanges(changes, 'this turn');
+  }
+  await statusLine(host, sessionId);
 }
 
 async function listSessions(host: SessionHost, all = false): Promise<void> {
@@ -649,7 +718,7 @@ async function sessionCommands(
       wireApprovals(host);
       await host.ready?.();
       const images = (values.image ?? []).map((f) => ({ data: readFileSync(f).toString('base64'), mime: imageMime(f) ?? 'image/png' }));
-      await host.send(s.id, prompt, 'user', { images });
+      await host.send(s.id, prompt, 'user', { images, noDetect: true });
       let r = await host.wait(s.id);
       // Background jobs deliver their results as new turns; stay until they and those turns finish.
       while ((await host.listJobs(s.id)).some((j) => j.state === 'running') || (await host.isRunning(s.id))) {
@@ -660,7 +729,11 @@ async function sessionCommands(
       const cost = await host.cost(s.id);
       if (stream) console.log(JSON.stringify({ type: 'result', sessionId: s.id, status: r?.status, reason: r?.reason, text: last?.text ?? '', costUsd: cost.usd }));
       else if (values.json) console.log(JSON.stringify({ sessionId: s.id, status: r?.status, reason: r?.reason, text: last?.text ?? '', costUsd: cost.usd }, null, 2));
-      else console.log(c.dim(`\nsession ${s.id} · ${r?.status}${r?.reason ? ` (${r.reason})` : ''}`));
+      else {
+        const changes = await host.sessionChanges(s.id);
+        if (changes.length) printChanges(changes, 'this run');
+        console.log(c.dim(`\nsession ${s.id} · ${r?.status}${r?.reason ? ` (${r.reason})` : ''}`));
+      }
       process.exitCode = r?.status === 'idle' ? 0 : r?.status === 'paused' ? 3 : 1;
       break;
     }
@@ -721,6 +794,10 @@ async function main(): Promise<void> {
       concurrency: { type: 'string' },
       token: { type: 'string' },
       'best-of': { type: 'string' },
+      diff: { type: 'boolean' },
+      schedule: { type: 'string' },
+      prompt: { type: 'string' },
+      title: { type: 'string' },
       all: { type: 'boolean' },
       kind: { type: 'string' },
       output: { type: 'string', short: 'o' },
@@ -874,6 +951,51 @@ async function main(): Promise<void> {
         spawnSync('docker', ['rm', '-f', `sun-browser-${cfg.profile.replace(/[^\w.-]/g, '_')}`], { stdio: 'ignore' });
         console.log('Stopped the browser container (if any). Local Chrome stops with the sun process that started it.');
       } else throw new Error(`Unknown browser command ${sub}`);
+      break;
+    }
+    case 'changes': {
+      const id = args[0] ?? host.listSessions()[0]?.id;
+      if (!id) throw new Error('Usage: sun changes <sessionId> [--diff]');
+      const changes = host.sessionChanges(id);
+      if (values.json) console.log(JSON.stringify(changes, null, 2));
+      else {
+        printChanges(changes, `session ${id}`);
+        if (values.diff) for (const ch of changes) console.log('\n' + colorDiff(ch.diff || `(${ch.status}${ch.binary ? ', binary' : ''}) ${ch.path}`));
+      }
+      break;
+    }
+    case 'automations':
+    case 'automation': {
+      const sub = args[0] ?? 'list';
+      const fmt = (a: Automation) => `${a.enabled ? c.green('●') : c.dim('○')} ${a.id}  ${a.title.slice(0, 40).padEnd(40)} ${c.dim(`${a.description}${a.nextRun ? ` · next ${new Date(a.nextRun).toLocaleString()}` : ''}${a.lastStatus ? ` · last ${a.lastStatus}` : ''} · ${a.mode}`)}`;
+      if (sub === 'list') {
+        const list = host.listAutomations();
+        for (const a of list) console.log(fmt(a));
+        if (!list.length) console.log(c.dim('No automations. sun automations add "every weekday at 9" "summarize my unread mail", or just say it in a chat.'));
+      } else if (sub === 'add') {
+        const [schedule, ...p] = args.slice(1);
+        if (!schedule || !p.length) throw new Error('Usage: sun automations add "<when>" "<prompt>" [--mode m] [--model m] [--cwd dir]');
+        console.log(fmt(host.createAutomation({ schedule, prompt: p.join(' '), mode: values.mode, model: values.model, cwd: values.cwd ? cwd : undefined })));
+      } else if (sub === 'preview') {
+        const p = host.previewSchedule(args.slice(1).join(' '));
+        console.log(p ? `${p.cron ?? p.at} · ${p.description}\nnext: ${p.next.map((d) => new Date(d).toLocaleString()).join(' · ')}` : 'Not understood.');
+      } else if (sub === 'run') {
+        const sid = await host.runAutomation(args[1] ?? '');
+        console.log(c.dim(`Running in session ${sid}…`));
+        await host.wait(sid);
+        console.log(([...host.getEvents(sid)].reverse().find((e) => e.type === 'assistant/message') as { text?: string } | undefined)?.text ?? '');
+      } else if (sub === 'pause' || sub === 'resume') console.log(fmt(host.updateAutomation(args[1] ?? '', { enabled: sub === 'resume' })));
+      else if (sub === 'edit') {
+        console.log(fmt(host.updateAutomation(args[1] ?? '', { ...(values.schedule ? { schedule: values.schedule } : {}), ...(values.prompt ? { prompt: values.prompt } : {}), ...(values.title ? { title: values.title } : {}), ...(values.mode ? { mode: values.mode } : {}), ...(values.model ? { model: values.model } : {}) })));
+      } else if (sub === 'rm' || sub === 'delete') {
+        host.deleteAutomation(args[1] ?? '');
+        console.log('Deleted.');
+      } else if (sub === 'history') {
+        const a = host.listAutomations().find((x) => x.id === args[1]);
+        if (!a) throw new Error(`No automation ${args[1]}`);
+        for (const r of a.runs ?? []) console.log(`${new Date(r.at).toLocaleString()}  ${r.status ?? ''}${r.catchUp ? ' (catch-up)' : ''}  ${c.dim(r.sessionId)}`);
+        if (!a.runs?.length) console.log(c.dim('No runs yet.'));
+      } else throw new Error(`Unknown automations command ${sub}`);
       break;
     }
     case 'context': {

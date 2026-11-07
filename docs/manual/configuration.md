@@ -23,6 +23,7 @@
 | `maxParallelTools` | `6` | concurrent tool calls per step (read-only tools, subagents) |
 | `browser` | `{mode: "local", headless: true, profile: "default", chromePath?, cdpUrl?, docker: {image: "sun-harness/browser:latest"}, viewport: {width: 1280, height: 800}}` | agent browser ([Browser](browser.md)); `mode`: local, docker, cdp |
 | `pricing` | built-in table | `{"provider/model": {input, cached?, output}}` in USD per million tokens; `prefix*` keys allowed |
+| `automations` | `{detect: true}` | turn scheduling phrases in typed messages into proposals ([Automations](automations.md)) |
 | `steering` | `immediate` | messages sent during a run reach the model at the next step (`after-run`: when the run ends) |
 | `titles` | `model` | session titles written by the model after the first run (`first-message`: the first message) |
 | `streamTimeouts` | `{firstByteMs: 90000, idleMs: 120000}` | abandon and retry silent model connections |

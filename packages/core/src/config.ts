@@ -106,6 +106,8 @@ export interface SunConfig {
   steering: 'immediate' | 'after-run';
   /** Session titles: written by the (background) model after the first run, or the first message. */
   titles: 'model' | 'first-message';
+  /** Scheduling intent in typed messages ("every weekday at 9 …") becomes a proposal to confirm. */
+  automations: { detect: boolean };
   /** USD per million tokens by `provider/model` (prefix* allowed); merged over the built-in table. */
   pricing?: Record<string, ModelPrice>;
   /** Chat bots run inside the gateway (sun serve). Allowlists are platform user ids; empty = nobody. */
@@ -215,6 +217,7 @@ export function defaultConfig(): SunConfig {
     streamTimeouts: { firstByteMs: 90_000, idleMs: 120_000 },
     steering: 'immediate',
     titles: 'model',
+    automations: { detect: true },
     bots: {
       defaultMode: 'assistant',
       approvals: 'chat',

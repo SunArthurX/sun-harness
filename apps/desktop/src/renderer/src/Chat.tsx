@@ -6,6 +6,7 @@ import { Markdown } from './markdown';
 import { BrowserPanel } from './Browser';
 import { Composer } from './Composer';
 import { ContextPanel, ContextRing } from './Context';
+import { ChangesView, TurnChanges } from './Changes';
 
 type ResultEvent = Extract<SessionEvent, { type: 'tool/result' }>;
 
@@ -57,6 +58,65 @@ function DiffView({ diff, compact }: { diff: string; compact?: boolean }) {
         ))}
         {compact && lines.filter((l) => /^[+-]/.test(l)).length > 8 ? '…\n' : ''}
       </pre>
+    </div>
+  );
+}
+
+/** ChatGPT Tasks-style confirmation: the schedule found in the message, editable before creating. */
+function ProposalCard({ sessionId, p, resolved }: { sessionId: string; p: Extract<SessionEvent, { type: 'automation/proposal' }>; resolved?: Extract<SessionEvent, { type: 'automation/resolved' }> }) {
+  const [schedule, setSchedule] = useState(p.description);
+  const [title, setTitle] = useState(p.title);
+  const [preview, setPreview] = useState<{ description: string; next: string[] } | null>(null);
+  const [err, setErr] = useState('');
+  useEffect(() => {
+    const t = setTimeout(() => api.previewSchedule(schedule).then((r) => setPreview(r), () => setPreview(null)), 250);
+    return () => clearTimeout(t);
+  }, [schedule]);
+  if (resolved)
+    return (
+      <div className="divider">
+        {resolved.action === 'run' ? 'answered now (not scheduled)' : `⏲ automation created${resolved.action === 'both' ? ' and answered now' : ''}`}
+      </div>
+    );
+  const act = async (action: 'create' | 'run' | 'both') => {
+    try {
+      await api.resolveProposal(sessionId, p.proposalId, action, action === 'run' ? undefined : { title, schedule: schedule !== p.description ? schedule : undefined });
+    } catch (e) {
+      setErr(String((e as Error).message ?? e).replace(/^Error invoking remote method 'sun:call': (Error: )?/, ''));
+    }
+  };
+  return (
+    <div className="proposal">
+      <div className="approval-head">
+        <span className="risk">⏲ automation</span>
+        <strong>Schedule this?</strong>
+      </div>
+      <label className="small">
+        Title
+        <input value={title} onChange={(e) => setTitle(e.target.value)} />
+      </label>
+      <label className="small">
+        When (plain language or cron)
+        <input value={schedule} onChange={(e) => setSchedule(e.target.value)} />
+      </label>
+      <p className="muted small">
+        {preview ? `${preview.description} · next: ${preview.next.slice(0, 3).map((d) => new Date(d).toLocaleString()).join(' · ')}` : 'Not understood yet — try “every weekday at 9:00”, “每天晚上8点”, “tomorrow at 15:00”.'}
+      </p>
+      <p className="small">
+        Prompt: <span className="mono">{p.prompt}</span>
+      </p>
+      <div className="approval-actions">
+        <button className="btn-primary" disabled={!preview} onClick={() => void act('create')}>
+          Create automation
+        </button>
+        <button className="btn-ghost" disabled={!preview} onClick={() => void act('both')}>
+          Create & run now
+        </button>
+        <button className="btn-ghost" onClick={() => void act('run')}>
+          Just answer now
+        </button>
+      </div>
+      {err && <p className="small err-text">{err}</p>}
     </div>
   );
 }
@@ -295,35 +355,6 @@ function Todos({ items }: { items: TodoItem[] }) {
   );
 }
 
-/** Deliverables: files the session created or changed, newest first. */
-function FilesPanel({ sessionId, version, onClose }: { sessionId: string; version: number; onClose: () => void }) {
-  const [files, setFiles] = useState<Awaited<ReturnType<typeof api.deliverables>>>([]);
-  useEffect(() => {
-    api.deliverables(sessionId).then(setFiles, () => setFiles([]));
-  }, [sessionId, version]);
-  const size = (n: number) => (n > 1e6 ? `${(n / 1e6).toFixed(1)} MB` : n > 1e3 ? `${(n / 1e3).toFixed(1)} kB` : `${n} B`);
-  return (
-    <div className="changes files-panel">
-      <div className="row-between">
-        <strong>Files from this session</strong>
-        <button className="btn-ghost small" onClick={onClose}>
-          ✕
-        </button>
-      </div>
-      {!files.length && <p className="muted small">No files yet.</p>}
-      {files.map((f) => (
-        <div key={f.abs} className="file-row">
-          <span className={`tag ${f.created ? 'ok' : ''}`}>{f.created ? 'new' : 'changed'}</span>
-          <button className="linklike mono small" title={f.abs} onClick={() => api.openPath(f.abs)}>
-            {f.path}
-          </button>
-          <span className="muted small">{size(f.size)}</span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
 /** Read a reply with the OS voices (Markdown stripped, long replies cut). */
 function speakText(md: string): void {
   const text = md
@@ -410,6 +441,24 @@ export function Chat({
   const [showBrowser, setShowBrowser] = useState(false);
   const [showFiles, setShowFiles] = useState(false);
   const [showContext, setShowContext] = useState(false);
+  /** run/status seq → seq of the message that started the turn, for turns that edited files. */
+  const turnStarts = useMemo(() => {
+    const m = new Map<number, number>();
+    let start: number | undefined;
+    let edited = false;
+    for (const e of events) {
+      if (e.type === 'user/message' && e.source !== 'memory' && e.source !== 'hook' && e.source !== 'verify') {
+        if (start === undefined || !edited) start = e.seq;
+      } else if (e.type === 'checkpoint') edited = true;
+      else if (e.type === 'run/status' && ['idle', 'aborted', 'paused', 'error'].includes(e.status) && start !== undefined) {
+        if (edited) m.set(e.seq, start);
+        start = undefined;
+        edited = false;
+      }
+    }
+    return m;
+  }, [events]);
+  const resolvedProposals = useMemo(() => new Map(events.filter((e) => e.type === 'automation/resolved').map((e) => [(e as { proposalId: string }).proposalId, e as Extract<SessionEvent, { type: 'automation/resolved' }>])), [events]);
   const lastMessage = useMemo(() => {
     const u = [...events].reverse().find((e) => e.type === 'user/message' && (!e.source || e.source === 'user')) as Extract<SessionEvent, { type: 'user/message' }> | undefined;
     return u ? (u.command?.input ?? u.text.replace(/\n\n<attached (file|dir)="[^"]*">[\s\S]*?<\/attached>/g, '')) : undefined;
@@ -597,7 +646,7 @@ export function Chat({
         )}
         {undoable > 0 && (
           <button className={`chip ${showFiles ? 'on' : ''}`} title="Files this session created or changed" onClick={() => setShowFiles(!showFiles)}>
-            ▤ Files
+            ▤ Changes
           </button>
         )}
         {usesBrowser && (
@@ -634,7 +683,7 @@ export function Chat({
           {showContext && <ContextPanel sessionId={summary.id} version={events.length} onClose={() => setShowContext(false)} onCompacted={flash} />}
           {showChanges && summary.worktree && <ChangesPanel s={summary} onClose={() => setShowChanges(false)} />}
           {showBrowser && <BrowserPanel sessionId={summary.id} onClose={() => setShowBrowser(false)} />}
-          {showFiles && <FilesPanel sessionId={summary.id} version={events.length} onClose={() => setShowFiles(false)} />}
+          {showFiles && <ChangesView sessionId={summary.id} version={events.length} running={running} onClose={() => setShowFiles(false)} />}
         </div>
       )}
 
@@ -746,6 +795,20 @@ export function Chat({
               return (
                 <div key={e.seq} className="divider">
                   {e.on ? 'you took over the browser' : 'browser handed back to the agent'}
+                </div>
+              );
+            case 'run/status': {
+              const from = turnStarts.get(e.seq);
+              return from !== undefined ? <TurnChanges key={e.seq} sessionId={summary.id} fromSeq={from} toSeq={e.seq} running={running} /> : null;
+            }
+            case 'automation/proposal':
+              return <ProposalCard key={e.seq} sessionId={summary.id} p={e} resolved={resolvedProposals.get(e.proposalId)} />;
+            case 'automation/resolved':
+              return null;
+            case 'file/revert':
+              return (
+                <div key={e.seq} className="divider">
+                  reverted {e.path}
                 </div>
               );
             case 'checkpoint/undo':

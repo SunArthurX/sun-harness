@@ -96,6 +96,11 @@ export type SessionEventBody =
   | { type: 'verify/result'; passed: boolean; results: { command: string; code: number | null; output: string }[] }
   | { type: 'checkpoint/undo'; id: string; restored: string[] }
   | { type: 'browser/takeover'; on: boolean }
+  /** A scheduling intent found in a typed message: the message waits until the user decides. */
+  | { type: 'automation/proposal'; proposalId: string; title: string; prompt: string; cron?: string; at?: string; description: string }
+  | { type: 'automation/resolved'; proposalId: string; action: 'create' | 'run' | 'both'; automationId?: string }
+  /** The user restored a file to its state before a range of the session (the model is told with a message). */
+  | { type: 'file/revert'; path: string; fromSeq?: number }
   /** Organization only (not model-visible). */
   | { type: 'session/flags'; pinned?: boolean; archived?: boolean }
 
@@ -161,5 +166,7 @@ export type LiveEvent =
   | { kind: 'approvals'; approvals: PendingApproval[] }
   | { kind: 'notice'; level: 'info' | 'warn' | 'error'; text: string }
   | { kind: 'briefing'; date: string; path: string; text: string }
+  /** An automation run started or finished. */
+  | { kind: 'automation'; id: string; title: string; sessionId: string; status: string; text?: string; chats?: string[] }
   /** Live view of a session's browser tab (JPEG frames, only while a client watches). */
   | { kind: 'browser'; sessionId: string; frame?: string; width?: number; height?: number; url?: string; title?: string; takeover: boolean };

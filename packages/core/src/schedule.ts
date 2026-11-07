@@ -15,6 +15,18 @@ export interface ScheduledTask {
   enabled: boolean;
   lastRun?: string;
   createdAt: string;
+  /** Model for the runs (default: the configured default model). */
+  model?: string;
+  /** Bot chats ("platform:chatId") that receive each run's answer. */
+  chats?: string[];
+  /** Run once after waking up if a scheduled time was missed in the last 24 hours (default true). */
+  catchUp?: boolean;
+  /** Session the automation was created from. */
+  source?: string;
+  /** The natural-language schedule it was created from. */
+  schedule?: string;
+  /** Recent runs, newest first (at most 20). */
+  runs?: { at: string; sessionId: string; status?: string; reason?: string; catchUp?: boolean }[];
 }
 
 function file(): string {
@@ -42,6 +54,28 @@ export function addSchedule(t: Omit<ScheduledTask, 'id' | 'createdAt' | 'enabled
   const task: ScheduledTask = { ...t, id: randomUUID().slice(0, 8), enabled: t.enabled ?? true, createdAt: new Date().toISOString() };
   saveSchedules([...listSchedules(), task]);
   return task;
+}
+
+export function updateSchedule(id: string, patch: Partial<Omit<ScheduledTask, 'id' | 'createdAt'>>): ScheduledTask {
+  const tasks = listSchedules();
+  const t = tasks.find((x) => x.id === id);
+  if (!t) throw new Error(`No automation ${id}`);
+  if (patch.cron) parseCron(patch.cron);
+  if (patch.at && Number.isNaN(Date.parse(patch.at))) throw new Error(`Invalid time: ${patch.at}`);
+  Object.assign(t, patch);
+  if (patch.cron) delete t.at;
+  if (patch.at) delete t.cron;
+  saveSchedules(tasks);
+  return t;
+}
+
+export function recordRun(id: string, run: NonNullable<ScheduledTask['runs']>[number]): void {
+  const tasks = listSchedules();
+  const t = tasks.find((x) => x.id === id);
+  if (!t) return;
+  const runs = (t.runs ?? []).filter((r) => r.sessionId !== run.sessionId);
+  t.runs = [run, ...runs].slice(0, 20);
+  saveSchedules(tasks);
 }
 
 export function removeSchedule(id: string): void {
@@ -72,6 +106,18 @@ export function parseCron(expr: string): (d: Date) => boolean {
   const [mi, h, dom, mon, dow] = [field(parts[0], 0, 59), field(parts[1], 0, 23), field(parts[2], 1, 31), field(parts[3], 1, 12), field(parts[4], 0, 7)];
   if (dow.has(7)) dow.add(0);
   return (d) => mi.has(d.getMinutes()) && h.has(d.getHours()) && dom.has(d.getDate()) && mon.has(d.getMonth() + 1) && dow.has(d.getDay());
+}
+
+/** Cron tasks whose scheduled minute passed while nothing was running (machine asleep, app closed): run once. */
+export function missedTasks(tasks: ScheduledTask[], now = new Date(), check: (cron: string, after: Date, before: Date) => Date | undefined): ScheduledTask[] {
+  const minute = new Date(now);
+  minute.setSeconds(0, 0);
+  return tasks.filter((t) => {
+    if (!t.enabled || !t.cron || t.catchUp === false) return false;
+    const after = new Date(t.lastRun ?? t.createdAt);
+    const before = new Date(minute.getTime() - 60_000);
+    return before > after && !!check(t.cron, after, before);
+  });
 }
 
 /** Tasks due at `now`, given each task's lastRun (minute granularity, catches up one-shot tasks that were missed). */

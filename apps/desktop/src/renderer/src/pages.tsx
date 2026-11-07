@@ -1,4 +1,4 @@
-import type { KnowledgeHit, McpServerState, PluginState, Proposal, ScheduledTask, Skill, SunConfig } from '@sun/core';
+import type { Automation, KnowledgeHit, McpServerState, PluginState, Proposal, ScheduledTask, Skill, SunConfig } from '@sun/core';
 import { useEffect, useState, type ReactNode } from 'react';
 import { api } from './api';
 import { Markdown } from './markdown';
@@ -230,18 +230,7 @@ export function ExtensionsPage({ cwd }: { cwd?: string }) {
           </section>
           <section className="card">
             <h3>Schedules</h3>
-            {schedules?.length === 0 && <p className="muted small">Ask the assistant to "remind me…" or "every weekday at 9…" to create one.</p>}
-            {schedules?.map((t: ScheduledTask) => (
-              <div key={t.id} className="item row-between">
-                <div>
-                  <strong>{t.title}</strong> <span className="muted small mono">{t.cron ?? t.at}</span>
-                  {!t.enabled && <span className="muted small"> (done)</span>}
-                </div>
-                <button className="btn-ghost small" onClick={() => api.removeSchedule(t.id).then(reloadSchedules)}>
-                  Remove
-                </button>
-              </div>
-            ))}
+            <p className="muted small">Scheduled prompts are now Automations: open ⏲ in the left rail (or say “every weekday at 9 …” in any chat).</p>
           </section>
         </div>
       </div>
@@ -631,5 +620,196 @@ export function SettingsPage() {
         </div>
       </div>
     </PageShell>
+  );
+}
+
+// ---------------- Automations ----------------
+
+const STATUS_DOT: Record<string, string> = { idle: 'dot-idle', running: 'dot-running', paused: 'dot-paused', error: 'dot-error', aborted: 'dot-paused' };
+
+/** Cursor Automations / ChatGPT Tasks-style list with a natural-language editor. */
+export function AutomationsPage({ onOpenSession }: { onOpenSession: (id: string) => void }) {
+  const [list, reload] = useAsync(() => api.listAutomations());
+  const [editing, setEditing] = useState<string | 'new' | undefined>();
+  const [history, setHistory] = useState<string>();
+  const [msg, setMsg] = useState('');
+  useEffect(
+    () =>
+      window.sun.onLive((e) => {
+        if (e.kind === 'automation') reload();
+      }),
+    [],
+  );
+  const say = (t: string) => {
+    setMsg(t);
+    setTimeout(() => setMsg(''), 4000);
+  };
+  return (
+    <PageShell
+      eyebrow="Automations"
+      title={<>Things that run <em>on their own</em></>}
+      intro="Prompts that run on a schedule in their own session, while the gateway or this app is running. Missed runs (laptop asleep) catch up once. Say “every weekday at 9 summarize my unread mail” in any chat, or create one here."
+      actions={
+        <button className="btn-primary" onClick={() => setEditing('new')}>
+          + New automation
+        </button>
+      }
+    >
+      {msg && <p className="notice small">{msg}</p>}
+      {editing === 'new' && <AutomationForm onDone={(t) => (setEditing(undefined), reload(), t && say(t))} />}
+      {list?.length === 0 && editing !== 'new' && <p className="muted">No automations yet.</p>}
+      <div className="automations">
+        {list?.map((a) => (
+          <section key={a.id} className={`card automation ${a.enabled ? '' : 'off'}`}>
+            {editing === a.id ? (
+              <AutomationForm initial={a} onDone={(t) => (setEditing(undefined), reload(), t && say(t))} />
+            ) : (
+              <>
+                <div className="row-between">
+                  <div>
+                    <strong>{a.title}</strong>
+                    <p className="muted small">
+                      {a.description} · {a.mode}
+                      {a.model ? ` · ${a.model}` : ''}
+                      {a.nextRun ? ` · next ${new Date(a.nextRun).toLocaleString()}` : a.enabled ? '' : ' · paused'}
+                    </p>
+                  </div>
+                  <label className="row small" title={a.enabled ? 'Pause' : 'Resume'}>
+                    <input type="checkbox" checked={a.enabled} onChange={(e) => void api.updateAutomation(a.id, { enabled: e.target.checked }).then(reload)} />
+                    {a.enabled ? 'On' : 'Off'}
+                  </label>
+                </div>
+                <p className="small automation-prompt">{a.prompt}</p>
+                <div className="row">
+                  <button className="btn-ghost small" onClick={() => void api.runAutomation(a.id).then((sid) => (say('Started.'), reload(), onOpenSession(sid)))}>
+                    ▶ Run now
+                  </button>
+                  <button className="btn-ghost small" onClick={() => setEditing(a.id)}>
+                    Edit
+                  </button>
+                  <button className="btn-ghost small" onClick={() => setHistory(history === a.id ? undefined : a.id)}>
+                    History ({a.runs?.length ?? 0})
+                  </button>
+                  <button className="btn-danger small" onClick={() => confirm(`Delete “${a.title}”?`) && void api.deleteAutomation(a.id).then(reload)}>
+                    Delete
+                  </button>
+                  {a.lastStatus && <span className="muted small">last run: {a.lastStatus}</span>}
+                </div>
+                {history === a.id && (
+                  <div className="runs">
+                    {(a.runs ?? []).map((r) => (
+                      <button key={r.sessionId} className="run-row" onClick={() => onOpenSession(r.sessionId)}>
+                        <span className={`dot ${STATUS_DOT[r.status ?? 'idle'] ?? 'dot-off'}`} />
+                        <span className="small">{new Date(r.at).toLocaleString()}</span>
+                        <span className="muted small">
+                          {r.status}
+                          {r.catchUp ? ' · catch-up' : ''}
+                        </span>
+                      </button>
+                    ))}
+                    {!a.runs?.length && <p className="muted small">No runs yet.</p>}
+                  </div>
+                )}
+              </>
+            )}
+          </section>
+        ))}
+      </div>
+    </PageShell>
+  );
+}
+
+function AutomationForm({ initial, onDone }: { initial?: Automation; onDone: (msg?: string) => void }) {
+  const [title, setTitle] = useState(initial?.title ?? '');
+  const [prompt, setPrompt] = useState(initial?.prompt ?? '');
+  const [schedule, setSchedule] = useState(initial?.schedule ?? initial?.description ?? 'every weekday at 9:00');
+  const [mode, setMode] = useState(initial?.mode ?? 'assistant');
+  const [model, setModel] = useState(initial?.model ?? '');
+  const [cwd, setCwd] = useState(initial?.cwd ?? '');
+  const [chats, setChats] = useState((initial?.chats ?? []).join(', '));
+  const [catchUp, setCatchUp] = useState(initial?.catchUp !== false);
+  const [preview, setPreview] = useState<{ description: string; next: string[]; cron?: string } | null>(null);
+  const [models, setModels] = useState<string[]>([]);
+  const [err, setErr] = useState('');
+  useEffect(() => {
+    api.listModels().then((m) => setModels(m.filter((x) => x.ready).map((x) => x.ref)));
+  }, []);
+  useEffect(() => {
+    const t = setTimeout(() => api.previewSchedule(schedule).then(setPreview, () => setPreview(null)), 250);
+    return () => clearTimeout(t);
+  }, [schedule]);
+  const save = async () => {
+    setErr('');
+    const body = { title: title || undefined, prompt, schedule, mode, model: model || undefined, cwd: cwd || undefined, chats: chats.split(',').map((x) => x.trim()).filter(Boolean), catchUp };
+    try {
+      if (initial) await api.updateAutomation(initial.id, body);
+      else await api.createAutomation(body);
+      onDone(initial ? 'Saved.' : 'Automation created.');
+    } catch (e) {
+      setErr(String((e as Error).message ?? e).replace(/^Error invoking remote method 'sun:call': (Error: )?/, ''));
+    }
+  };
+  return (
+    <div className="automation-form">
+      <label>
+        What should it do?
+        <textarea rows={3} value={prompt} placeholder="Summarize my unread mail and list what needs a reply." onChange={(e) => setPrompt(e.target.value)} />
+      </label>
+      <div className="grid2">
+        <label>
+          When (plain language or cron)
+          <input value={schedule} onChange={(e) => setSchedule(e.target.value)} placeholder="every weekday at 9:00 · 每天晚上8点 · tomorrow at 15:00 · 0 9 * * 1-5" />
+          <span className={`small ${preview ? 'muted' : 'err-text'}`}>
+            {preview ? `${preview.description}${preview.cron ? ` (${preview.cron})` : ''} · next: ${preview.next.map((d) => new Date(d).toLocaleString()).join(' · ')}` : 'Not understood yet.'}
+          </span>
+        </label>
+        <label>
+          Title
+          <input value={title} placeholder="(from the prompt)" onChange={(e) => setTitle(e.target.value)} />
+        </label>
+        <label>
+          Mode
+          <select value={mode} onChange={(e) => setMode(e.target.value)}>
+            {['assistant', 'agent', 'coding'].map((m) => (
+              <option key={m}>{m}</option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Model
+          <select value={model} onChange={(e) => setModel(e.target.value)}>
+            <option value="">default</option>
+            {models.map((m) => (
+              <option key={m}>{m}</option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Workspace
+          <span className="row">
+            <input value={cwd} placeholder="(default for the mode)" onChange={(e) => setCwd(e.target.value)} />
+            <button className="btn-ghost small" onClick={async () => setCwd((await api.pickFolder()) ?? cwd)}>
+              …
+            </button>
+          </span>
+        </label>
+        <label>
+          Also send results to chats
+          <input value={chats} placeholder="telegram:12345, dingtalk:cid…" onChange={(e) => setChats(e.target.value)} />
+        </label>
+      </div>
+      <label className="row small">
+        <input type="checkbox" checked={catchUp} onChange={(e) => setCatchUp(e.target.checked)} /> Run once after wake-up if a scheduled time was missed (last 24 h)
+      </label>
+      <div className="row">
+        <button className="btn-primary" disabled={!prompt.trim() || !preview} onClick={() => void save()}>
+          {initial ? 'Save' : 'Create'}
+        </button>
+        <button className="btn-ghost" onClick={() => onDone()}>
+          Cancel
+        </button>
+      </div>
+      {err && <p className="small err-text">{err}</p>}
+    </div>
   );
 }

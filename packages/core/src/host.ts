@@ -18,10 +18,12 @@ import { TriggerWatchers, renderTrigger } from './assistant/triggers.js';
 import { transcribe } from './assistant/voice.js';
 import { conversationMetrics, type ModeMetrics } from './assistant/metrics.js';
 import { disposeLspClients } from './lsp.js';
+import { isInside, resolveIn } from './policy.js';
 import { expandCommand, loadCommands, type CustomCommand } from './ux/commands.js';
 import { completePaths, expandMentions, imageMime } from './ux/mentions.js';
 import { DEFAULT_PRICING, sessionCost, type CostReport, type ModelPrice } from './ux/pricing.js';
 import { sessionToHtml, sessionToMarkdown } from './ux/export.js';
+import { diffStats, unifiedDiff } from './ux/diff.js';
 import { buildContextReport, contextReportHtml, type ContextReport } from './ux/context.js';
 import { createSandbox, secretEnvNames, startAllowlistProxy, type ExecSandbox, type SandboxMode } from './sandbox.js';
 import { JobManager, restorableJobIds, type JobResult } from './jobs.js';
@@ -41,7 +43,8 @@ import { ensureDir, ensureHome, homePath } from './paths.js';
 import { loadPlugins, type PluginState } from './plugins.js';
 import { buildSystemPrompt, buildSystemPromptSections } from './prompt.js';
 import { findProjectRoot, loadProjectContext } from './rules.js';
-import { addSchedule, dueTasks, listSchedules, saveSchedules } from './schedule.js';
+import { addSchedule, dueTasks, listSchedules, missedTasks, parseCron, recordRun, removeSchedule, saveSchedules, updateSchedule, type ScheduledTask } from './schedule.js';
+import { describeCron, missedRun, nextRuns, parseSchedule } from './automation/schedule.js';
 import { discoverSkills, loadSkillBody, skillDirs, type Skill } from './skills.js';
 import { BUILTIN_TOOLS } from './tools/builtin.js';
 import { SERVICE_TOOLS } from './tools/services.js';
@@ -85,6 +88,20 @@ export function planTodos(plan: string): TodoItem[] {
     .slice(0, 20);
   return steps.map((content, i) => ({ id: String(i + 1), content, status: i === 0 ? 'in_progress' : 'pending' }));
 }
+
+/** An automation as shown to users: the stored task plus its readable schedule and next run. */
+/** One file a session changed. */
+export interface FileChange {
+  path: string;
+  abs: string;
+  status: 'added' | 'modified' | 'deleted';
+  additions: number;
+  deletions: number;
+  diff: string;
+  binary: boolean;
+}
+
+export type Automation = ScheduledTask & { description: string; nextRun?: string; lastStatus?: string };
 
 export class HarnessHost {
   config: SunConfig;
@@ -286,7 +303,7 @@ export class HarnessHost {
   }
 
   /** Send a user message. If a run is active, the message is queued and delivered when it ends. */
-  async send(id: string, text: string, source: 'user' | 'schedule' | 'system' | 'job' | 'verify' | 'trigger' = 'user', opts: { images?: { data: string; mime: string }[] } = {}): Promise<void> {
+  async send(id: string, text: string, source: 'user' | 'schedule' | 'system' | 'job' | 'verify' | 'trigger' = 'user', opts: { images?: { data: string; mime: string }[]; noDetect?: boolean } = {}): Promise<void> {
     const log = SessionLog.open(id);
     if (!log.meta()) throw new Error(`No session ${id}`);
     const body = this.prepareUserMessage(log, text, source, opts.images ?? []);
@@ -299,6 +316,22 @@ export class HarnessHost {
     if (!log.all().some((e) => e.type === 'user/message') && this.opts.shellHooks !== false) {
       const ctx = await createShellHooks(log.meta()!.cwd).sessionStart(id);
       if (ctx) this.append(log, { type: 'user/message', text: `[sessionStart hook context]\n${ctx}`, source: 'hook' });
+    }
+    // Scheduling intent ("every weekday at 9 summarize my mail"): propose an automation instead of answering now.
+    const intent = source === 'user' && this.config.automations?.detect !== false && !opts.noDetect && !body.command ? parseSchedule(text) : undefined;
+    if (intent && intent.prompt.length > 2) {
+      this.append(log, body);
+      if (log.meta()!.title === 'New session' && !log.last('session/title')) this.append(log, { type: 'session/title', title: `⏲ ${intent.prompt.slice(0, 55)}`, source: 'first-message' });
+      this.append(log, {
+        type: 'automation/proposal',
+        proposalId: randomUUID().slice(0, 8),
+        title: intent.prompt.replace(/\s+/g, ' ').slice(0, 60),
+        prompt: intent.prompt,
+        ...(intent.cron ? { cron: intent.cron } : { at: intent.at }),
+        description: intent.description,
+      });
+      this.broadcastSessions();
+      return;
     }
     if (source === 'user') this.recallMemories(log, text);
     this.append(log, body);
@@ -474,6 +507,202 @@ export class HarnessHost {
       if (out.length >= limit * 2) break;
     }
     return out.sort((a, b) => a.rank - b.rank).slice(0, limit).map(({ rank: _r, ...x }) => x);
+  }
+
+  // ---------- file changes ----------
+
+  /**
+   * Files the session changed, from checkpoints: each file's content before the first checkpoint in [fromSeq, toSeq]
+   * against its content after that range (the next snapshot, or the file on disk now).
+   */
+  sessionChanges(sessionId: string, opts: { fromSeq?: number; toSeq?: number } = {}): FileChange[] {
+    const log = SessionLog.open(sessionId);
+    const cwd = log.meta()!.cwd;
+    const cps = log.all().filter((e): e is Extract<SessionEvent, { type: 'checkpoint' }> => e.type === 'checkpoint');
+    const snap = (id: string) => {
+      try {
+        return JSON.parse(readFileSync(homePath('checkpoints', sessionId, `${id}.json`), 'utf8')) as { files: { path: string; before: string | null }[] };
+      } catch {
+        return { files: [] };
+      }
+    };
+    const from = opts.fromSeq ?? -1;
+    const to = opts.toSeq ?? Number.POSITIVE_INFINITY;
+    const before = new Map<string, string | null>();
+    for (const c of cps) {
+      if (c.seq < from || c.seq > to) continue;
+      for (const f of snap(c.id).files) if (!before.has(f.path)) before.set(f.path, f.before);
+    }
+    const afterOf = (path: string): string | null => {
+      for (const c of cps) {
+        if (c.seq <= to) continue;
+        const f = snap(c.id).files.find((x) => x.path === path);
+        if (f) return f.before;
+      }
+      return existsSync(path) ? readFileSync(path, 'utf8') : null;
+    };
+    const out: FileChange[] = [];
+    for (const [abs, b] of before) {
+      const a = afterOf(abs);
+      if (a === b) continue;
+      const rel = relative(cwd, abs) || abs;
+      const binary = (a ?? '').includes('\u0000') || (b ?? '').includes('\u0000');
+      const diff = binary ? '' : unifiedDiff(b ?? '', a ?? '', rel);
+      const st = diffStats(diff);
+      out.push({ path: rel, abs, status: b === null ? 'added' : a === null ? 'deleted' : 'modified', additions: st.added, deletions: st.removed, diff, binary });
+    }
+    if (opts.fromSeq === undefined && opts.toSeq === undefined) {
+      // Files tools wrote without checkpoints (screenshots, figures) count as added.
+      for (const d of this.deliverables(sessionId)) if (!before.has(d.abs)) out.push({ path: d.path, abs: d.abs, status: 'added', additions: 0, deletions: 0, diff: '', binary: true });
+    }
+    return out.sort((x, y) => x.path.localeCompare(y.path));
+  }
+
+  /** Restore one file to its state before the session (or before fromSeq); undoable, and the model is told. */
+  revertFile(sessionId: string, path: string, opts: { fromSeq?: number } = {}): FileChange | undefined {
+    if (this.runs.has(sessionId)) throw new Error('Stop the run before reverting files.');
+    const log = SessionLog.open(sessionId);
+    const cwd = log.meta()!.cwd;
+    const abs = resolveIn(cwd, path);
+    const change = this.sessionChanges(sessionId, { fromSeq: opts.fromSeq }).find((c) => c.abs === abs);
+    if (!change) throw new Error(`${path} has no changes in this session${opts.fromSeq !== undefined ? ' from that point' : ''}.`);
+    let baseline: string | null = null;
+    for (const c of log.all()) {
+      if (c.type !== 'checkpoint' || c.seq < (opts.fromSeq ?? -1)) continue;
+      const f = (JSON.parse(readFileSync(homePath('checkpoints', sessionId, `${c.id}.json`), 'utf8')) as { files: { path: string; before: string | null }[] }).files.find((x) => x.path === abs);
+      if (f) {
+        baseline = f.before;
+        break;
+      }
+    }
+    this.checkpoint(log, [abs]);
+    if (baseline === null) rmSync(abs, { force: true });
+    else {
+      mkdirSync(dirname(abs), { recursive: true });
+      writeFileSync(abs, baseline);
+    }
+    this.append(log, { type: 'file/revert', path: change.path, ...(opts.fromSeq !== undefined ? { fromSeq: opts.fromSeq } : {}) });
+    this.append(log, { type: 'user/message', source: 'system', text: `[The user reverted ${change.path} to its state before ${opts.fromSeq !== undefined ? 'that turn' : 'this session'}${baseline === null ? ' (the file was removed)' : ''}. Read it again before editing it.]` });
+    this.broadcastSessions();
+    return change;
+  }
+
+  /** A workspace file for the change viewer (only inside the session's workspace; large files truncated). */
+  readSessionFile(sessionId: string, path: string): { path: string; content: string; size: number; truncated: boolean; binary: boolean } {
+    const cwd = SessionLog.open(sessionId).meta()!.cwd;
+    const abs = resolveIn(cwd, path);
+    if (!isInside(cwd, abs)) throw new Error('Only files inside the session workspace can be shown.');
+    if (!existsSync(abs)) throw new Error(`${path} does not exist (deleted?).`);
+    const size = statSync(abs).size;
+    const buf = readFileSync(abs);
+    const binary = buf.subarray(0, 8000).includes(0);
+    const max = 1_000_000;
+    return { path: relative(cwd, abs) || abs, content: binary ? '' : buf.subarray(0, max).toString('utf8'), size, truncated: size > max, binary };
+  }
+
+  // ---------- automations ----------
+
+  /** Answer a scheduling proposal: create the automation, run the message now, or both. */
+  resolveProposal(sessionId: string, proposalId: string, action: 'create' | 'run' | 'both', edits: { title?: string; prompt?: string; schedule?: string } = {}): { automation?: Automation } {
+    const log = SessionLog.open(sessionId);
+    const p = log.all().find((e) => e.type === 'automation/proposal' && e.proposalId === proposalId) as Extract<SessionEvent, { type: 'automation/proposal' }> | undefined;
+    if (!p) throw new Error('No such proposal.');
+    if (log.all().some((e) => e.type === 'automation/resolved' && e.proposalId === proposalId)) throw new Error('That proposal was already answered.');
+    let automation: Automation | undefined;
+    if (action !== 'run') {
+      automation = this.createAutomation({ title: edits.title ?? p.title, prompt: edits.prompt ?? p.prompt, ...(edits.schedule ? { schedule: edits.schedule } : p.cron ? { cron: p.cron } : { at: p.at }), mode: log.currentMode(), cwd: log.meta()!.cwd, source: sessionId });
+    }
+    this.append(log, { type: 'automation/resolved', proposalId, action, ...(automation ? { automationId: automation.id } : {}) });
+    if (automation) {
+      // Keep the conversation coherent for the model: the scheduling request was answered.
+      this.append(log, {
+        type: 'assistant/message',
+        text: `Scheduled “${automation.title}” — ${automation.description}${automation.nextRun ? `; next run ${new Date(automation.nextRun).toLocaleString()}` : ''}. It runs in its own session while the gateway or desktop app is running; manage it under Automations.`,
+        toolCalls: [],
+        model: 'harness',
+      });
+    }
+    if (action !== 'create') this.startRun(sessionId);
+    else this.broadcastSessions();
+    return { automation };
+  }
+
+  previewSchedule(text: string): { cron?: string; at?: string; description: string; next: string[] } | undefined {
+    const s = text.trim();
+    if (/^[\d*/,-]+(\s+[\d*/,-]+){4}$/.test(s)) {
+      parseCron(s);
+      return { cron: s, description: describeCron(s), next: nextRuns(s, new Date(), 3).map((d) => d.toISOString()) };
+    }
+    const p = parseSchedule(s, new Date(), { explicit: true });
+    if (!p) return undefined;
+    return { cron: p.cron, at: p.at, description: p.description, next: p.cron ? nextRuns(p.cron, new Date(), 3).map((d) => d.toISOString()) : [p.at!] };
+  }
+
+  listAutomations(): Automation[] {
+    return listSchedules().map((t) => this.toAutomation(t));
+  }
+
+  private toAutomation(t: ScheduledTask): Automation {
+    const next = t.enabled ? (t.cron ? nextRuns(t.cron, new Date(), 1)[0]?.toISOString() : !t.lastRun ? t.at : undefined) : undefined;
+    return { ...t, description: t.cron ? describeCron(t.cron) : `once at ${t.at ? new Date(t.at).toLocaleString() : '?'}`, nextRun: next, lastStatus: t.runs?.[0]?.status };
+  }
+
+  createAutomation(input: { title?: string; prompt: string; schedule?: string; cron?: string; at?: string; mode?: string; model?: string; cwd?: string; chats?: string[]; source?: string; catchUp?: boolean }): Automation {
+    let { cron, at } = input;
+    if (input.schedule) {
+      const p = this.previewSchedule(input.schedule);
+      if (!p) throw new Error(`Could not understand the schedule "${input.schedule}". Try "every weekday at 9:00", "每天晚上8点", "tomorrow at 15:00" or a cron expression.`);
+      cron = p.cron;
+      at = p.at;
+    }
+    const mode = input.mode && this.modes.has(input.mode) ? input.mode : 'assistant';
+    const t = addSchedule({
+      title: (input.title ?? input.prompt).replace(/\s+/g, ' ').slice(0, 60),
+      prompt: input.prompt,
+      cron,
+      at,
+      mode,
+      cwd: input.cwd ?? this.defaultCwd(mode),
+      ...(input.model ? { model: input.model } : {}),
+      ...(input.chats?.length ? { chats: input.chats } : {}),
+      ...(input.source ? { source: input.source } : {}),
+      ...(input.schedule ? { schedule: input.schedule } : {}),
+      ...(input.catchUp === false ? { catchUp: false } : {}),
+    });
+    this.broadcast({ kind: 'notice', level: 'info', text: `Automation created: ${t.title}` });
+    return this.toAutomation(t);
+  }
+
+  updateAutomation(id: string, patch: { title?: string; prompt?: string; schedule?: string; enabled?: boolean; mode?: string; model?: string; chats?: string[]; catchUp?: boolean; cwd?: string }): Automation {
+    const { schedule, ...rest } = patch;
+    let timing: { cron?: string; at?: string } = {};
+    if (schedule) {
+      const p = this.previewSchedule(schedule);
+      if (!p) throw new Error(`Could not understand the schedule "${schedule}".`);
+      timing = p.cron ? { cron: p.cron } : { at: p.at };
+    }
+    return this.toAutomation(updateSchedule(id, { ...rest, ...timing, ...(schedule ? { schedule } : {}), ...(timing.at ? { lastRun: undefined } : {}) }));
+  }
+
+  deleteAutomation(id: string): void {
+    removeSchedule(id);
+  }
+
+  /** Start one run of an automation in a new session; its outcome is recorded and announced. */
+  async runAutomation(id: string, opts: { catchUp?: boolean; at?: Date } = {}): Promise<string> {
+    const t = listSchedules().find((x) => x.id === id);
+    if (!t) throw new Error(`No automation ${id}`);
+    const s = this.createSession({ cwd: existsSync(t.cwd) ? t.cwd : undefined, mode: t.mode, model: t.model, title: `[automation] ${t.title}` });
+    const at = (opts.at ?? new Date()).toISOString();
+    recordRun(t.id, { at, sessionId: s.id, status: 'running', ...(opts.catchUp ? { catchUp: true } : {}) });
+    this.broadcast({ kind: 'automation', id: t.id, title: t.title, sessionId: s.id, status: 'running' });
+    await this.send(s.id, opts.catchUp ? `${t.prompt}\n\n(This is a catch-up run: the scheduled time passed while sun-harness was not running.)` : t.prompt, 'schedule');
+    void this.wait(s.id).then((r) => {
+      const text = SessionLog.open(s.id).last('assistant/message')?.text;
+      recordRun(t.id, { at, sessionId: s.id, status: r?.status ?? 'idle', ...(r?.reason ? { reason: r.reason } : {}), ...(opts.catchUp ? { catchUp: true } : {}) });
+      this.broadcast({ kind: 'automation', id: t.id, title: t.title, sessionId: s.id, status: r?.status ?? 'idle', text, chats: t.chats });
+    });
+    return s.id;
   }
 
   /** Resume a paused/errored/aborted session, optionally on another model (quota recovery path). */
@@ -1166,7 +1395,7 @@ export class HarnessHost {
       },
       killJob: (jobId) => (this.jobs.kill(jobId) ? `Stopped ${jobId}.` : `${jobId} is not running.`),
       scheduleTask: async (spec) => {
-        const t = addSchedule({ title: spec.title ?? spec.prompt.slice(0, 50), prompt: spec.prompt, at: spec.at, cron: spec.cron, mode: 'assistant', cwd });
+        const t = addSchedule({ title: spec.title ?? spec.prompt.slice(0, 50), prompt: spec.prompt, at: spec.at, cron: spec.cron, mode: log.currentMode() === 'plan' ? 'coding' : log.currentMode(), cwd, source: log.id });
         return `Scheduled ${t.id} (${t.cron ? `cron ${t.cron}` : `at ${t.at}`}). It runs while the sun-harness gateway (sun gateway install) or desktop app is running.`;
       },
     };
@@ -1359,14 +1588,11 @@ export class HarnessHost {
     const scheduled: string[] = [];
     const tasks = listSchedules();
     const due = dueTasks(tasks, now);
-    for (const t of due) {
-      const s = this.createSession({ cwd: t.cwd, mode: t.mode, title: `[scheduled] ${t.title}` });
-      await this.send(s.id, t.prompt, 'schedule');
-      t.lastRun = now.toISOString();
-      if (t.at) t.enabled = false;
-      scheduled.push(s.id);
+    const missed = missedTasks(tasks, now, missedRun).filter((t) => !due.includes(t));
+    for (const t of [...due, ...missed]) {
+      updateSchedule(t.id, { lastRun: now.toISOString(), ...(t.at ? { enabled: false } : {}) });
+      scheduled.push(await this.runAutomation(t.id, { catchUp: missed.includes(t), at: now }));
     }
-    if (due.length) saveSchedules(tasks);
     return { resumed, scheduled };
   }
 

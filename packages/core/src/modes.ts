@@ -84,7 +84,7 @@ export const BUILTIN_MODES: ModeDef[] = [
     label: 'Coding',
     description: 'Code agent for a repository: read, edit, run, verify.',
     prompt: CODING,
-    allowTool: (t) => t.name !== 'schedule_task' && t.name !== 'exit_plan_mode',
+    allowTool: (t) => t.name !== 'exit_plan_mode',
   },
   {
     id: 'plan',

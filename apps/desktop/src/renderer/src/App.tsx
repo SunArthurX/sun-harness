@@ -2,12 +2,13 @@ import type { PendingApproval, SessionSummary } from '@sun/core';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from './api';
 import { Chat } from './Chat';
-import { EvolutionPage, IntelPage, KnowledgePage, ExtensionsPage, SettingsPage } from './pages';
+import { AutomationsPage, EvolutionPage, IntelPage, KnowledgePage, ExtensionsPage, SettingsPage } from './pages';
 
-export type Page = 'chat' | 'knowledge' | 'extensions' | 'evolution' | 'intel' | 'settings';
+export type Page = 'chat' | 'automations' | 'knowledge' | 'extensions' | 'evolution' | 'intel' | 'settings';
 
 const NAV: { id: Page; label: string; glyph: string }[] = [
   { id: 'chat', label: 'Sessions', glyph: '◐' },
+  { id: 'automations', label: 'Automations', glyph: '⏲' },
   { id: 'knowledge', label: 'Knowledge', glyph: '❖' },
   { id: 'extensions', label: 'Skills · MCP · Plugins', glyph: '⌬' },
   { id: 'evolution', label: 'Evolution', glyph: '↺' },
@@ -84,6 +85,15 @@ export function App() {
     api.appInfo().then(setHostMode);
     if (typeof Notification !== 'undefined' && Notification.permission === 'default') void Notification.requestPermission();
     return window.sun.onLive((e) => {
+      if (e.kind === 'automation' && e.status !== 'running' && !document.hasFocus() && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+        const n = new Notification(`sun-harness · automation ${e.status === 'idle' ? 'finished' : e.status}`, { body: e.title });
+        n.onclick = () => {
+          window.focus();
+          setPage('chat');
+          setNewMode(null);
+          setCurrent(e.sessionId);
+        };
+      }
       if (e.kind === 'sessions') {
         setSessions(e.sessions);
         notify(e.sessions);
@@ -242,6 +252,7 @@ export function App() {
         {page === 'evolution' && <EvolutionPage currentSession={current} />}
         {page === 'intel' && <IntelPage />}
         {page === 'settings' && <SettingsPage />}
+        {page === 'automations' && <AutomationsPage onOpenSession={(id) => (setPage('chat'), setNewMode(null), setCurrent(id))} />}
       </main>
     </div>
   );

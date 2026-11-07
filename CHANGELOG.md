@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.7.0 — 2026-11-07
+
+Automations and changed files, after a competitor analysis (`specs/027`, teaching page 25).
+
+- Scheduling intent in plain English or Chinese (“every weekday at 9 …”, “每周一下午3点半…”, “remind me tomorrow at 3pm …”) becomes a **Schedule this?** proposal: create, create & run now, or just answer. Desktop card (editable title/time, next three runs), CLI `y/b/n`, bots `/yes /both /no`; `automations.detect`.
+- Automations: ⏲ menu (list, on/off, run now, edit, history with links to runs, delete; form with plain-language schedule and live preview, mode, model, workspace, chats, catch-up), run history, catch-up of missed runs (24 h), notifications and bot delivery; `sun automations list|add|preview|run|pause|resume|edit|rm|history`; `/automations` in bots; `schedule_task` in all modes.
+- Changed files: a card after every turn that edited files (A/M/D, +/−, Diff with line numbers or full File, Open, Copy path, Revert to before the turn), ▤ Changes session review with a file tree; revert is undoable and the model is told. CLI summaries, `/changes`, `/diff`, `/revert`, `sun changes`; bot “📝 N files changed”.
+- Fix: diffs no longer count a final newline as an extra line.
+
 ## 0.6.0 — 2026-11-07
 
 Context usage and conversation flow (`specs/026`, teaching page 24).

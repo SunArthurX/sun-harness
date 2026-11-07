@@ -28,7 +28,11 @@ Paste a screenshot into the desktop composer, drop image files on it, or click �
 
 ## See what changed
 
-Edit tool cards show the diff (green added, red removed) right in the transcript; click the card for the full diff and output.
+- After every turn that edited files, a card lists them: **A**dded / **M**odified / **D**eleted with +/− lines. Click a file for its **Diff** (line numbers on both sides) or the whole **File**; **Open**, **Copy path**, or **Revert** it to how it was before that turn.
+- **▤ Changes** in the session bar opens the review for the whole session: a folder tree on the left, diff or file on the right, the same actions.
+- Edit tool cards still show each edit's diff inline.
+- Reverting is safe: it is itself undoable (**↶ Undo**), and the agent is told to re-read the file.
+- CLI: a summary after each turn and after `sun run`; `/changes` (this turn) or `/changes all`, `/diff [path]`, `/revert <path>`; `sun changes <session> --diff`. Chat bots post “📝 N files changed” after a turn.
 
 ## Cost
 

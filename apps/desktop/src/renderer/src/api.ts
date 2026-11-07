@@ -15,6 +15,8 @@ import type {
   WorktreeStatus,
   Job,
   ContextReport,
+  Automation,
+  FileChange,
 } from '@sun/core';
 
 declare global {
@@ -65,6 +67,16 @@ export const api = {
   exportSession: (id: string, format: 'markdown' | 'html' | 'jsonl') => call<string>('exportSession', id, format),
   importSession: (jsonl: string) => call<SessionSummary>('importSession', jsonl),
   searchSessions: (q: string) => call<{ id: string; title: string; mode: string; updatedAt: string; snippet: string }[]>('searchSessions', q),
+  resolveProposal: (id: string, proposalId: string, action: 'create' | 'run' | 'both', edits?: { title?: string; prompt?: string; schedule?: string }) => call<{ automation?: Automation }>('resolveProposal', id, proposalId, action, edits),
+  previewSchedule: (text: string) => call<{ cron?: string; at?: string; description: string; next: string[] } | null>('previewSchedule', text),
+  listAutomations: () => call<Automation[]>('listAutomations'),
+  createAutomation: (input: { title?: string; prompt: string; schedule: string; mode?: string; model?: string; cwd?: string; chats?: string[]; catchUp?: boolean }) => call<Automation>('createAutomation', input),
+  updateAutomation: (id: string, patch: { title?: string; prompt?: string; schedule?: string; enabled?: boolean; mode?: string; model?: string; chats?: string[]; catchUp?: boolean; cwd?: string }) => call<Automation>('updateAutomation', id, patch),
+  deleteAutomation: (id: string) => call<void>('deleteAutomation', id),
+  runAutomation: (id: string) => call<string>('runAutomation', id),
+  sessionChanges: (id: string, fromSeq?: number, toSeq?: number) => call<FileChange[]>('sessionChanges', id, fromSeq, toSeq),
+  revertFile: (id: string, path: string, fromSeq?: number) => call<FileChange>('revertFile', id, path, fromSeq),
+  readSessionFile: (id: string, path: string) => call<{ path: string; content: string; size: number; truncated: boolean; binary: boolean }>('readSessionFile', id, path),
   contextUsage: (id: string) => call<ContextReport>('contextUsage', id),
   contextReportHtml: (id: string) => call<string>('contextReportHtml', id),
   setSessionFlags: (id: string, flags: { pinned?: boolean; archived?: boolean }) => call<SessionSummary>('setSessionFlags', id, flags),

@@ -1,6 +1,6 @@
 {
   "name": "sun-harness",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "private": true,
   "type": "module",
   "description": "A personal, first-principles agent harness: coding agent, general agent, and personal assistant.",

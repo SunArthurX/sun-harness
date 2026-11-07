@@ -2,6 +2,7 @@ import { readBriefing } from './assistant/briefing.js';
 import type { CustomCommand } from './ux/commands.js';
 import type { CostReport } from './ux/pricing.js';
 import type { ContextReport } from './ux/context.js';
+import type { Automation, FileChange } from './host.js';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { createServer as createHttpsServer, request as httpsRequest } from 'node:https';
 import { Readable } from 'node:stream';
@@ -20,7 +21,7 @@ import { fingerprintOf, matchDevice } from './remote.js';
 import type { RouteHandler } from './bots/adapters.js';
 import type { ApprovalDecision, LiveEvent, RunStatus, SessionEvent, SessionSummary } from './types.js';
 
-export const VERSION = '0.6.0';
+export const VERSION = '0.7.0';
 
 type Method = (...args: any[]) => unknown;
 
@@ -45,7 +46,7 @@ export function hostMethods(host: HarnessHost, info: { mode: 'local' | 'gateway'
     sandboxInfo: (id?: string) => host.sandboxInfo(id),
     browserInfo: (id?: string) => host.browserInfo(id),
     deliverables: (id: string) => host.deliverables(id),
-    sendMessage: (id: string, text: string, images?: { data: string; mime: string }[]) => host.send(id, text, 'user', { images }),
+    sendMessage: (id: string, text: string, images?: { data: string; mime: string }[], opts?: { noDetect?: boolean }) => host.send(id, text, 'user', { images, noDetect: opts?.noDetect }),
     listCommands: (cwd?: string) => host.listCommands(cwd),
     completePaths: (cwd: string, query: string) => host.completePaths(cwd, query),
     cost: (id: string) => host.cost(id),
@@ -57,6 +58,16 @@ export function hostMethods(host: HarnessHost, info: { mode: 'local' | 'gateway'
     readAttachment: (path: string) => host.readAttachment(path),
     contextUsage: (id: string) => host.contextUsage(id),
     setSessionFlags: (id: string, flags: { pinned?: boolean; archived?: boolean }) => host.setSessionFlags(id, flags),
+    resolveProposal: (id: string, proposalId: string, action: 'create' | 'run' | 'both', edits?: { title?: string; prompt?: string; schedule?: string }) => host.resolveProposal(id, proposalId, action, edits),
+    previewSchedule: (text: string) => host.previewSchedule(text),
+    listAutomations: () => host.listAutomations(),
+    createAutomation: (input: Parameters<HarnessHost['createAutomation']>[0]) => host.createAutomation(input),
+    updateAutomation: (id: string, patch: Parameters<HarnessHost['updateAutomation']>[1]) => host.updateAutomation(id, patch),
+    deleteAutomation: (id: string) => host.deleteAutomation(id),
+    runAutomation: (id: string) => host.runAutomation(id),
+    sessionChanges: (id: string, fromSeq?: number, toSeq?: number) => host.sessionChanges(id, { fromSeq, toSeq }),
+    revertFile: (id: string, path: string, fromSeq?: number) => host.revertFile(id, path, { fromSeq }),
+    readSessionFile: (id: string, path: string) => host.readSessionFile(id, path),
     contextReportHtml: (id: string) => host.contextReportHtml(id),
     metrics: (days?: number) => host.metrics(days),
     runBriefing: () => host.runBriefing(),
@@ -454,8 +465,11 @@ export interface SessionHost {
   exportSession(id: string, format?: 'markdown' | 'html' | 'jsonl'): string | Promise<string>;
   fork(id: string, opts: { beforeSeq: number; restoreFiles?: boolean }): { session: SessionSummary; text: string } | Promise<{ session: SessionSummary; text: string }>;
   contextUsage(id: string): Promise<ContextReport>;
+  sessionChanges(id: string, opts?: { fromSeq?: number; toSeq?: number }): FileChange[] | Promise<FileChange[]>;
+  revertFile(id: string, path: string, opts?: { fromSeq?: number }): unknown;
+  resolveProposal(id: string, proposalId: string, action: 'create' | 'run' | 'both'): { automation?: Automation } | Promise<{ automation?: Automation }>;
   setSessionFlags(id: string, flags: { pinned?: boolean; archived?: boolean }): SessionSummary | Promise<SessionSummary>;
-  send(id: string, text: string, source?: 'user', opts?: { images?: { data: string; mime: string }[] }): Promise<void>;
+  send(id: string, text: string, source?: 'user', opts?: { images?: { data: string; mime: string }[]; noDetect?: boolean }): Promise<void>;
   /** Resolves when every live subscription is connected (remote hosts); send only after this. */
   ready?(): Promise<void>;
   dispose(): Promise<void>;
@@ -473,8 +487,8 @@ export class RemoteHost implements SessionHost {
   createSession(input: Parameters<HarnessHost['createSession']>[0]) {
     return this.client.call<SessionSummary>('createSession', input);
   }
-  send(id: string, text: string, _source?: 'user', opts: { images?: { data: string; mime: string }[] } = {}) {
-    return opts.images?.length ? this.client.call<void>('sendMessage', id, text, opts.images) : this.client.call<void>('send', id, text);
+  send(id: string, text: string, _source?: 'user', opts: { images?: { data: string; mime: string }[]; noDetect?: boolean } = {}) {
+    return opts.images?.length || opts.noDetect ? this.client.call<void>('sendMessage', id, text, opts.images ?? [], { noDetect: opts.noDetect }) : this.client.call<void>('send', id, text);
   }
   resume(id: string, opts: { model?: string } = {}) {
     return this.client.call<void>('resume', id, opts.model);
@@ -505,6 +519,15 @@ export class RemoteHost implements SessionHost {
   }
   contextUsage(id: string) {
     return this.client.call<ContextReport>('contextUsage', id);
+  }
+  sessionChanges(id: string, opts: { fromSeq?: number; toSeq?: number } = {}) {
+    return this.client.call<FileChange[]>('sessionChanges', id, opts.fromSeq, opts.toSeq);
+  }
+  revertFile(id: string, path: string, opts: { fromSeq?: number } = {}) {
+    return this.client.call<FileChange>('revertFile', id, path, opts.fromSeq);
+  }
+  resolveProposal(id: string, proposalId: string, action: 'create' | 'run' | 'both') {
+    return this.client.call<{ automation?: Automation }>('resolveProposal', id, proposalId, action);
   }
   setSessionFlags(id: string, flags: { pinned?: boolean; archived?: boolean }) {
     return this.client.call<SessionSummary>('setSessionFlags', id, flags);

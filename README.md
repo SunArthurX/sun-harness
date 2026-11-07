@@ -33,6 +33,8 @@ A harness reduces to six parts: **model, context, tools, loop, log, policy**. su
 - **Sandboxed shell**: seatbelt (macOS), bubblewrap (Linux) or Docker; network off / on / allowlist; credentials hidden from commands.
 - **A real browser**: local Chrome or sandboxed Chromium (Xvfb + noVNC + socat) over CDP; accessibility snapshots; live view and takeover in the desktop.
 - **Research agent**: keyless and keyed search providers, readable pages and PDFs, a persistent Python kernel, parallel subagents, deliverables panel, prompt-injection guard.
+- **Automations**: say “every weekday at 9 …” and confirm; manage runs in the ⏲ menu or `sun automations`; missed runs catch up.
+- **See what changed**: every turn lists the files it changed (diff, full file, revert); a session review with a file tree.
 - **Context usage per conversation**: a ring and report showing what fills the context and how to shrink it; steering mid-run; model titles; pins.
 - **Everyday conveniences**: custom `/commands`, `@file` mentions, pasted images, inline diffs, cost, rewind, export/import, ⌘K palette, session search, notifications, `stream-json` output.
 - **Assistant that saves effort**: layered memory with automatic extraction, model routing, DingTalk and email/calendar connectors, daily briefing, file and webhook triggers, voice input and read-aloud, efficiency metrics.
