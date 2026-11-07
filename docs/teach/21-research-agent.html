@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" /><meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>21 · Research agent — sun-harness</title>
+<link rel="stylesheet" href="teach.css" />
+<script type="module">import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs'; mermaid.initialize({ startOnLoad: true, theme: 'neutral' });</script>
+</head>
+<body>
+<header class="top"><div class="wrap"><a class="brand" href="index.html">sun<em>harness</em> · teach</a><nav><a href="index.html">All pages</a></nav></div></header>
+<main class="wrap">
+<p class="muted">Optimization phase 4 · spec <code>specs/023-research-agent.md</code></p>
+<h1>21 · Good sources, clean text, <em>no hijacking</em></h1>
+<p class="lede">A research agent is a pipeline: search → read → compute → write, fanned out over subagents. Each stage had one concrete problem on this network and this codebase. And every stage brings text from strangers into the model's context, which is the real security problem.</p>
+
+<h2>The pipeline</h2>
+<div class="mermaid">
+flowchart LR
+  Q[question] --> T1[task: subtopic A]
+  Q --> T2[task: subtopic B]
+  Q --> T3[task: subtopic C]
+  T1 --> S[web_search] --> F[web_fetch: Markdown, PDF] --> PY[python: analysis, charts]
+  T2 --> S
+  T3 --> S
+  PY --> R[report.md + figures/ + screenshots/]
+  R --> FP[desktop Files panel]
+</div>
+
+<h2>Search that works where you are</h2>
+<table>
+<tr><th>Endpoint (no key)</th><th>From this network</th></tr>
+<tr><td>DuckDuckGo HTML</td><td>connection refused</td></tr>
+<tr><td>Brave, Jina, public SearXNG</td><td>unreachable</td></tr>
+<tr><td>Baidu</td><td>redirect to a verification page</td></tr>
+<tr><td>Bing (<code>cn.bing.com</code>)</td><td>200, parseable results</td></tr>
+</table>
+<p><code>auto</code> uses the first API key it finds (Tavily, Brave, Serper, Bocha), then a configured SearXNG, then Bing. Bing result links are wrapped (<code>/ck/a?…&amp;u=a1&lt;base64url&gt;</code>) and are unwrapped to the real URL. Capability gating (page 18) probes the chosen provider, so a blocked one is never offered.</p>
+
+<h2>Reading: readability without a DOM</h2>
+<div class="qa"><p class="q">How do you extract the article without jsdom or Mozilla Readability?</p><p class="a">Remove what is never content (head, scripts, styles, nav, header, footer, aside, forms, buttons, iframes, hidden elements), keep the largest <code>&lt;article&gt;</code> or <code>&lt;main&gt;</code> if it has real text, then convert headings, links (made absolute), lists, tables and code to Markdown. Two bugs from the tests: a decoded <code>&lt;</code> inside code was later stripped as a tag (code is now set aside in placeholders first), and on a page without <code>&lt;body&gt;</code> the title was glued to the first paragraph ("RecipesIgnore…"), which also hid an injection from the scanner.</p></div>
+<p>PDFs go through poppler's <code>pdftotext -layout</code>. Long documents are paged at 30,000 characters with an explicit "call again with start=…".</p>
+
+<h2>A real interpreter</h2>
+<p>The <code>python</code> tool keeps one process per session: a 40-line kernel reads JSON lines, executes cells in shared globals, echoes the last expression like a notebook, captures output, and saves matplotlib figures to <code>figures/</code>. It starts through the session's sandbox. One subtle bug: after a restart, the <em>old</em> process's exit event fired while the new one was running and failed its pending call; the handler now ignores processes that were replaced.</p>
+
+<h2>Fan-out</h2>
+<p><code>task</code> was already read-risk, so several <code>task</code> calls in one response run as parallel subagents. A bounded pool (<code>maxParallelTools</code>, 6) keeps a wide fan-out from overwhelming the provider; results are still logged in call order.</p>
+
+<h2>Content from the web is data</h2>
+<div class="mermaid">
+flowchart TD
+  R[tool result from web_fetch / web_search / browser_* / untrusted MCP] --> TR[truncate]
+  TR --> SC{scan: override instructions, role hijack, fake chat markup, exfiltration, hidden commands, invisible Unicode}
+  SC --> WR["wrap: &lt;untrusted source=…&gt; … &lt;/untrusted&gt;"]
+  SC -->|findings| WN[prefix WARNING]
+  WR --> LOG[context/taint event in the log]
+  LOG --> POL{policy}
+  POL -->|tainted| A1[sandboxed shell no longer auto-approved]
+  POL -->|findings| A2[every exec and network call needs a human, even in full-auto]
+</div>
+<div class="qa"><p class="q">The scanner is a list of regexes. Can't attackers avoid it?</p><p class="a">Yes, and the design assumes they will. Detection only escalates; the guarantees come from elsewhere: content is labeled as data for the model, the shell runs in a sandbox that cannot read credentials, and after any sign of injection nothing with side effects happens without a person. A false positive costs one approval click; a false negative still meets the sandbox.</p></div>
+<p>The policy reads the taint from the log, so it survives restarts and resumes like everything else: model-visible means logged, and so is the reason the agent's powers were reduced.</p>
+
+<figure><img src="img/p4-files.png" alt="Files panel listing report.md and screenshots/cart.png"/><figcaption>Deliverables: the Files panel lists what the session created (from checkpoints, plus screenshots and figures).</figcaption></figure>
+
+<h2>Verified</h2>
+<table>
+<tr><th>Check</th><th>Result</th></tr>
+<tr><td>Bing parse + link unwrap; provider auto-selection</td><td>pass</td></tr>
+<tr><td>readability: article kept, nav/footer/scripts/hidden text dropped, code intact</td><td>pass</td></tr>
+<tr><td>PDF text (hand-written one-page PDF)</td><td>"Hello PDF world"</td></tr>
+<tr><td>session: fetch page, fetch PDF, shell OK; fetch injection page → warning; next shell call in full-auto, headless → denied</td><td>pass</td></tr>
+<tr><td>python kernel: state, last expression, traceback, restart</td><td>pass</td></tr>
+<tr><td>live: <code>web_search</code> via Bing, <code>web_fetch</code> of the MCP specification</td><td>relevant results, clean Markdown</td></tr>
+</table>
+<p class="lesson">Treat every external byte as data, make that visible to the model, and let policy — not detection — decide what may happen next.</p>
+
+<div class="nav"><a href="20-browser.html">← 20 · Browser</a><a href="22-assistant.html">22 · Assistant →</a></div>
+</main>
+</body>
+</html>

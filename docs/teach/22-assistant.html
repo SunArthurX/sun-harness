@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" /><meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>22 · Assistant efficiency — sun-harness</title>
+<link rel="stylesheet" href="teach.css" />
+<script type="module">import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs'; mermaid.initialize({ startOnLoad: true, theme: 'neutral' });</script>
+</head>
+<body>
+<header class="top"><div class="wrap"><a class="brand" href="index.html">sun<em>harness</em> · teach</a><nav><a href="index.html">All pages</a></nav></div></header>
+<main class="wrap">
+<p class="muted">Optimization phase 5 · spec <code>specs/024-assistant-efficiency.md</code></p>
+<h1>22 · Say less, <em>wait less</em></h1>
+<p class="lede">An assistant's efficiency is measured in the user's effort: how much context they have to repeat, how often they are interrupted, how long they wait, whether it shows up without being asked. Phase 5 attacks each of those, and adds the instrument to see whether it worked.</p>
+
+<h2>Memory in two layers</h2>
+<div class="mermaid">
+flowchart TD
+  U[user message] --> RC{recall: BM25 + recency over items.jsonl}
+  RC -->|top k, not yet recalled| MM[user/message source=memory]
+  MM --> MSG[the user's message]
+  MSG --> RUN[run]
+  RUN -->|idle| EX[background model: extract]
+  EX --> DD{dedupe: normalized text or ≥80% token overlap}
+  DD --> LT[(long-term items)]
+  EX -->|core: name, language, time zone| CORE[(MEMORY.md · always in the prompt)]
+  EX --> EP[episode: one line per conversation]
+</div>
+<div class="qa"><p class="q">Why not put recalled memories into the system prompt?</p><p class="a">Because the system prompt is the start of the cached prefix: changing it every turn throws away the prompt cache built in phase 1. Recall is appended as a message right before the user's message instead. It is also logged, so a resumed or audited session shows exactly what the model was reminded of.</p></div>
+<div class="qa"><p class="q">What went wrong in the first live test?</p><p class="a">One turn ("I'm Arthur, my sister Lina lives in Hangzhou, I prefer window seats, plan a weekend") produced six long-term memories, including "may want Friday reminders" and sightseeing "lessons": the extractor stored the <em>assistant's</em> suggestions as the user's facts. Adding "only what the user said or confirmed, never guesses" to the extraction prompt gave exactly two facts, one core profile line, and the episode. The second conversation recalled the seat preference without being told.</p></div>
+
+<div class="qa"><p class="q">Why did a shopping task get reminded of the user's sister?</p><p class="a">The live gateway test sent "open the shop in the browser, search for a lamp, add it to the cart" in Agent mode, and recall attached "Arthur's sister Lina lives in Hangzhou". The match was on <em>in</em>, <em>the</em> and <em>for</em>: with only three memories, BM25 gives every word a high inverse document frequency, so function words count. Dropping English function words removed the false recall; since every remaining match is now a content word, the score threshold went down from 0.5 to 0.2 so that a single shared name still recalls. A light stemmer then made "book a train" find "prefers window seats on trains" (score 1.36, ranked first).</p></div>
+<figure><img src="img/p5-memory.png" alt="Knowledge screen: long-term memories (episode, preference, person) and the core memory"/><figcaption>Long-term memories after one conversation: two facts and an episode; the core profile line lives in MEMORY.md.</figcaption></figure>
+
+<h2>Spend strong models only where needed</h2>
+<p>Sessions on the <code>auto</code> model are routed per request: code, stack traces, long or analytical requests (English and Chinese keywords), and runs that are struggling (tool errors, many steps) go to the strong model; everything else to the fast one. The concrete model is what the log records. Housekeeping such as memory extraction uses <code>router.background</code>, typically the cheapest model.</p>
+
+<h2>Reach the user's real systems</h2>
+<p>DingTalk is used through its own CLI (<code>dws</code>), which already wraps calendar, todo, chat, mail, docs, approvals and more. Two tools split it by effect: <code>dingtalk_read</code> refuses anything that is not clearly read-only (an unknown verb counts as a write), and <code>dingtalk_write</code> passes approval. Both are offered only after <code>dws auth status</code> reports a login, and both are untrusted sources: messages from other people can carry injections too. Email and calendars come through MCP presets that are marked untrusted when added.</p>
+
+<h2>Show up without being asked</h2>
+<div class="mermaid">
+flowchart LR
+  T[background tick · gateway or desktop] -->|after 08:30, once a day| BR[briefing session: calendar, todos, approvals, unread, follow-ups, intel, 3 priorities]
+  BR --> FILE[~/.sun/briefings/date.md]
+  BR --> NOTE[desktop notice]
+  BR --> BOT[bot chats]
+  W[fs.watch ~/Downloads *.pdf] -->|debounced| S1[agent session with files]
+  H[POST /trigger/github + secret] -->|payload wrapped untrusted, taint logged| S2[assistant session]
+</div>
+<p>Webhook payloads are external content by definition: they are scanned and wrapped before the session starts, and the taint is logged first, so the phase 4 policy applies from the first step.</p>
+
+<h2>The fastest input is speech</h2>
+<div class="qa"><p class="q">Electron's Web Speech recognition needs Google keys. What then?</p><p class="a">Record with <code>MediaRecorder</code> in the renderer, send the audio to the host, and transcribe with a model the user already has: DashScope's <code>qwen3-asr-flash</code> accepts <code>input_audio</code> in its OpenAI-compatible chat API (tested: a <code>say</code>-generated clip came back verbatim), and OpenAI-compatible Whisper endpoints work too. ffmpeg re-encodes browser webm/opus to 16 kHz MP3 when needed. Replies are read aloud with the OS voices through <code>speechSynthesis</code>; no service needed. The main process grants only audio media permission, and the packaged app declares why it wants the microphone.</p></div>
+
+<h2>Measure the conversation</h2>
+<p><code>sun metrics</code> and Settings → Efficiency compute, per mode: turns per session, median time to first reply and per turn, tool calls and errors per turn, <strong>approval prompts per turn</strong> (interruptions), denial rate, <strong>clarify rate</strong> (answers that are questions back), tokens per turn, cache share, memories recalled and extracted. These are the numbers that tell whether memory reduced repetition and the sandbox reduced interruptions.</p>
+
+<figure><img src="img/p5-efficiency.png" alt="Settings: shell sandbox, daily briefing, and the efficiency table"/><figcaption>Settings: sandbox mode and network, daily briefing, and the 7-day efficiency table computed from session logs.</figcaption></figure>
+
+<h2>The whole optimization plan, measured</h2>
+<table id="final">
+<tr><th>Run</th><th>Model</th><th>Pass</th><th>Edit failures</th><th>Tool errors</th><th>Input tokens</th><th>Cached</th></tr>
+<tr><td>baseline</td><td>qwen-flash</td><td>55.6%</td><td>40.6%</td><td>25.8%</td><td>4.9 M</td><td>—</td></tr>
+<tr><td>phase 1a</td><td>qwen-flash</td><td>69.4%</td><td>20.0%</td><td>7.7%</td><td>8.3 M</td><td>0%</td></tr>
+<tr><td>phase 1 + sandbox</td><td>qwen-flash</td><td>61.1%</td><td>7.0%</td><td>3.6%</td><td>9.8 M</td><td>70.0%</td></tr>
+<tr><td>all phases, before loop breakers</td><td>qwen-flash</td><td>63.9%</td><td>38.9%</td><td>23.7%</td><td>14.0 M</td><td>95.1%</td></tr>
+<tr><td>final (loop breakers)</td><td>qwen-flash</td><td><strong>66.7%</strong></td><td><strong>8.5%</strong></td><td><strong>4.5%</strong></td><td>13.6 M</td><td>95.5%</td></tr>
+<tr><td>baseline (2 runs)</td><td>deepseek-chat</td><td>100% / 97.2%</td><td>0%</td><td>0%</td><td>1.8 M / 2.6 M</td><td>—</td></tr>
+<tr><td>phase 1 (strict read rule)</td><td>deepseek-chat</td><td>97.2%</td><td>20.0%</td><td>4.0%</td><td>2.5 M</td><td>90.7%</td></tr>
+<tr><td>all phases, before loop breakers</td><td>deepseek-chat</td><td>94.4%</td><td>13.7%</td><td>2.2%</td><td>3.3 M</td><td>91.7%</td></tr>
+<tr><td>final (loop breakers)</td><td>deepseek-chat</td><td>100%</td><td>18.4%</td><td>3.0%</td><td>2.6 M</td><td>89.9%</td></tr>
+<tr><td>final + refusal hands over content</td><td>deepseek-chat</td><td><strong>100%</strong></td><td><strong>8.1%</strong></td><td><strong>1.3%</strong></td><td>4.8 M</td><td>93.8%</td></tr>
+</table>
+<p>On the weak model the harness alone moved the pass rate from 55.6% to 66.7%, tool errors from 25.8% to 4.5% and edit failures from 40.6% to 8.5%. The strong model stays at the ceiling (100%, twice). Raw input tokens grew because more runs keep working instead of dying early and because the done gate adds rounds, but 90–96% of input is now served from the prompt cache. The baselines predate cache accounting, so their cache share is unknown; what is known is that the final runs pay full price for only 0.3–0.6 M input tokens. Single runs of a weak model move by ±3 tasks, which is why error rates and token counts sit next to the pass rate.</p>
+<p class="lesson">Efficiency is the user's effort, not the model's speed. Remember what they said, interrupt only when it matters, come to them at the right time, and count all of it.</p>
+
+<div class="nav"><a href="21-research-agent.html">← 21 · Research agent</a><a href="index.html">All pages →</a></div>
+</main>
+</body>
+</html>

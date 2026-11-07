@@ -119,6 +119,14 @@ export function tolerantReplace(text: string, oldS: string, newS: string, replac
 /** Files the session has seen, by absolute path → content fingerprint at that time. */
 export class FileState {
   private seen = new Map<string, string>();
+  private misses = new Map<string, number>();
+
+  /** Count a failed anchored edit on a file; returns how many in a row (reset by a successful write). */
+  miss(path: string): number {
+    const n = (this.misses.get(path) ?? 0) + 1;
+    this.misses.set(path, n);
+    return n;
+  }
 
   private fp(content: string): string {
     // Length + cheap rolling hash: enough to detect changes, no crypto needed.
@@ -128,6 +136,7 @@ export class FileState {
   }
 
   note(path: string, content: string): void {
+    this.misses.delete(path);
     this.seen.set(path, this.fp(content));
   }
 
@@ -139,10 +148,16 @@ export class FileState {
     if (!existsSync(path)) return;
     const prev = this.seen.get(path);
     if (!prev && !requireRead) return;
-    if (!prev) throw new Error(`Read ${displayPath} with read_file before editing it (edits must be based on the current content).`);
-    if (prev !== this.fp(readFileSync(path, 'utf8'))) {
-      throw new Error(`${displayPath} changed since you last read it (a command, another edit, or someone else modified it). Read it again before editing.`);
-    }
+    const current = readFileSync(path, 'utf8');
+    if (prev === this.fp(current)) return;
+    // Refuse this call, but hand over the current content (now counted as read) so the next call is informed.
+    this.note(path, current);
+    const why = prev
+      ? `${displayPath} changed since you last read it (a command, another edit, or someone else modified it).`
+      : `${displayPath} exists and was not read in this session, so it was not overwritten.`;
+    const lines = current.split('\n');
+    const body = lines.length <= 400 ? lines.map((l, i) => `${String(i + 1).padStart(6)}|${l}`).join('\n') : '(long file: read the parts you need with read_file)';
+    throw new Error(`${why} Its current content is below and now counts as read: check that your change still fits, then call the tool again.\n${body}`);
   }
 }
 
@@ -304,7 +319,19 @@ export const editFileTool: Tool = {
     if (!existsSync(p)) throw new Error(`${args.path} does not exist; use write_file to create it.`);
     fresh(ctx, p, false);
     const before = readFileSync(p, 'utf8');
-    const r = tolerantReplace(before, String(args.old_string), String(args.new_string ?? ''), !!args.replace_all);
+    let r: ReturnType<typeof tolerantReplace>;
+    try {
+      r = tolerantReplace(before, String(args.old_string), String(args.new_string ?? ''), !!args.replace_all);
+    } catch (e) {
+      // Weak models re-send the same wrong old_string from memory; from the second miss, show the whole file.
+      const misses = ctx.services.fileState?.miss(p) ?? 1;
+      if (misses < 2 || !/not found/.test((e as Error).message)) throw e;
+      const lines = before.split('\n');
+      const shown = lines.length <= 400 ? lines.map((l, i) => `${String(i + 1).padStart(6)}|${l}`).join('\n') : '(file too long to show; read the relevant range with read_file)';
+      throw new Error(
+        `old_string not found in ${args.path} (miss ${misses} in a row on this file). Your old_string does not match the file; it is not what the file contains. Current content:\n${shown}\n\nCopy old_string exactly from the lines above (without the line-number prefix), or replace the whole file with write_file.`,
+      );
+    }
     ctx.services.checkpoint?.([p]);
     writeFileSync(p, r.text);
     written(ctx, p, r.text);

@@ -279,8 +279,14 @@ export class Agent {
       }
     };
 
-    const record = (p: Prepared, r: { output: string; isError: boolean; ms: number }) =>
-      this.emit({ type: 'tool/result', callId: p.call.id, name: p.call.name, output: r.output, isError: r.isError, durationMs: r.ms });
+    const record = (p: Prepared, r: { output: string; isError: boolean; ms: number }) => {
+      let output = r.output;
+      if (r.isError) {
+        const n = this.identicalFailures(p.call);
+        if (n > 0) output += `\n\n[harness] This exact call (same tool, same arguments) has now failed ${n + 1} times. Do not send it again: change the arguments or the approach (re-read the file, use a different tool, or ask the user).`;
+      }
+      this.emit({ type: 'tool/result', callId: p.call.id, name: p.call.name, output, isError: r.isError, durationMs: r.ms });
+    };
 
     let i = 0;
     while (i < prepared.length) {
@@ -302,6 +308,22 @@ export class Agent {
         i++;
       }
     }
+  }
+
+  /** Earlier failures of a call with the same tool and byte-identical arguments (derived from the log). */
+  private identicalFailures(call: ToolCall): number {
+    const failed = new Set<string>();
+    const calls = new Map<string, ToolCall>();
+    for (const e of this.d.log.all()) {
+      if (e.type === 'assistant/message') for (const c of e.toolCalls) calls.set(c.id, c);
+      else if (e.type === 'tool/result' && e.isError) failed.add(e.callId);
+    }
+    let n = 0;
+    for (const id of failed) {
+      const c = calls.get(id);
+      if (c && id !== call.id && c.name === call.name && c.arguments === call.arguments) n++;
+    }
+    return n;
   }
 
   /** Wrap external content, scan it for prompt injection, and log the taint (model-visible means logged). */

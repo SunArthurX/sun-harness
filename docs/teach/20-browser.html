@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" /><meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>20 · Browser — sun-harness</title>
+<link rel="stylesheet" href="teach.css" />
+<script type="module">import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs'; mermaid.initialize({ startOnLoad: true, theme: 'neutral' });</script>
+</head>
+<body>
+<header class="top"><div class="wrap"><a class="brand" href="index.html">sun<em>harness</em> · teach</a><nav><a href="index.html">All pages</a></nav></div></header>
+<main class="wrap">
+<p class="muted">Optimization phase 3 · spec <code>specs/022-browser.md</code> · ADR 0008</p>
+<h1>20 · A browser you can <em>watch and take</em></h1>
+<p class="lede">Manus-style agents feel magical because the browser is real and visible: logins work, JavaScript apps work, and a human can step in for a captcha. Underneath it is a stack of small, old tools: Chrome DevTools Protocol, a virtual X display, VNC, a WebSocket bridge, and socat.</p>
+
+<h2>The stack</h2>
+<div class="mermaid">
+flowchart LR
+  subgraph container [docker: sun-harness/browser]
+    X[Xvfb :99 virtual display] --> F[fluxbox]
+    F --> C[Chromium]
+    C -->|DevTools 127.0.0.1:9222| S[socat 0.0.0.0:9223]
+    X --> V[x11vnc :5900]
+    V --> W[websockify + noVNC :6080]
+  end
+  H[sun host] -->|CDP over WebSocket| S
+  U[you] -->|noVNC in a browser| W
+  H -->|screencast frames| D[desktop live view]
+  D -->|takeover input| H
+</div>
+<div class="qa"><p class="q">Why is socat needed?</p><p class="a">Chromium binds the DevTools port to loopback for security, and recent versions ignore <code>--remote-debugging-address</code>. Inside the container, loopback is unreachable from the host. socat listens on all container interfaces and forwards to 127.0.0.1:9222; the published port is bound to the host's 127.0.0.1 only.</p></div>
+<div class="qa"><p class="q">The DevTools URL from <code>/json/version</code> did not work from the host.</p><p class="a">Chrome reports its own view: <code>ws://127.0.0.1:9222/devtools/browser/…</code>. Behind socat and a port mapping the host must use the mapped port, so the client rewrites the host part of that URL to the one it actually reached.</p></div>
+
+<h2>Raw CDP instead of Playwright</h2>
+<p>About fifteen protocol methods cover everything: <code>Target.createTarget</code> and <code>attachToTarget</code> (flat sessions), <code>Page.navigate</code>, <code>Network.*</code> events for "network quiet", <code>Accessibility.getFullAXTree</code>, <code>DOM.getBoxModel</code>, <code>Input.dispatchMouseEvent / KeyEvent / insertText</code>, <code>Page.startScreencast</code>. Node 22 has a built-in WebSocket, so the client is ~150 lines with no dependency, works in the Electron main process, the CLI bundle and the gateway, and reuses the Chrome you already have.</p>
+
+<h2>What the model sees</h2>
+<pre><code>URL: http://127.0.0.1:61234/
+Title: Greeter
+
+- page "Greeter"
+  - heading 1 "Greeter"
+  - Your name
+  - textbox "Your name" [ref=e1]
+  - button "Greet" [ref=e2]
+  - link "Second page" [ref=e3]</code></pre>
+<p>The accessibility tree is the page as a screen reader sees it: roles, names, values, states. Interactive nodes get refs that map to backend DOM node ids; every action returns a fresh snapshot, and stale refs produce "take a new snapshot" instead of clicking the wrong thing. Clicks scroll the node into view and hit the center of its box model, like a human.</p>
+
+<h2>Live view and takeover</h2>
+<div class="mermaid">
+sequenceDiagram
+  participant A as Agent
+  participant B as BrowserManager
+  participant U as You (desktop)
+  A->>B: browser_click(e7)
+  B-->>A: snapshot
+  U->>B: Take over
+  Note over B: logs browser/takeover on
+  A->>B: browser_type(e9, …)
+  Note over B: waits (abortable)
+  U->>B: click, type (Input.dispatch*)
+  U->>B: Hand back
+  Note over B: logs browser/takeover off
+  B-->>A: user had taken over, page may have changed, plus a snapshot
+</div>
+<div class="qa"><p class="q">The live view stayed black in the test.</p><p class="a">Two causes. Background tabs of a shared window do not paint, so each harness session now gets its own window (<code>newWindow: true</code>) and <code>bringToFront</code> on view. And Chrome only sends screencast frames when something repaints: a static page sends none. Starting the view now captures one screenshot immediately.</p></div>
+<p>Frames are JPEG, throttled to four per second per session, broadcast as live events (desktop IPC, gateway SSE, remote clients) and never logged: they are not model-visible. Takeover events are logged, because the model is told about them.</p>
+
+<figure><img src="img/p3-live-view.png" alt="Web UI with the live view of the agent's Chrome tab"/><figcaption>A real run through the gateway web UI: deepseek-chat searched the shop, added the lamp to the cart, and saved a screenshot; the live view streams the agent's tab.</figcaption></figure>
+<figure><img src="img/p3-takeover.png" alt="Takeover: you are driving, the agent waits"/><figcaption>Take over: input goes to the page and the agent's next browser action waits until you hand it back.</figcaption></figure>
+
+<h2>Profiles</h2>
+<p>Each profile is a Chrome user-data directory under <code>~/.sun/browser/profiles</code>, so cookies and logins persist. <code>sun browser login https://…</code> opens the profile in a visible window for a one-time sign-in. The shell sandbox hides <code>~/.sun</code>, so a command the agent runs cannot read the cookies.</p>
+
+<h2>Verified</h2>
+<table>
+<tr><th>Check</th><th>Result</th></tr>
+<tr><td>local headless Chrome: navigate, type by ref, click, follow link, back, screenshot, bad ref</td><td>pass (test against a local HTTP server)</td></tr>
+<tr><td>screencast frames, takeover blocks the agent until handed back, input forwarding</td><td>pass</td></tr>
+<tr><td>docker image: Chromium 156 on Xvfb, CDP through socat, noVNC HTTP 200</td><td>pass (manual end-to-end)</td></tr>
+</table>
+<p class="lesson">A watchable, interruptible agent needs two channels: a structured one for the model (accessibility tree) and a visual one for the human (frames, VNC). Logging only what the model sees keeps the log small and honest.</p>
+
+<div class="nav"><a href="19-sandbox.html">← 19 · Sandbox</a><a href="21-research-agent.html">21 · Research agent →</a></div>
+</main>
+</body>
+</html>

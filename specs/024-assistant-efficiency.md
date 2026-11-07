@@ -13,10 +13,12 @@ An assistant is efficient when the user says less and waits less: it already kno
 | Core | `~/.sun/memory/MEMORY.md` (sections) | always (system prompt), ≤ 12k chars |
 | Long-term | `~/.sun/memory/items.jsonl` — `{id, text, kind: fact/preference/person/project/lesson/episode, created, source, uses, lastUsed}`, append-only with tombstones | recalled per user message |
 
-- **Recall:** for user messages in `memory.recallModes` (default assistant, agent), the top `recallK` (4) items by BM25 (ASCII words + CJK bigrams) × a small recency/usage prior, above a score threshold and not recalled earlier in the session, are appended as a `user/message` with `source: 'memory'` immediately before the user's message. Recall is part of the log (reproducible) and keeps the system prompt stable (prompt cache).
+- **Recall:** for user messages in `memory.recallModes` (default assistant, agent), the top `recallK` (4) items by BM25 over content terms (ASCII words without English function words, lightly stemmed, plus CJK bigrams) × a small recency/usage prior, with score ≥ 0.2 and not recalled earlier in the session, are appended as a `user/message` with `source: 'memory'` immediately before the user's message. Recall is part of the log (reproducible) and keeps the system prompt stable (prompt cache).
 - **Tools:** `memory_save(fact, kind?, core?)` — long-term by default, core with `core: true` or a `section`; `memory_search(query)`.
 - **Auto-extraction:** when a run in `memory.extractModes` (default assistant) ends idle with new user messages since the last extraction, a background call (router background model) receives the new conversation (recalled blocks excluded) plus related known memories and returns `{memories: [{text, kind, core}], episode}`. Items are deduplicated (normalized text or ≥ 80% token overlap), core items go to `## Profile`, the episode is stored as `kind: episode`, and `memory/extract {added, episode, model}` is logged. Subagent sessions are skipped.
   - *Decision (live test, deepseek-chat):* the first prompt also stored the assistant's own suggestions ("may want Friday reminders", sightseeing "lessons"): 6 items from one turn. Requiring "only what the user said or confirmed, never guesses" reduced it to the 2 true facts plus the episode.
+
+  - *Decision (live test):* with plain tokens, a browser shopping task recalled "Arthur's sister Lina lives in Hangzhou" through "in", "the", "for": in a small store, function words have high IDF. Removing English function words fixed it; because every remaining match is a content word, the threshold dropped from 0.5 to 0.2 (one shared name in a one-item store scores ≈ 0.3). A light stemmer lets "train" find "trains".
 
 ## Model routing
 

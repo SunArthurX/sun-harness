@@ -29,6 +29,11 @@ A harness reduces to six parts: **model, context, tools, loop, log, policy**. su
 - **Remote access**: `sun serve --tls`, per-device tokens, certificate-pinned `sun remote` clients.
 - **Chat bots**: Telegram, DingTalk, Feishu, WeChat Official Account, WeCom and webhook bots with allowlists and approvals in chat.
 - **Durable jobs and safe approvals**: background jobs survive restarts; approvals can't be answered by stray keys or clicks.
+- **Measured coding success**: a validated 36-task eval suite (`sun eval`); tolerant edits and atomic `apply_patch`, a done gate that runs your tests, undo, repository map, plan mode, best-of-N, prompt-cache accounting.
+- **Sandboxed shell**: seatbelt (macOS), bubblewrap (Linux) or Docker; network off / on / allowlist; credentials hidden from commands.
+- **A real browser**: local Chrome or sandboxed Chromium (Xvfb + noVNC + socat) over CDP; accessibility snapshots; live view and takeover in the desktop.
+- **Research agent**: keyless and keyed search providers, readable pages and PDFs, a persistent Python kernel, parallel subagents, deliverables panel, prompt-injection guard.
+- **Assistant that saves effort**: layered memory with automatic extraction, model routing, DingTalk and email/calendar connectors, daily briefing, file and webhook triggers, voice input and read-aloud, efficiency metrics.
 
 ## Quick start
 

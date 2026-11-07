@@ -9,10 +9,14 @@ A coding agent fails for mechanical reasons long before it fails for lack of int
 ## Edits
 
 - **Read before overwrite, fresh before edit.** `write_file` on an existing file requires that the file was read in this session (`FileState`): no blind overwrites. `edit_file` and `apply_patch` may target a file the agent has not read with `read_file` (it may have seen it through `grep` or `cat`; the old text must match anyway). For all three, if the file changed on disk since the agent last read or wrote it, the edit is refused with "read it again" — the model never edits on top of changes it has not seen.
+  - A refusal (unread or stale) returns the file's current content with line numbers (≤ 400 lines) and counts it as read, so the next call is an informed one instead of a loop.
   - *Decision (eval-driven):* the first version required `read_file` before every edit. On deepseek-chat that produced 14 refused edits in 36 tasks (edit failure rate 0% → 20%) without preventing a single wrong edit, so the requirement was narrowed to whole-file overwrites.
 - **Tolerant replace** (`edit_file`): exact match → CRLF-normalized → whitespace-insensitive line match with the replacement re-indented to the file. Ambiguous matches are refused (ask for more context or `replace_all`). A miss returns the closest region of the file with line numbers so the next attempt can copy the real text.
 - **`apply_patch`**: Codex-style multi-file patches (`*** Begin Patch` / `Update|Add|Delete File` / `Move to` / `@@` anchors). All operations are validated first and written only if every hunk applies (atomic). Hunk context matching uses the same whitespace tolerance.
 - **Post-edit diagnostics.** After every write, the touched files are syntax-checked (`node --check`, Python `ast.parse`, `JSON.parse`, the project's own `typescript` syntactic diagnostics). Errors are appended to the tool result: `WARNING: syntax errors after this edit`. Type and test errors are left to the done gate.
+
+- **Loop breakers.** From the second consecutive `old_string not found` on the same file (reset by any successful write), the error contains the file's current content with line numbers (≤ 400 lines) and suggests `write_file`. Any tool result that is an error for a call byte-identical (tool and arguments) to an earlier failed call gets a `[harness]` note with the failure count, telling the model not to repeat it.
+  - *Decision (eval-driven):* in the all-phases qwen-flash run, 147 of the failing edit calls came from two sessions that re-sent the same wrong `old_string` or patch up to 30 times, although the closest-region hint was correct; DeepSeek re-sent a refused `write_file` 6 times (9 in the next run, each with different content, so the identical-call note did not fire); handing over the content on refusal ends that loop after one call.
 
 ## Checkpoints and undo
 
@@ -50,3 +54,13 @@ See the table in `docs/teach/18-coding-success.html` and the eval runs in `~/.su
 |---|---|---|---|---|---|---|
 | baseline-flash | qwen-flash | 55.6% | 40.6% | 25.8% | 4.90 M | — |
 | baseline | deepseek-chat | 100.0% / 97.2% | 0% | 0% | 1.78 M / 2.65 M | — |
+| p1a-flash (edits, gating, JSON repair, parallel reads, done gate) | qwen-flash | 69.4% | 20.0% | 7.7% | 8.29 M | 0% |
+| p1b-flash (all of phase 1 + sandbox) | qwen-flash | 61.1% | 7.0% | 3.6% | 9.79 M | 70.0% |
+| p4a-flash (all phases, before loop breakers) | qwen-flash | 63.9% | 38.9% | 23.7% | 13.99 M | 95.1% |
+| final-flash (loop breakers) | qwen-flash | **66.7%** | **8.5%** | **4.5%** | 13.58 M | 95.5% |
+| p1-deepseek (strict read rule) | deepseek-chat | 97.2% | 20.0% | 4.0% | 2.45 M | 90.7% |
+| p5-deepseek (all phases, before loop breakers) | deepseek-chat | 94.4% | 13.7% | 2.2% | 3.29 M | 91.7% |
+| final-deepseek (loop breakers) | deepseek-chat | 100.0% | 18.4% | 3.0% | 2.58 M | 89.9% |
+| final2-deepseek (+ refusal hands over content) | deepseek-chat | **100.0%** | **8.1%** | **1.3%** | 4.83 M | 93.8% |
+
+Baselines predate cache accounting (their cache share is unknown). One weak-model run varies by about ±3 tasks.

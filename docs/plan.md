@@ -97,6 +97,41 @@ flowchart LR
 - [x] 11 — Chat bots: Telegram, DingTalk outgoing robot, webhook; allowlist, per-chat sessions, approvals in chat (`specs/018`, teach 16)
 - [x] 11.1 — Feishu/Lark, WeChat Official Account, WeCom bots (`specs/018`, teach 16)
 
+## Optimization plan (0.4.0) — coding success, Manus-like agent, personal assistant
+
+Derived from a first-principles comparison with Codex / Claude Code (coding), Manus (sandboxed autonomous agent), and Hermes-like assistants. Every phase is measured; results and the decisions they forced are in the specs and teaching pages.
+
+### Phase 0 — Measure `[x]`
+- [x] 36-task coding eval suite (24 standard + 12 hard), each validated (fails untouched, passes with reference solution); hidden tests; `EVAL_BASE` diff checks
+- [x] `sun eval validate | run | list | report | compare`, session telemetry, baselines for deepseek-chat and qwen-flash (`specs/019`, teach 17)
+
+### Phase 1 — Coding success `[x]`
+- [x] Tolerant `edit_file`, atomic `apply_patch`, read-before-overwrite + stale-read refusal (narrowed after evals), post-edit syntax diagnostics
+- [x] Checkpoints + undo (CLI, chat, desktop, gateway); done gate (verify loop) with detected or configured commands
+- [x] Capability gating, malformed tool-JSON repair, parallel read-only tools
+- [x] Prompt-cache accounting (DeepSeek, OpenAI/DashScope, Anthropic) + Anthropic and DashScope cache markers; repository map + `repo_map`
+- [x] Plan mode with plan approval; best-of-N in worktrees judged by project tests (`sun run --best-of`, `sun eval run --best-of`) (`specs/020`, teach 18)
+
+### Phase 2 — Sandbox `[x]`
+- [x] One exec interface for bash, jobs, verify, best-of-N judge, Python kernel; seatbelt (macOS), bubblewrap (Linux), Docker per session
+- [x] Network on/off/allowlist (CONNECT proxy), hidden credentials and harness state, secret env scrubbing, optional auto-approve (`specs/021`, ADR 0007, teach 19)
+
+### Phase 3 — Browser + takeover `[x]`
+- [x] Raw CDP client; local Chrome, sandboxed Chromium (Xvfb, fluxbox, x11vnc, noVNC, socat; `docker/browser`), any CDP endpoint
+- [x] Accessibility snapshots with refs; navigate/click/type/keys/scroll/back/screenshot/evaluate; persistent profiles, `sun browser login`
+- [x] Live view (screencast) and takeover in the desktop; noVNC link (`specs/022`, ADR 0008, teach 20)
+
+### Phase 4 — Research agent `[x]`
+- [x] Search providers (Bing keyless, Tavily, Brave, Serper, Bocha, SearXNG, DuckDuckGo) with gating; readable Markdown + PDF `web_fetch` with paging
+- [x] Persistent Python kernel; bounded parallel subagents; deliverables panel
+- [x] Prompt-injection guard: untrusted wrapping, scanning, `context/taint`, policy escalation (`specs/023`, teach 21)
+
+### Phase 5 — Assistant efficiency `[x]`
+- [x] Layered memory (core + long-term), per-message recall, background extraction, `memory_search`
+- [x] Model router (`background`, `auto` fast/strong); DingTalk via `dws` (read/write split); email/calendar MCP presets
+- [x] Daily briefing (file, desktop, bot chats); file-watch and webhook triggers; voice input (DashScope ASR / Whisper) and read-aloud
+- [x] Conversation efficiency metrics (`sun metrics`, desktop) (`specs/024`, teach 22)
+
 ## Iteration backlog (research loop)
 
 Filled from intel reports (`~/.sun/evolution/proposals`); each item becomes a spec before code.
@@ -110,3 +145,7 @@ Filled from intel reports (`~/.sun/evolution/proposals`); each item becomes a sp
 | Desktop attaches to remote gateways (pinned), device management UI | — | Desktop |
 | Developer ID signing + notarization; auto-update | — | Desktop |
 | Session export/import and sharing | Codex, Claude Code | Log |
+| Full LSP diagnostics (types) after edits, not only syntax | Claude Code, Cursor | Tools |
+| Learned router (from metrics) instead of keyword heuristics | — | Model |
+| Browser: multi-tab, file upload/download, Playwright via connectOverCDP | Manus | Tools |
+| DingTalk event stream (`dws event`) as a trigger kind | — | Architecture |

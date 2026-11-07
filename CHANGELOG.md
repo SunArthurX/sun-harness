@@ -1,5 +1,43 @@
 # Changelog
 
+## 0.4.0 — 2026-11-07
+
+Optimization plan, measured with a new eval suite. Teaching pages 17–22.
+
+### Phase 0 — Measurement
+- `evals/coding`: 36 validated tasks (standard + hard) with hidden tests and reference solutions; `sun eval validate | run | list | report | compare`; per-session telemetry; baselines.
+
+### Phase 1 — Coding success
+- Tolerant `edit_file` (CRLF, whitespace-insensitive with re-indent, closest-region errors), atomic Codex-style `apply_patch`, read-before-overwrite and stale-read refusal, post-edit syntax diagnostics.
+- Checkpoints and undo (`sun undo`, `/undo`, desktop ↶ Undo); done gate running detected or configured verify commands.
+- Capability gating (`Tool.available`), malformed tool-JSON repair (`wireArguments`), parallel read-only tool calls.
+- Prompt-cache token accounting and hit rate; Anthropic `cache_control`; DashScope explicit cache markers (`cacheControl`).
+- Repository map in Coding/Plan prompts and `repo_map`; Plan mode with plan approval; best-of-N (`sun run --best-of`, `sun eval run --best-of`).
+
+### Phase 2 — Sandbox
+- `ExecSandbox` for bash, jobs, verify, judging and the Python kernel: seatbelt, bubblewrap, Docker per session; network on/off/allowlist via a CONNECT proxy; hidden credentials and `~/.sun`; secret env scrubbing; `sandbox.autoApprove`; `sun sandbox status | test`; `--sandbox`.
+
+### Phase 3 — Browser
+- Raw CDP browser (local Chrome, `docker/browser` with Xvfb/noVNC/socat, any CDP endpoint); accessibility snapshots with refs; 9 browser tools; persistent profiles and `sun browser login`; desktop live view, takeover, noVNC.
+
+### Phase 4 — Research agent
+- `web_search` providers (Bing keyless, Tavily, Brave, Serper, Bocha, SearXNG, DuckDuckGo); readable Markdown and PDF `web_fetch` with paging; persistent `python` kernel; bounded parallel subagents (`maxParallelTools`); deliverables (desktop ▤ Files); prompt-injection guard (untrusted wrapping, scanning, `context/taint`, approval escalation).
+
+### Phase 5 — Assistant efficiency
+- Layered memory: core `MEMORY.md` + long-term items with per-message recall, background extraction, `memory_search`, `sun memory`, desktop list.
+- Model router (`router.background`, `auto` fast/strong); DingTalk via `dws` (`dingtalk_read` / `dingtalk_write`); MCP presets for Gmail, Google Calendar, Outlook, Apple apps (`sun mcp presets | add`).
+- Daily briefing (`sun briefing`, Settings, bot chats); file-watch and webhook triggers (`POST /trigger/<id>`); voice input (DashScope ASR / Whisper; desktop 🎙, `/voice`) and read-aloud; conversation efficiency metrics (`sun metrics`, Settings).
+
+### Measured fixes found along the way
+- Loop breakers: the whole current file after a second `old_string` miss; `[harness]` note on byte-identical repeated failing calls; refusals (unread/stale) hand over the current content and count it as read.
+- Read-before-edit narrowed to whole-file overwrites (anchored edits may target unread files).
+- Memory recall ignores English function words and stems lightly (a shopping task no longer recalls family facts); extraction keeps only what the user said or confirmed.
+- Desktop: session sub-bar (sandbox, Files, Browser, tokens, Undo) and panels above the transcript.
+
+### Results (36-task coding suite)
+- qwen-flash: 55.6% → 66.7% pass; tool errors 25.8% → 4.5%; edit failures 40.6% → 8.5%; 95.5% of input cached.
+- deepseek-chat: 100% (36/36) in the final runs; 89.9–93.8% of input cached.
+
 ## 0.3.1 — 2026-11-07
 
 ### Chat bots: Feishu, WeChat, WeCom

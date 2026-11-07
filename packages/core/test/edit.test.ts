@@ -56,7 +56,7 @@ describe('edit tools in sessions', () => {
         { text: '', toolCalls: [call('edit_file', { path: 'u.js', old_string: 'let u = 1;', new_string: 'let u = 2;' })] },
         { text: '', toolCalls: [call('read_file', { path: 'a.js' }), call('bash', { command: 'echo "// changed" >> a.js' }), call('edit_file', { path: 'a.js', old_string: 'const a = 1;', new_string: 'const a = 2;' })] },
         { text: '', toolCalls: [call('read_file', { path: 'a.js' }), call('edit_file', { path: 'a.js', old_string: 'const a = 1;', new_string: 'const a = 2;' }), call('edit_file', { path: 'a.js', old_string: 'const a = 2;', new_string: 'const a = 3;' })] },
-        { text: '', toolCalls: [call('write_file', { path: 'new.js', content: 'x' }), call('write_file', { path: 'b.js', content: 'overwrite' })] },
+        { text: '', toolCalls: [call('write_file', { path: 'new.js', content: 'x' }), call('write_file', { path: 'b.js', content: 'overwrite' }), call('write_file', { path: 'b.js', content: 'overwrite' })] },
         { text: 'done', toolCalls: [] },
       ],
     });
@@ -69,7 +69,9 @@ describe('edit tools in sessions', () => {
     expect(out[5]).toMatch(/edit_file:ok/);
     expect(out[6]).toMatch(/edit_file:ok/); // the session's own edit keeps the file fresh
     expect(out[7]).toMatch(/write_file:ok:Created new.js/);
-    expect(out[8]).toMatch(/write_file:ERR:Error: Read b.js/);
+    expect(out[8]).toMatch(/write_file:ERR:Error: b.js exists and was not read/);
+    // The refusal handed over the content, so the repeated overwrite is now an informed one.
+    expect(out[9]).toMatch(/write_file:ok:Overwrote b.js/);
     expect(readFileSync(join(ws, 'a.js'), 'utf8')).toContain('const a = 3;');
   });
 
@@ -140,5 +142,32 @@ describe('eval runner', () => {
     expect(run.summary).toMatchObject({ tasks: 1, passed: 1, passRate: 1 });
     expect(run.results[0]).toMatchObject({ steps: 3, toolCalls: 3, toolErrors: 1, editCalls: 2, editFailures: 1 });
     expect(run.summary.editFailureRate).toBe(0.5);
+  });
+});
+
+describe('loop breakers', () => {
+  beforeEach(() => tempHome());
+
+  it('shows the whole file after a second miss and flags identical failing calls', async () => {
+    const ws = tempWorkspace();
+    writeFileSync(join(ws, 'm.js'), 'export const a = 1;\nexport const b = 2;\n');
+    const bad = { path: 'm.js', old_string: 'export const c = 3;', new_string: 'x' };
+    const { host } = await mockHost({
+      'mock/a': [
+        { text: '', toolCalls: [call('read_file', { path: 'm.js' }), call('edit_file', bad)] },
+        { text: '', toolCalls: [call('edit_file', bad)] },
+        { text: '', toolCalls: [call('edit_file', bad)] },
+        { text: 'giving up', toolCalls: [] },
+      ],
+    }, { verify: { enabled: false, maxAttempts: 0, timeoutMs: 1000 } });
+    const s = host.createSession({ cwd: ws });
+    await host.send(s.id, 'edit');
+    await host.wait(s.id);
+    const errs = (host.getEvents(s.id).filter((e) => e.type === 'tool/result' && e.name === 'edit_file') as any[]).map((r) => r.output);
+    expect(errs[0]).toMatch(/old_string not found/);
+    expect(errs[0]).not.toMatch(/\[harness\]/);
+    expect(errs[1]).toMatch(/miss 2 in a row[\s\S]*1\|export const a = 1;[\s\S]*write_file/);
+    expect(errs[1]).toMatch(/has now failed 2 times/);
+    expect(errs[2]).toMatch(/has now failed 3 times/);
   });
 });

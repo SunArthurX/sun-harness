@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" /><meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>19 · Sandbox — sun-harness</title>
+<link rel="stylesheet" href="teach.css" />
+<script type="module">import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs'; mermaid.initialize({ startOnLoad: true, theme: 'neutral' });</script>
+</head>
+<body>
+<header class="top"><div class="wrap"><a class="brand" href="index.html">sun<em>harness</em> · teach</a><nav><a href="index.html">All pages</a></nav></div></header>
+<main class="wrap">
+<p class="muted">Optimization phase 2 · spec <code>specs/021-sandbox.md</code> · ADR 0007</p>
+<h1>19 · Safe <em>by construction</em></h1>
+<p class="lede">Approval prompts protect nobody in <code>full-auto</code>, in evals, in bots, or after the hundredth prompt. The shell has to be safe even when nobody reads: a command may change the workspace, not the machine, and may not read your credentials.</p>
+
+<h2>One exec interface, three backends</h2>
+<div class="mermaid">
+flowchart LR
+  B[bash tool] --> X[ExecSandbox.shell + env]
+  J[background jobs] --> X
+  V[verify gate] --> X
+  N[best-of-N judge] --> X
+  K[python kernel] --> X
+  X --> SB[seatbelt · macOS]
+  X --> BW[bubblewrap · Linux]
+  X --> DK[docker · per session]
+  X --> NO[none]
+</div>
+<p>The sandbox turns a command into another command string: <code>sandbox-exec -f profile.sb bash -c '…'</code>, <code>bwrap --ro-bind / / … bash -c '…'</code>, or <code>docker exec … bash -c '…'</code>. Because it is just a string, the detached job wrapper can run it too: the wrapper (logging, exit code) stays outside, the command goes inside.</p>
+
+<h2>The seatbelt profile</h2>
+<pre><code>(version 1)
+(allow default)
+(deny file-write*)
+(allow file-write* (subpath "/workspace") (subpath "/repo/.git") (subpath "/private/tmp")
+                   (subpath "/private/var/folders") (subpath "~/.npm") … (literal "/dev/null"))
+(deny file-read-data (subpath "~/.ssh") (subpath "~/.aws") … (subpath "~/.sun"))
+(allow file-read-data (subpath "~/.sun/skills") (subpath "~/.sun/plugins") …)
+(deny network*)                       ; only when network is "off" or "allowlist"
+(allow network* (remote unix-socket))
+(allow network* (remote ip "localhost:*"))</code></pre>
+<div class="qa"><p class="q">Why deny reads of <code>~/.sun</code>?</p><p class="a">It holds the gateway token. A sandboxed command that can read <code>gateway.json</code> can ask the gateway to run anything <em>outside</em> the sandbox: an escape through the harness itself. The parts that are not secret (skills, plugins, notes, the agent workspace, worktrees) are re-allowed; in SBPL the last matching rule wins.</p></div>
+<div class="qa"><p class="q">The best-of-N test failed after enabling the sandbox. Why?</p><p class="a"><code>npm test</code> crashed with <code>EPERM: lstat '/…/home'</code>. Denying <code>file-read*</code> also denies <em>metadata</em>, and Node's module resolution calls <code>realpath</code>, which <code>lstat</code>s every parent directory. The fix is <code>file-read-data</code>: contents stay hidden, directory listings and stats work.</p></div>
+<div class="qa"><p class="q">Worktree commits failed inside the sandbox?</p><p class="a">A worktree's <code>.git</code> is a file pointing to the main repository's <code>.git/worktrees/&lt;name&gt;</code>; commits write there. The sandbox adds <code>git rev-parse --git-common-dir</code> to the writable roots.</p></div>
+
+<h2>Network: off, on, or an allowlist</h2>
+<div class="mermaid">
+sequenceDiagram
+  participant C as sandboxed curl
+  participant P as sun proxy 127.0.0.1:random
+  participant G as github.com
+  participant E as evil.example
+  C->>P: CONNECT github.com:443
+  P->>G: TCP
+  P-->>C: 200 Connection Established
+  C->>P: CONNECT evil.example:443
+  P-->>C: 403 not in sandbox.allow
+  Note over C: direct connections are blocked by the OS profile (loopback only)
+</div>
+<p>Two layers make the allowlist real on macOS and Linux: the OS profile allows only loopback, and the only thing listening there for the outside world is the proxy, which checks the host. Environment variables (<code>HTTPS_PROXY</code>, npm's proxy settings, <code>NODE_USE_ENV_PROXY=1</code>) make common tools use it. Inside Docker the allowlist relies on the proxy settings only, and the spec says so.</p>
+
+<h2>Secrets</h2>
+<p>Sandboxed commands lose the environment variables that carry the harness's own secrets: every <code>*Env</code> name in the config (provider keys, bot tokens) and credential-looking names (<code>*_API_KEY</code>, <code>*_TOKEN</code>, …). Shell rc files are unreadable too: they are where those keys were imported from.</p>
+
+<h2>Fewer prompts, not more</h2>
+<p>A command that cannot write outside the workspace is not worth an approval prompt in <code>auto-edit</code>. With <code>sandbox.autoApprove</code> on, sandboxed shell commands run without asking, the Codex "workspace-write" model. Phase 4 adds one exception: once web content is in the context, commands ask again.</p>
+
+<h2>Verified</h2>
+<table>
+<tr><th>Check</th><th>Result</th></tr>
+<tr><td>write in the workspace / write to <code>~</code></td><td>works / <code>Operation not permitted</code> (<code>sun sandbox test</code>)</td></tr>
+<tr><td>read a denied path, secret env var</td><td>refused / empty</td></tr>
+<tr><td>connect to 10.255.255.1 with network off, to 127.0.0.1</td><td><code>EPERM</code> immediately / allowed (unit test without network)</td></tr>
+<tr><td>Docker backend (node:22-bookworm-slim)</td><td>container per session, workspace mounted at the same path, removed on dispose</td></tr>
+<tr><td>full coding eval (qwen-flash) with seatbelt on</td><td>0 sandbox-related tool errors in 36 tasks</td></tr>
+</table>
+<p class="lesson">Make the safe path the default path, and test it with the real workload: the eval suite found the <code>lstat</code> problem before any user did.</p>
+
+<div class="nav"><a href="18-coding-success.html">← 18 · Coding success</a><a href="20-browser.html">20 · Browser →</a></div>
+</main>
+</body>
+</html>

@@ -1301,3 +1301,23 @@ pre.diff {
 table.metrics { width: 100%; border-collapse: collapse; font-size: 12px; }
 table.metrics th, table.metrics td { text-align: left; padding: 4px 6px; border-bottom: 1px solid var(--line); }
 table.metrics th { color: var(--muted); font-weight: 500; }
+
+/* Session sub-bar (sandbox, files, browser, tokens, undo) and panels above the transcript */
+.chat-subbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  padding: 0 26px 10px;
+  border-bottom: 1px solid var(--line);
+}
+.chat-subbar .spacer { flex: 1; }
+.chat-panels {
+  max-height: 58vh;
+  overflow: auto;
+  padding: 12px max(26px, calc((100% - 860px) / 2)) 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.chat-panels .browser-panel { position: static; }

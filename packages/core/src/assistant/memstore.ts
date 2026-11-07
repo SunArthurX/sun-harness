@@ -27,6 +27,17 @@ export interface MemoryConfig {
 
 export const DEFAULT_MEMORY: MemoryConfig = { recallModes: ['assistant', 'agent'], extractModes: ['assistant'], autoExtract: true, recallK: 4 };
 
+/** Function words carry no topic; with a small memory they would otherwise dominate BM25 (high IDF). */
+const STOP = new Set(
+  'a an and are as at be been but by can could did do does for from had has have he her his how i if in into is it its me my no not of on or our she so than that the their them then there these they this to up us was we were what when where which who why will with would you your am also just about over out all any some more most very too only own same such both each few other its'.split(' '),
+);
+/** Light English stemming so "trains" finds "train" and "booked" finds "booking"; CJK bigrams pass through. */
+function stem(t: string): string {
+  if (!/^[a-z]+$/.test(t) || t.length <= 4) return t;
+  return t.replace(/(ies)$/, 'y').replace(/(ing|ed|es|s)$/, '');
+}
+const terms = (s: string) => tokenize(s).filter((t) => !STOP.has(t)).map(stem);
+
 const norm = (s: string) => s.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
 
 function jaccard(a: string[], b: string[]): number {
@@ -90,11 +101,11 @@ export class MemoryStore {
     for (const m of this.list()) if (ids.includes(m.id)) this.write({ ...m, uses: m.uses + 1, lastUsed: now });
   }
 
-  search(query: string, k = 5, minScore = 0.5): { item: MemoryItem; score: number }[] {
+  search(query: string, k = 5, minScore = 0.2): { item: MemoryItem; score: number }[] {
     const items = this.list();
     if (!items.length) return [];
     const docs = items.map((m) => {
-      const toks = tokenize(m.text);
+      const toks = terms(m.text);
       const tf = new Map<string, number>();
       for (const t of toks) tf.set(t, (tf.get(t) ?? 0) + 1);
       return { m, tf, len: toks.length };
@@ -102,7 +113,7 @@ export class MemoryStore {
     const avg = docs.reduce((s, d) => s + d.len, 0) / docs.length || 1;
     const df = new Map<string, number>();
     for (const d of docs) for (const t of d.tf.keys()) df.set(t, (df.get(t) ?? 0) + 1);
-    const q = [...new Set(tokenize(query))];
+    const q = [...new Set(terms(query))];
     const N = docs.length;
     const now = Date.now();
     return docs

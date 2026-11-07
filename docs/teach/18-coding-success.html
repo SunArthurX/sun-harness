@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" /><meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>18 · Coding success — sun-harness</title>
+<link rel="stylesheet" href="teach.css" />
+<script type="module">import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs'; mermaid.initialize({ startOnLoad: true, theme: 'neutral' });</script>
+</head>
+<body>
+<header class="top"><div class="wrap"><a class="brand" href="index.html">sun<em>harness</em> · teach</a><nav><a href="index.html">All pages</a></nav></div></header>
+<main class="wrap">
+<p class="muted">Optimization phase 1 · spec <code>specs/020-coding-success.md</code></p>
+<h1>18 · Make the <em>mechanics</em> reliable</h1>
+<p class="lede">The weak model in phase 0 did not fail because it could not reason. It failed because edits did not apply, tools that could not work were offered, and one malformed tool call killed a session. Phase 1 fixes the mechanics in the harness, measures every change, and keeps or reverts it by the numbers.</p>
+
+<h2>Where a coding run loses</h2>
+<div class="mermaid">
+flowchart LR
+  U[understand the repo] --> P[plan] --> E[edit] --> V[verify] --> D[declare done]
+  U -.->|repo map, plan mode| U
+  E -.->|tolerant replace, apply_patch, stale check, diagnostics| E
+  V -.->|done gate| V
+  D -.->|checkpoints + undo, best-of-N| D
+</div>
+<p>Success is roughly the product of the stages. A 70% chance that an edit lands, repeated over five edits, already gives 17%. Tolerant edits attack the largest factor first, because the baseline logged 93 failures of exactly one message: <code>old_string not found</code>.</p>
+
+<h2>1 · Edits that land</h2>
+<div class="mermaid">
+flowchart TD
+  A[edit_file old → new] --> X{exact match?}
+  X -->|once| W[write]
+  X -->|no| C{after CRLF normalization?}
+  C -->|once| W
+  C -->|no| S{whitespace-insensitive line match?}
+  S -->|once| R[re-indent replacement to the file] --> W
+  S -->|several| AMB[refuse: ambiguous, add context]
+  S -->|none| CL[refuse + closest region with line numbers]
+  W --> CP[checkpoint before write] --> DG[syntax check → warning in result]
+</div>
+<div class="qa"><p class="q">Isn't whitespace-insensitive matching dangerous?</p><p class="a">Only if it can match the wrong place. The match is accepted only when it is unique; otherwise the tool refuses and asks for more context. The replacement is re-indented to the indentation the file actually uses, which is what the model meant.</p></div>
+<div class="qa"><p class="q">Why a second edit tool (<code>apply_patch</code>)?</p><p class="a">Multi-file changes done as N separate edits can fail halfway and leave a broken tree. The Codex-style patch is validated completely before anything is written: all files or none. Hunks use context lines with the same tolerance, plus optional <code>@@</code> anchors.</p></div>
+
+<h3>Read before overwrite, fresh before edit — and an eval-driven correction</h3>
+<p>The first version required <code>read_file</code> before any edit. On qwen-flash it helped: blind overwrites disappeared. On deepseek-chat it hurt: the edit failure rate went from 0% to 20% (14 refusals in 36 tasks), because strong models often look at files through <code>grep</code> or <code>cat</code> and then edit correctly. None of the refusals prevented a wrong edit.</p>
+<p>The rule was narrowed: whole-file overwrites still require a read; anchored edits do not (their old text must match anyway). The staleness check stayed for all three: if a file changed on disk since the agent last saw it, the edit is refused.</p>
+
+<h3>Loop breakers</h3>
+<p>The all-phases qwen-flash run showed the edit failure rate back at 38.9%. Classifying the failures: 100 of 102 failing <code>edit_file</code> calls were on files the model <em>had</em> read, and 147 failures came from just two sessions. The model wrote <code>old_string</code> as the code it wanted to see, not the code in the file, and re-sent the identical call up to 30 times while the error showed the right lines. Two breakers: from the second miss on a file the error includes the whole current file with line numbers and suggests <code>write_file</code>; and any repeated byte-identical failing call is flagged with its count and told to change approach. DeepSeek showed a third loop: nine refused overwrites of an unread file, each with different content, so the identical-call check never fired. A refusal now hands over the file's current content and counts it as read: the next overwrite is informed, and the guarantee (no write without seeing the file) still holds.</p>
+
+<h2>2 · Tools that can work, calls that can't poison</h2>
+<table>
+<tr><th>Finding (baseline logs)</th><th>Fix</th></tr>
+<tr><td>38 calls to <code>web_search</code> against a blocked endpoint</td><td>Capability gating: a tool may define <code>available()</code>; unavailable tools are not offered at all</td></tr>
+<tr><td>1 malformed tool-argument JSON, then HTTP 400 on every later request</td><td><code>wireArguments</code>: invalid arguments are sent back as <code>{"_invalid_json": "…"}</code>, a valid object; the tool result asks for valid JSON</td></tr>
+<tr><td>Many sequential read calls</td><td>Consecutive read-only calls that need no approval run concurrently and are logged in order</td></tr>
+</table>
+
+<h2>3 · The done gate</h2>
+<div class="mermaid">
+sequenceDiagram
+  participant M as Model
+  participant H as Harness
+  participant P as Project checks
+  M->>H: final answer (after editing)
+  H->>P: verify commands (.sun/project.json or detected)
+  alt pass
+    P-->>H: exit 0
+    H-->>M: verify/result passed, run ends
+  else fail (attempt ≤ 2)
+    P-->>H: output
+    H->>M: user/message source=verify: "fix the cause, do not weaken tests"
+    M->>H: more edits …
+  end
+</div>
+<p>The model's "done" becomes a claim the harness checks. Commands come from <code>.sun/project.json</code> or are detected (package scripts, <code>tsc --noEmit</code>, <code>node --test</code>, pytest/unittest, cargo, go). The gate only runs when files changed since the last verification, so chat turns cost nothing.</p>
+
+<h2>4 · Context: cache, map, plan</h2>
+<div class="qa"><p class="q">How do you get prompt-cache hits without making the prompt worse?</p><p class="a">Keep the prefix stable. Messages are append-only already; the repository map is computed once per session; recalled memories (phase 5) are appended as messages instead of changing the system prompt. Then report what the provider says: DeepSeek <code>prompt_cache_hit_tokens</code>, OpenAI/DashScope <code>prompt_tokens_details.cached_tokens</code>, Anthropic <code>cache_read_input_tokens</code>.</p></div>
+<div class="qa"><p class="q">DashScope reported 0 cached tokens. Is caching broken?</p><p class="a">Two identical 3.9k-token requests both returned <code>cached_tokens: 0</code>: implicit caching did not engage. With explicit <code>cache_control</code> markers on content blocks (supported by DashScope's OpenAI-compatible API), the second request read 3,911 of 3,922 tokens from cache. The provider option <code>cacheControl</code> marks the system prompt and the newest message; the DashScope preset turns it on.</p></div>
+<p><strong>Repository map:</strong> definitions per file (functions, classes, types, methods for JS/TS, Python, Go, Rust, Java), files ranked by how often <em>other</em> files reference their names (a cheap stand-in for PageRank on the reference graph), rendered within 6,000 characters. The <code>repo_map</code> tool gives a fresh, filtered view.</p>
+<p><strong>Plan mode:</strong> read-only tools plus <code>exit_plan_mode</code>, which has exec risk so it passes approval: the human reviews the plan. On approval the session switches to coding mode <em>on the running log</em> (a second log handle would not be seen by the agent's next step — the bug the test caught) and the plan's steps become the todo list.</p>
+
+<h2>5 · Reversible and parallel</h2>
+<div class="mermaid">
+flowchart LR
+  T[task] --> W1[worktree 1 · model A]
+  T --> W2[worktree 2 · model B]
+  T --> W3[worktree 3 · model A]
+  W1 --> J{project tests}
+  W2 --> J
+  W3 --> J
+  J --> R[rank: verified > finished > has changes > smallest diff > fewest tokens]
+  R --> M[squash-merge winner, discard others]
+</div>
+<p>Every write is preceded by a checkpoint (file contents before the change). <code>undo</code> restores the newest steps and tells the model what was reverted. Best-of-N runs the same task in N worktrees and lets the project's own tests pick the winner; in evals, the hidden tests are never visible to candidates.</p>
+
+<h2>The numbers</h2>
+<table>
+<tr><th>Run</th><th>Model</th><th>Pass</th><th>Edit failures</th><th>Tool errors</th><th>Input tokens</th><th>Cached</th></tr>
+<tr><td>baseline</td><td>qwen-flash</td><td>55.6%</td><td>40.6%</td><td>25.8%</td><td>4.9 M</td><td>—</td></tr>
+<tr><td>phase 1a (edits, gating, JSON repair, parallel reads, done gate)</td><td>qwen-flash</td><td>69.4%</td><td>20.0%</td><td>7.7%</td><td>8.3 M</td><td>0%</td></tr>
+<tr><td>phase 1 complete + sandbox</td><td>qwen-flash</td><td>61.1%</td><td>7.0%</td><td>3.6%</td><td>9.8 M</td><td>70.0%</td></tr>
+<tr><td>all phases, before loop breakers</td><td>qwen-flash</td><td>63.9%</td><td>38.9%</td><td>23.7%</td><td>14.0 M</td><td>95.1%</td></tr>
+<tr id="final-flash"><td>final (with loop breakers)</td><td>qwen-flash</td><td><strong>66.7%</strong></td><td><strong>8.5%</strong></td><td><strong>4.5%</strong></td><td>13.6 M</td><td>95.5%</td></tr>
+<tr><td>baseline (2 runs)</td><td>deepseek-chat</td><td>100% / 97.2%</td><td>0%</td><td>0%</td><td>1.8 M / 2.6 M</td><td>—</td></tr>
+<tr><td>phase 1 (before the read-rule correction)</td><td>deepseek-chat</td><td>97.2%</td><td>20.0%</td><td>4.0%</td><td>2.5 M</td><td>90.7%</td></tr>
+<tr><td>all phases, before loop breakers</td><td>deepseek-chat</td><td>94.4%</td><td>13.7%</td><td>2.2%</td><td>3.3 M</td><td>91.7%</td></tr>
+<tr><td>final (loop breakers + refusal hands over content)</td><td>deepseek-chat</td><td><strong>100%</strong></td><td><strong>8.1%</strong></td><td><strong>1.3%</strong></td><td>4.8 M</td><td>93.8%</td></tr>
+</table>
+<div class="qa"><p class="q">Pass rate went 55.6 → 69.4 → 61.1. Did the second half of phase 1 make things worse?</p><p class="a">Not by itself. Tool and edit errors kept falling (25.8% → 3.6%, 40.6% → 7.0%). The four regressed tasks failed for model reasons: one session explained the fix and never edited, two ran out of steps, one wrote a wrong algorithm, and none touched the sandbox or the new tools. With 36 tasks, one task is 2.8 points; a ±3-task swing between runs of a weak model is noise. That is why the suite reports error rates and tokens next to the pass rate, and why runs are repeated.</p></div>
+<div class="qa"><p class="q">Why did tokens go up?</p><p class="a">More turns finish: the done gate turns a premature "done" into another round of edits, and fewer sessions die early from a poisoned history. Cost per <em>solved</em> task is the fair metric, and cached input is billed at a fraction of the price: 70–90% of input was cached once caching worked.</p></div>
+<p class="lesson">Fix mechanics before intelligence, measure every fix, and be ready to narrow a rule the numbers say is wrong.</p>
+
+<div class="nav"><a href="17-measurement.html">← 17 · Measurement</a><a href="19-sandbox.html">19 · Sandbox →</a></div>
+</main>
+</body>
+</html>

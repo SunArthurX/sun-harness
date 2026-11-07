@@ -460,21 +460,6 @@ export function Chat({
           <button className="chip mono" title="Open workspace" onClick={() => api.openPath(summary.cwd)}>
             {summary.cwd.replace(/^\/Users\/[^/]+/, '~')}
           </button>
-          {sandbox && (
-            <span className={`chip mono ${sandbox.kind === 'none' ? 'warn' : ''}`} title={sandbox.description}>
-              {sandbox.kind === 'none' ? 'no sandbox' : `⛉ ${sandbox.kind}`}
-            </span>
-          )}
-          {undoable > 0 && (
-            <button className={`chip ${showFiles ? 'on' : ''}`} title="Files this session created or changed" onClick={() => setShowFiles(!showFiles)}>
-              ▤ Files
-            </button>
-          )}
-          {usesBrowser && (
-            <button className={`chip ${showBrowser ? 'on' : ''}`} title="Live view of the agent's browser" onClick={() => setShowBrowser(!showBrowser)}>
-              ◎ Browser
-            </button>
-          )}
           {summary.worktree && (
             <button className={`chip mono branch ${showChanges ? "on" : ""}`} title="Worktree changes" onClick={() => setShowChanges(!showChanges)}>
               ⑂ {summary.worktree.branch}
@@ -495,15 +480,6 @@ export function Chat({
               <option key={m}>{m}</option>
             ))}
           </select>
-          {usage > 0 && (
-            <span className="muted small mono" title={`${cached} of ${inputTokens} input tokens served from the provider's prompt cache`}>
-              {(usage / 1000).toFixed(1)}k tok{cached > 0 ? ` · ${Math.round((cached / Math.max(1, inputTokens)) * 100)}% cached` : ''}
-            </span>
-          )}
-          {undoMsg && <span className="muted small">{undoMsg}</span>}
-          <button className="btn-ghost small" title="Undo the last file edit step (checkpoint)" disabled={running || !undoable} onClick={undo}>
-            ↶ Undo{undoable ? ` (${undoable})` : ''}
-          </button>
           <button
             className="btn-ghost small"
             title="Delete session"
@@ -518,6 +494,40 @@ export function Chat({
           </button>
         </div>
       </header>
+      <div className="chat-subbar">
+        {sandbox && (
+          <span className={`chip mono ${sandbox.kind === 'none' ? 'warn' : ''}`} title={sandbox.description}>
+            {sandbox.kind === 'none' ? 'no sandbox' : `⛉ ${sandbox.kind}`}
+          </span>
+        )}
+        {undoable > 0 && (
+          <button className={`chip ${showFiles ? 'on' : ''}`} title="Files this session created or changed" onClick={() => setShowFiles(!showFiles)}>
+            ▤ Files
+          </button>
+        )}
+        {usesBrowser && (
+          <button className={`chip ${showBrowser ? 'on' : ''}`} title="Live view of the agent's browser" onClick={() => setShowBrowser(!showBrowser)}>
+            ◎ Browser
+          </button>
+        )}
+        <span className="spacer" />
+        {usage > 0 && (
+          <span className="muted small mono" title={`${cached} of ${inputTokens} input tokens served from the provider's prompt cache`}>
+            {(usage / 1000).toFixed(1)}k tok{cached > 0 ? ` · ${Math.round((cached / Math.max(1, inputTokens)) * 100)}% cached` : ''}
+          </span>
+        )}
+        {undoMsg && <span className="muted small">{undoMsg}</span>}
+        <button className="btn-ghost small" title="Undo the last file edit step (checkpoint)" disabled={running || !undoable} onClick={undo}>
+          ↶ Undo{undoable ? ` (${undoable})` : ''}
+        </button>
+      </div>
+      {(showBrowser || showFiles || (showChanges && summary.worktree)) && (
+        <div className="chat-panels">
+          {showChanges && summary.worktree && <ChangesPanel s={summary} onClose={() => setShowChanges(false)} />}
+          {showBrowser && <BrowserPanel sessionId={summary.id} onClose={() => setShowBrowser(false)} />}
+          {showFiles && <FilesPanel sessionId={summary.id} version={events.length} onClose={() => setShowFiles(false)} />}
+        </div>
+      )}
 
       <div
         className="transcript"
@@ -527,9 +537,6 @@ export function Chat({
           stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
         }}
       >
-        {showChanges && summary.worktree && <ChangesPanel s={summary} onClose={() => setShowChanges(false)} />}
-        {showBrowser && <BrowserPanel sessionId={summary.id} onClose={() => setShowBrowser(false)} />}
-        {showFiles && <FilesPanel sessionId={summary.id} version={events.length} onClose={() => setShowFiles(false)} />}
         {todos && todos.items.length > 0 && <Todos items={todos.items} />}
         {events.map((e) => {
           switch (e.type) {

@@ -34,6 +34,9 @@ describe('long-term memory store', () => {
     expect(m.search('When is Lina birthday?')[0].item.kind).toBe('person');
     expect(m.search('sun-harness 用什么包管理')[0].item.text).toContain('pnpm');
     expect(m.search('quantum chromodynamics')).toEqual([]);
+    expect(m.search('answer in bullets please')[0]?.item.kind).toBe('preference');
+    // Function words alone must not recall anything (live finding: a shopping task recalled family facts via "in", "the").
+    expect(m.search('Open the page in the browser and add it to the cart for me')).toEqual([]);
     m.touch([a.item.id]);
     expect(m.list().find((x) => x.id === a.item.id)?.uses).toBe(1);
     expect(m.remove(a.item.id)).toBe(true);
