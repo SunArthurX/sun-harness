@@ -1,0 +1,7 @@
+{
+  "id": "js-extract-module",
+  "title": "Extract a module without changing behavior",
+  "category": "refactor",
+  "language": "js",
+  "prompt": "app.js mixes date helpers with app logic. Move `formatDate`, `addDays` and `isWeekend` into a new file dates.js (named exports), import them in app.js, and keep app.js's public behavior identical. app.js must no longer define those functions itself."
+}

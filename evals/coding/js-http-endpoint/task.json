@@ -1,0 +1,7 @@
+{
+  "id": "js-http-endpoint",
+  "title": "Add an HTTP endpoint",
+  "category": "feature",
+  "language": "js",
+  "prompt": "Add a `GET /health` endpoint to server.js that responds 200 with JSON `{\"status\":\"ok\",\"uptime\":<seconds as a number>}` and content-type application/json. Unknown paths must still return 404."
+}

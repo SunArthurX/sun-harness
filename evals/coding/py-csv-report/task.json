@@ -1,0 +1,7 @@
+{
+  "id": "py-csv-report",
+  "title": "Write a CSV summary script",
+  "category": "data",
+  "language": "py",
+  "prompt": "Write report.py that reads sales.csv (columns: date,region,product,units,unit_price) and prints a JSON object mapping each region to its total revenue (units * unit_price, rounded to 2 decimals), sorted by region name. Run it to make sure it works."
+}

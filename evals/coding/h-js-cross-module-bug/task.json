@@ -1,0 +1,8 @@
+{
+  "id": "h-js-cross-module-bug",
+  "title": "Fix a bug that spans modules",
+  "category": "hard-debugging",
+  "tier": "hard",
+  "language": "js",
+  "prompt": "Support reports: after customers cancel orders, the cancelled items never become available again, so products show as sold out. Find the root cause and fix it. Cancelling twice must not release stock twice. Run the tests."
+}

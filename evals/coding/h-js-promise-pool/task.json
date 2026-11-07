@@ -1,0 +1,8 @@
+{
+  "id": "h-js-promise-pool",
+  "title": "Concurrency-limited promise pool",
+  "category": "hard-async",
+  "tier": "hard",
+  "language": "js",
+  "prompt": "Implement `pool(tasks, limit)` in src/pool.js. `tasks` is an array of functions returning promises. Run at most `limit` tasks at the same time, start the next task as soon as one finishes, and resolve with the results in input order. If any task rejects, reject with that error and do not start any task that has not started yet. `limit` must be a positive integer (throw TypeError synchronously otherwise). An empty task list resolves to []."
+}

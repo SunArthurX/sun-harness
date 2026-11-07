@@ -1,0 +1,8 @@
+{
+  "id": "h-py-ttl-cache",
+  "title": "TTL cache decorator",
+  "category": "hard-feature",
+  "tier": "hard",
+  "language": "py",
+  "prompt": "Implement the `ttl_cache(maxsize=128, ttl=60.0, clock=time.monotonic)` decorator in cache.py. Cached results expire `ttl` seconds after they were stored (based on `clock()`); when more than `maxsize` live entries exist, evict the least recently used. Keyword argument order must not matter (f(a=1, b=2) and f(b=2, a=1) share an entry); unhashable arguments raise TypeError. The wrapped function exposes `cache_info()` returning a dict {'hits', 'misses', 'size'} and `cache_clear()` (which also resets the counters). Preserve the wrapped function's __name__ and __doc__."
+}

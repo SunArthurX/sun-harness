@@ -1,0 +1,8 @@
+{
+  "id": "h-py-semver",
+  "title": "Semver range matching",
+  "category": "hard-algorithm",
+  "tier": "hard",
+  "language": "py",
+  "prompt": "Implement `satisfies(version, rng)` in semver.py following npm semantics for this subset: exact versions ('1.2.3', '=1.2.3'), comparators (>, >=, <, <=), caret ('^1.2.3' means >=1.2.3 <2.0.0; '^0.2.3' means >=0.2.3 <0.3.0; '^0.0.3' means >=0.0.3 <0.0.4), tilde ('~1.2.3' means >=1.2.3 <1.3.0), x-ranges ('1.2.x', '1.x', '*'), space-separated comparators are AND, '||' is OR. Pre-release versions ('1.0.0-alpha.1') sort before their release; a pre-release version only satisfies a range if some comparator in the same set has the same major.minor.patch with a pre-release tag (npm rule). Pre-release identifiers compare numerically when numeric, otherwise lexically. Raise ValueError for invalid versions."
+}

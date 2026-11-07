@@ -1,0 +1,7 @@
+{
+  "id": "py-slugify",
+  "title": "Implement slugify",
+  "category": "feature",
+  "language": "py",
+  "prompt": "Implement `slugify` in text_utils.py according to its docstring."
+}

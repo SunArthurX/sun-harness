@@ -1,0 +1,11 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { createBus } from '../src/bus.js';
+import { watch, watchOnce } from '../src/subscriptions.js';
+test('unsubscribe removes exactly one listener', () => { const bus = createBus(); const got = [];
+  const u1 = watch(bus, 'a', (p) => got.push(['1', p])); const u2 = watch(bus, 'a', (p) => got.push(['2', p])); assert.equal(bus.listenerCount('message'), 2);
+  u1(); u1(); assert.equal(bus.listenerCount('message'), 1); bus.emit('message', { topic: 'a', payload: 'x' }); assert.deepEqual(got, [['2', 'x']]); u2(); assert.equal(bus.listenerCount('message'), 0); });
+test('no leak over many watches', () => { const bus = createBus(); for (let i = 0; i < 100; i++) watch(bus, 't', () => {})(); assert.equal(bus.listenerCount('message'), 0); });
+test('watchOnce', () => { const bus = createBus(); const got = []; watchOnce(bus, 'b', (p) => got.push(p));
+  bus.emit('message', { topic: 'other', payload: 0 }); assert.equal(bus.listenerCount('message'), 1);
+  bus.emit('message', { topic: 'b', payload: 1 }); bus.emit('message', { topic: 'b', payload: 2 }); assert.deepEqual(got, [1]); assert.equal(bus.listenerCount('message'), 0); });

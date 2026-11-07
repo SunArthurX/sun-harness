@@ -1,0 +1,13 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync, readdirSync } from 'node:fs';
+import * as httpMod from '../src/lib/http.js';
+import { getUser, createUser } from '../src/users.js';
+import { listOrders, cancel } from '../src/orders.js';
+import { charge, refund } from '../src/billing.js';
+import { search } from '../src/search.js';
+import { purge } from '../src/admin.js';
+test('behavior', async () => { await getUser(3); await createUser({ n: 1 }); await listOrders(); await cancel(7); await charge(5); await refund('c1', 2); await search('a b'); await purge();
+  assert.deepEqual(httpMod.__calls().map((c) => [c.url, c.method, c.body === undefined ? null : c.body]), [['/users/3', 'GET', null], ['/users', 'POST', { n: 1 }], ['/orders', 'GET', null], ['/orders/7/cancel', 'POST', null], ['/charges', 'POST', { amount: 5 }], ['/charges/c1/refund', 'POST', { amount: 2 }], ['/search?q=a%20b', 'GET', null], ['/admin/purge', 'DELETE', null]]); });
+test('deprecated api removed', () => { assert.equal(httpMod.request, undefined);
+  for (const f of ['users.js', 'orders.js', 'billing.js', 'search.js', 'admin.js', 'lib/http.js']) assert.doesNotMatch(readFileSync('src/' + f, 'utf8'), /\brequest\b/, f); });

@@ -10,6 +10,13 @@ import {
   HarnessHost,
   RemoteHost,
   GatewayClient,
+  compareEvalRuns,
+  formatEvalReport,
+  listEvalRuns,
+  loadEvalRun,
+  loadSuite,
+  runEval,
+  validateSuite,
   startBots,
   addRemote,
   createDevice,
@@ -71,6 +78,7 @@ Usage:
   sun gateway status | url | install [--tls --host ..] | uninstall   Gateway as a login service (launchd)
   sun gateway token create <device> | list | revoke <id|name>      Per-device tokens for remote clients and bots
   sun remote add <name> <url> --token <t> [--fingerprint <sha256>] | list | use <name> | off | remove <name>
+  sun eval validate | run [--label x] [--model ..] [--only a,b] [--concurrency 4] | list | report [run] | compare <a> <b>
   sun doctor
   sun desktop                      Launch the desktop app (from a source checkout)
 
@@ -369,6 +377,44 @@ async function serve(values: { port?: string; host?: string; tls?: boolean; inse
   await new Promise(() => undefined);
 }
 
+function defaultSuite(): string {
+  return resolve(fileURLToPath(import.meta.url), '..', '..', '..', '..', 'evals', 'coding');
+}
+
+async function evalCommand(sub: string, rest: string[], values: { suite?: string; only?: string; label?: string; concurrency?: string; model?: string }): Promise<void> {
+  const suiteDir = resolve(values.suite ?? defaultSuite());
+  if (sub === 'validate') {
+    const results = validateSuite(suiteDir);
+    for (const r of results) console.log(`${r.ok ? c.green('ok ') : c.red('BAD')} ${r.id}${r.ok ? '' : `  failsUntouched=${r.failsUntouched} solvable=${r.solvable}\n${c.dim(r.output)}`}`);
+    console.log(`${results.filter((r) => r.ok).length}/${results.length} tasks valid`);
+    if (results.some((r) => !r.ok)) process.exitCode = 1;
+  } else if (sub === 'run') {
+    // Reproducible context: no plugins, MCP servers or shell hooks from the user's setup.
+    const host = new HarnessHost({ loadPlugins: false, connectMcp: false, shellHooks: false });
+    await host.init();
+    const tasks = loadSuite(suiteDir).filter((t) => !values.only || values.only.split(',').includes(t.id));
+    console.log(c.dim(`Running ${tasks.length} tasks on ${values.model ?? host.config.defaultModel}…`));
+    const run = await runEval({
+      host,
+      suiteDir,
+      label: values.label,
+      model: values.model,
+      only: values.only?.split(','),
+      concurrency: Number(values.concurrency) || 4,
+      onResult: (r) => console.log(`${r.passed ? c.green('pass') : c.red('FAIL')} ${r.id.padEnd(28)} ${c.dim(`${r.steps} steps · ${r.toolErrors} tool errors · ${(r.durationMs / 1000).toFixed(0)}s · ${r.status}`)}`),
+    });
+    console.log(`\n${formatEvalReport(run)}\n\n${c.dim(`saved ~/.sun/evals/${run.id}.json`)}`);
+    await host.dispose();
+  } else if (sub === 'list') {
+    for (const r of listEvalRuns()) console.log(`${r.id}  ${(r.passRate * 100).toFixed(1).padStart(5)}%  ${r.tasks} tasks  ${c.dim(r.model)}`);
+  } else if (sub === 'report') {
+    console.log(formatEvalReport(loadEvalRun(rest[0] ?? listEvalRuns()[0]?.id)));
+  } else if (sub === 'compare') {
+    if (rest.length < 2) throw new Error('Usage: sun eval compare <run-or-label> <run-or-label>');
+    console.log(compareEvalRuns(loadEvalRun(rest[0]), loadEvalRun(rest[1])));
+  } else throw new Error(`Unknown eval command ${sub}`);
+}
+
 async function remoteCommand(sub: string, rest: string[], values: { token?: string; fingerprint?: string }): Promise<void> {
   if (sub === 'add') {
     const [name, url] = rest;
@@ -522,6 +568,10 @@ async function main(): Promise<void> {
       tls: { type: 'boolean' },
       insecure: { type: 'boolean' },
       remote: { type: 'string' },
+      suite: { type: 'string' },
+      only: { type: 'string' },
+      label: { type: 'string' },
+      concurrency: { type: 'string' },
       token: { type: 'string' },
       fingerprint: { type: 'string' },
       help: { type: 'boolean', short: 'h' },
@@ -536,6 +586,7 @@ async function main(): Promise<void> {
   if (cmd === 'serve') return serve(values);
   if (cmd === 'gateway') return gatewayCommand(args[0] ?? 'status', args.slice(1), values);
   if (cmd === 'remote') return remoteCommand(args[0] ?? 'list', args.slice(1), values);
+  if (cmd === 'eval') return evalCommand(args[0] ?? 'list', args.slice(1), values);
 
   // Session commands: --local > --remote <name> > default remote > local gateway > in-process.
   if (['chat', 'run', 'resume', 'sessions'].includes(cmd) && !values.local) {

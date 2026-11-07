@@ -1,0 +1,8 @@
+{
+  "id": "h-js-log-investigation",
+  "title": "Fix the root cause from production logs",
+  "category": "hard-debugging",
+  "tier": "hard",
+  "language": "js",
+  "prompt": "The nightly notification job crashes. Read logs/nightly.log to find out why, then fix the root cause in src/. Users without an email address must be skipped (not crash the job) and counted in the returned summary as `skipped`. Keep the summary shape `{ sent, skipped }`."
+}

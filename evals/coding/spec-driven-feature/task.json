@@ -1,0 +1,7 @@
+{
+  "id": "spec-driven-feature",
+  "title": "Implement from a spec",
+  "category": "spec",
+  "language": "js",
+  "prompt": "Implement the rate limiter described in specs/rate-limiter.md in src/limiter.js."
+}

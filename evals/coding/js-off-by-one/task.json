@@ -1,0 +1,7 @@
+{
+  "id": "js-off-by-one",
+  "title": "Fix inclusive range",
+  "category": "bugfix",
+  "language": "js",
+  "prompt": "`range(start, end)` in src/range.js should return all integers from start to end inclusive (and an empty array when start > end), but users report the last number is missing. Fix it."
+}

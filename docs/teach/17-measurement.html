@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" /><meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>17 · Measurement — sun-harness</title>
+<link rel="stylesheet" href="teach.css" />
+<script type="module">import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs'; mermaid.initialize({ startOnLoad: true, theme: 'neutral' });</script>
+</head>
+<body>
+<header class="top"><div class="wrap"><a class="brand" href="index.html">sun<em>harness</em> · teach</a><nav><a href="index.html">All pages</a></nav></div></header>
+<main class="wrap">
+<p class="muted">Optimization phase 0 · spec <code>specs/019-evals.md</code></p>
+<h1>17 · Measure <em>first</em></h1>
+<p class="lede">Coding success is a product of four probabilities: understanding × plan × execution × verification. You cannot improve a product you never measure. Phase 0 builds the instrument before turning any knobs.</p>
+
+<h2>The instrument</h2>
+<div class="mermaid">
+flowchart LR
+  T[task: repo/ + prompt] --> W[fresh git workspace<br/>base commit]
+  W --> A[agent session<br/>full-auto, clean context]
+  A --> H[copy hidden tests in<br/>only now]
+  H --> C[check.sh with EVAL_BASE]
+  C --> R[(~/.sun/evals/run.json)]
+  A -->|session log| M[sessionMetrics:<br/>steps, tool errors, edit failures, tokens]
+  M --> R
+  R --> CMP[sun eval compare a b]
+</div>
+
+<h2>An eval needs its own tests</h2>
+<p>The first version of the suite had bugs of its own, and every one would have distorted the numbers:</p>
+<table>
+<tr><th>Problem found</th><th>How</th><th>Fix</th></tr>
+<tr><td>A task whose visible tests contradicted each other (two required in-place mutation, one forbade it)</td><td>the reference solution could not pass</td><td>fix the task; validation now requires <em>fails untouched</em> and <em>passes with reference solution</em></td></tr>
+<tr><td>A "make it fast" task whose check ran the slow code for 3 minutes before failing</td><td>timing each check</td><td>fail-fast <code>SIGALRM</code> budget inside the test</td></tr>
+<tr><td>A check failed a <em>better</em> answer: a null-prototype object is safer but strict deep-equal compares prototypes</td><td>reading the one failure of the strong model</td><td>graders compare data, i.e. the spec, not one implementation</td></tr>
+<tr><td>Diff-size checks used <code>HEAD</code>, which the agent can move by committing</td><td>review</td><td>compare against <code>EVAL_BASE</code></td></tr>
+<tr><td>"Don't modify the tests" checked with git, which a commit could bypass</td><td>review</td><td>byte-compare against a hidden copy</td></tr>
+</table>
+
+<h2>The baselines</h2>
+<table>
+<tr><th>Model</th><th>Pass</th><th>Edit failures</th><th>Tool errors</th><th>Input tokens</th></tr>
+<tr><td>deepseek-chat</td><td>100% / 97.2%</td><td>0%</td><td>0%</td><td>1.8 M / 2.6 M</td></tr>
+<tr><td>qwen-flash</td><td>55.6%</td><td>40.6%</td><td>25.8%</td><td>4.9 M</td></tr>
+</table>
+<div class="qa"><p class="q">The strong model passes nearly everything. Is the suite useless?</p><p class="a">For pass rate on that model, yes: a benchmark at its ceiling cannot show improvements. Twelve hard tasks were added and the strong model still passed them. Two signals remain. First, <strong>cost</strong>: about 60k input tokens per task, with 1.8 M vs 2.6 M between two identical runs, which also shows how noisy one run is. Second, <strong>a weaker model</strong>, where the harness has to compensate. On qwen-flash the suite drops to 55.6% and the failure modes become visible.</p></div>
+
+<h2>What the weak model revealed</h2>
+<div class="qa"><p class="q">Where do the failures come from?</p><p class="a">Classifying every failing tool call in the logs gave three causes. <strong>93</strong> were <code>edit_file: old_string not found</code>, with sessions burning all 60 steps re-trying edits from memory. <strong>38</strong> were <code>web_search: fetch failed</code>: the search backend is unreachable on this network, but the tool was still offered and the model kept calling it. <strong>One</strong> was the worst kind: the model produced malformed JSON for tool arguments, the log kept it, and the provider then rejected <em>every</em> later request with HTTP 400, so the session was dead.</p></div>
+<p>These three findings define the first Phase 1 work: tolerant edits with read-before-edit, capability gating for tools, and never sending malformed tool calls back to a provider.</p>
+<p class="lesson">Build the measuring stick, then test the measuring stick. An eval with an impossible task or an unfair check produces confident wrong conclusions.</p>
+
+<div class="nav"><a href="16-chat-bots.html">← 16 · Chat bots</a><a href="18-coding-success.html">18 · Coding success →</a></div>
+</main>
+</body>
+</html>

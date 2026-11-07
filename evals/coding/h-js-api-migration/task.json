@@ -1,0 +1,8 @@
+{
+  "id": "h-js-api-migration",
+  "title": "Migrate off a deprecated API",
+  "category": "hard-refactor",
+  "tier": "hard",
+  "language": "js",
+  "prompt": "`request(url, method, body)` in src/lib/http.js is deprecated. Migrate every caller in src/ to the new `http({ url, method, body })` API (same behavior), then delete the deprecated `request` export. Watch out for aliased and namespace imports."
+}

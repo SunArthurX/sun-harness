@@ -1,0 +1,8 @@
+{
+  "id": "h-ts-rename-field",
+  "title": "Rename a field across a TypeScript project",
+  "category": "hard-refactor",
+  "tier": "hard",
+  "language": "ts",
+  "prompt": "Rename the `User.fullname` property to `displayName` throughout the TypeScript project in src/ (interface, all usages, the createUser parameter). Important: the wire format produced by toWire/consumed by fromWire must keep the JSON key `fullname` for backward compatibility. `tsc --noEmit -p .` must pass."
+}

@@ -1,0 +1,8 @@
+{
+  "id": "h-js-listener-leak",
+  "title": "Fix an event listener leak",
+  "category": "hard-debugging",
+  "tier": "hard",
+  "language": "js",
+  "prompt": "Our server's memory grows over time and Node prints 'MaxListenersExceededWarning'. The cause is in src/subscriptions.js: every call to `watch()` adds a listener that is never removed. Make `watch(bus, topic, handler)` return an `unsubscribe` function that removes exactly that listener, make the returned function idempotent, and make `watchOnce` remove its listener after the first matching event. Do not change the bus implementation."
+}

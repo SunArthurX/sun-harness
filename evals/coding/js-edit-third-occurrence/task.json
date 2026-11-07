@@ -1,0 +1,7 @@
+{
+  "id": "js-edit-third-occurrence",
+  "title": "Change only one of several similar blocks",
+  "category": "edit-precision",
+  "language": "js",
+  "prompt": "In config.js the three environments have identical `retries: 3` settings. Change ONLY the production environment to `retries: 5`. Leave everything else exactly as it is."
+}

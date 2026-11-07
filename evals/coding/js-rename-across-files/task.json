@@ -1,0 +1,7 @@
+{
+  "id": "js-rename-across-files",
+  "title": "Rename a function everywhere",
+  "category": "refactor",
+  "language": "js",
+  "prompt": "Rename `getUserName` to `getDisplayName` everywhere in the codebase (definition, imports, re-exports, usages). Do not keep the old name."
+}

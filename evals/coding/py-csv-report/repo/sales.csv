@@ -1,0 +1,6 @@
+date,region,product,units,unit_price
+2026-01-02,north,widget,3,9.99
+2026-01-02,south,gadget,1,24.50
+2026-01-03,north,gadget,2,24.50
+2026-01-03,east,widget,10,9.99
+2026-01-04,south,widget,4,9.99

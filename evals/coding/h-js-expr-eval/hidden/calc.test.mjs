@@ -1,0 +1,10 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { evaluate as e } from '../src/calc.js';
+test('basics', () => { assert.equal(e('1 + 2 * 3'), 7); assert.equal(e('(1 + 2) * 3'), 9); assert.equal(e('10 / 4'), 2.5); assert.equal(e('10 % 4'), 2); assert.equal(e(' .5 + 2.5 '), 3); });
+test('unary', () => { assert.equal(e('-3 + 5'), 2); assert.equal(e('--3'), 3); assert.equal(e('+4'), 4); assert.equal(e('2 * -3'), -6); assert.equal(e('-(2 + 3)'), -5); });
+test('power', () => { assert.equal(e('2 ** 3 ** 2'), 512); assert.equal(e('-2 ** 2'), -4); assert.equal(e('(-2) ** 2'), 4); assert.equal(e('2 ** -1'), 0.5); assert.equal(e('2 * 3 ** 2'), 18); });
+test('syntax errors', () => { for (const bad of ['', '   ', '1 +', '(1 + 2', '1 + 2)', '1 2', '* 3', '2 $ 3', '()', '1..2']) assert.throws(() => e(bad), SyntaxError, bad); });
+test('range errors', () => { assert.throws(() => e('1 / 0'), RangeError); assert.throws(() => e('5 % (2 - 2)'), RangeError); });
+test('no eval', () => { assert.doesNotMatch(readFileSync('src/calc.js', 'utf8'), /\beval\s*\(|new Function|Function\s*\(/); });

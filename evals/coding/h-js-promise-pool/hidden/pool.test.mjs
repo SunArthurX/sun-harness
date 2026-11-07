@@ -1,0 +1,11 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { pool } from '../src/pool.js';
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+test('order and limit', async () => { let running = 0, max = 0; const mk = (v, ms) => async () => { running++; max = Math.max(max, running); await sleep(ms); running--; return v; };
+  const r = await pool([mk(1, 30), mk(2, 10), mk(3, 20), mk(4, 5), mk(5, 15)], 2); assert.deepEqual(r, [1, 2, 3, 4, 5]); assert.equal(max, 2); });
+test('starts next immediately', async () => { const starts = []; const t0 = Date.now(); const mk = (ms) => async () => { starts.push(Date.now() - t0); await sleep(ms); };
+  await pool([mk(100), mk(10), mk(10), mk(10)], 2); assert.ok(starts[2] < 60 && starts[3] < 80, String(starts)); });
+test('stops on error', async () => { const started = []; const mk = (i, fail) => async () => { started.push(i); await sleep(10); if (fail) throw new Error('boom' + i); return i; };
+  await assert.rejects(pool([mk(0), mk(1, true), mk(2), mk(3), mk(4), mk(5)], 2), /boom1/); await sleep(60); assert.ok(!started.includes(4) && !started.includes(5), String(started)); });
+test('validation and empty', async () => { assert.throws(() => pool([], 0), TypeError); assert.throws(() => pool([], 1.5), TypeError); assert.deepEqual(await pool([], 3), []); assert.deepEqual(await pool([async () => 7], 10), [7]); });

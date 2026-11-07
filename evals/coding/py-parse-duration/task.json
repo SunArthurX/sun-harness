@@ -1,0 +1,7 @@
+{
+  "id": "py-parse-duration",
+  "title": "Fix duration parser",
+  "category": "bugfix",
+  "language": "py",
+  "prompt": "`parse_duration` in durations.py should convert strings like '1h30m', '45s', '2h', '1h2m3s' to seconds. Seconds are currently ignored. Fix it; invalid strings must raise ValueError."
+}

@@ -1,0 +1,7 @@
+{
+  "id": "js-async-race",
+  "title": "Fix a missing await",
+  "category": "bugfix",
+  "language": "js",
+  "prompt": "`saveAll` in store.js sometimes resolves before all records are written, so `count()` right after `await saveAll(...)` is too low. Fix it so saveAll resolves only after every record is saved, saving at most 2 records concurrently is NOT required \u2014 just correctness. Keep the function signature."
+}

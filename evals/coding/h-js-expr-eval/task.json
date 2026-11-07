@@ -1,0 +1,8 @@
+{
+  "id": "h-js-expr-eval",
+  "title": "Arithmetic expression evaluator",
+  "category": "hard-algorithm",
+  "tier": "hard",
+  "language": "js",
+  "prompt": "Implement `evaluate(expr)` in src/calc.js. Supported: numbers (integers and decimals like 2.5 or .5), + - * / %, ** (right-associative, binds tighter than unary minus on its left operand: -2 ** 2 === -4), unary minus and plus, parentheses, arbitrary whitespace. Normal precedence: ** > unary > * / % > + -. Throw a SyntaxError for malformed input (empty string, unbalanced parentheses, dangling operators, unknown characters) and a RangeError for division or modulo by zero. Do not use eval or Function."
+}

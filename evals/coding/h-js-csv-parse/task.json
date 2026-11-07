@@ -1,0 +1,8 @@
+{
+  "id": "h-js-csv-parse",
+  "title": "RFC 4180 CSV parser",
+  "category": "hard-algorithm",
+  "tier": "hard",
+  "language": "js",
+  "prompt": "Implement `parseCSV(text)` in src/csv.js returning an array of rows (arrays of strings) per RFC 4180: fields separated by commas, rows by LF or CRLF; fields may be quoted with double quotes, quoted fields may contain commas, CR/LF and doubled quotes (two double quotes mean one double quote); a trailing newline at the end of the text does not create an empty row; empty fields are empty strings; an empty input returns []. Throw a SyntaxError for an unterminated quoted field or for characters after a closing quote other than a comma or newline."
+}

@@ -1,0 +1,7 @@
+{
+  "id": "git-revert-one-file",
+  "title": "Revert one file from the last commit",
+  "category": "git",
+  "language": "git",
+  "prompt": "The last commit changed both `pricing.json` and `notes.md`. Revert only the change to pricing.json (restore it to its state before that commit) and commit that with a message starting with 'Revert pricing'. Keep notes.md as it is now."
+}

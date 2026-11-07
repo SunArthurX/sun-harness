@@ -1,0 +1,7 @@
+{
+  "id": "js-long-file-edit",
+  "title": "Edit a function at the end of a long file",
+  "category": "edit-precision",
+  "language": "js",
+  "prompt": "`finalScore` at the bottom of lib.js should average only the non-negative values, rounded to 1 decimal place, and return 0 when there are no non-negative values. Fix it without changing any other function."
+}

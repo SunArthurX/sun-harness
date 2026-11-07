@@ -1,0 +1,8 @@
+{
+  "id": "h-py-toposort",
+  "title": "Deterministic topological sort with cycle report",
+  "category": "hard-algorithm",
+  "tier": "hard",
+  "language": "py",
+  "prompt": "Implement `order(deps)` in toposort.py. `deps` maps each node to the list of nodes it depends on (dependencies may also appear only as values). Return all nodes in an order where every node comes after its dependencies; when several nodes are ready, take them in alphabetical order. If there is a cycle raise `CycleError` (already defined) whose `.cycle` attribute is the list of nodes forming one cycle, starting and ending with the same node, e.g. ['a', 'b', 'c', 'a'], where each node depends on the next. Self-dependencies are cycles too."
+}

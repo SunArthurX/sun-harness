@@ -1,0 +1,7 @@
+{
+  "id": "py-perf-dedupe",
+  "title": "Make dedupe fast",
+  "category": "performance",
+  "language": "py",
+  "prompt": "`dedupe` in clean.py keeps the first occurrence of every item in order, but it is far too slow for 200k items. Make it fast (well under a second for 200k items) without changing its results. Items are hashable."
+}

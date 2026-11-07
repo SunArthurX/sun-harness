@@ -1,0 +1,7 @@
+{
+  "id": "ts-generic-util",
+  "title": "Write a typed utility",
+  "category": "feature",
+  "language": "ts",
+  "prompt": "Create src/groupBy.ts exporting `groupBy<T, K extends PropertyKey>(items: readonly T[], key: (item: T) => K): Record<K, T[]>` that groups items by key preserving input order. It must type-check under strict mode (`tsc --noEmit -p .`) and work at runtime with Node (node can run .ts files directly)."
+}

@@ -1,0 +1,7 @@
+{
+  "id": "py-config-merge",
+  "title": "Deep merge configs",
+  "category": "feature",
+  "language": "py",
+  "prompt": "Implement `deep_merge(base, override)` in merge.py: returns a NEW dict where nested dicts are merged recursively, lists and scalars from override replace base values, keys with value None in override delete the key, and neither input is mutated."
+}

@@ -1,0 +1,7 @@
+{
+  "id": "js-find-bug-large-repo",
+  "title": "Find a bug from its symptom",
+  "category": "bugfix",
+  "language": "js",
+  "prompt": "Customers paying 100.00 in 3 installments get charged 33.33 + 33.33 + 33.33 = 99.99 \u2014 one cent goes missing (and other totals sometimes over-charge). Find the cause and fix it so installments always add up exactly to the total; the first installments may be one cent larger than the later ones."
+}

@@ -1,0 +1,7 @@
+{
+  "id": "py-email-regex",
+  "title": "Fix email validation",
+  "category": "bugfix",
+  "language": "py",
+  "prompt": "`is_valid_email` in validate.py rejects valid addresses like 'first.last+tag@sub.example.co.uk' and accepts invalid ones like 'a@b' or 'a..b@example.com'. Make it accept common valid addresses and reject: missing @, empty local part, consecutive dots, domain without a dot, domain labels starting/ending with '-', whitespace."
+}

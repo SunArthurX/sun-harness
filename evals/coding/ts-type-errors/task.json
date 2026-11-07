@@ -1,0 +1,7 @@
+{
+  "id": "ts-type-errors",
+  "title": "Fix TypeScript type errors",
+  "category": "bugfix",
+  "language": "ts",
+  "prompt": "`tsc --noEmit -p .` fails. Fix the type errors in src/ without using `any`, `@ts-ignore` or `@ts-expect-error`, and without changing tsconfig.json."
+}

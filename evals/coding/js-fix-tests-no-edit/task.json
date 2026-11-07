@@ -1,0 +1,7 @@
+{
+  "id": "js-fix-tests-no-edit",
+  "title": "Make failing tests pass without touching them",
+  "category": "bugfix",
+  "language": "js",
+  "prompt": "The tests in test/ fail. Fix the implementation in src/ so that `node --test` passes. Do not modify anything under test/."
+}

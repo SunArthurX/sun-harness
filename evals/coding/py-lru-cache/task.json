@@ -1,0 +1,7 @@
+{
+  "id": "py-lru-cache",
+  "title": "Implement an LRU cache",
+  "category": "feature",
+  "language": "py",
+  "prompt": "Implement the `LRUCache` class in lru.py: `get(key)` returns the value or None and marks the key as recently used; `put(key, value)` inserts/updates and evicts the least recently used entry when capacity is exceeded; `len(cache)` works. Capacity must be >= 1 (raise ValueError otherwise). Operations should be O(1)."
+}

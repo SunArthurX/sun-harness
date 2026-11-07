@@ -1,0 +1,7 @@
+{
+  "id": "py-package-imports",
+  "title": "Fix a broken package",
+  "category": "bugfix",
+  "language": "py",
+  "prompt": "`python3 -m shop.main` fails with an import error. Fix the package so it runs and prints the order total. Keep the package layout (shop/ with main.py, models.py, pricing.py)."
+}

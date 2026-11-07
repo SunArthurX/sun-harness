@@ -1,0 +1,7 @@
+{
+  "id": "js-cli-version",
+  "title": "Add --version flag",
+  "category": "feature",
+  "language": "js",
+  "prompt": "Add a `--version` (and `-v`) flag to cli.js that prints the version from package.json (just the version string) and exits with code 0. Keep the existing behavior otherwise."
+}

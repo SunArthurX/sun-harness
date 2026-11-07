@@ -1,0 +1,7 @@
+{
+  "id": "bash-spaces-in-names",
+  "title": "Fix a shell script",
+  "category": "bugfix",
+  "language": "sh",
+  "prompt": "backup.sh should copy every .txt file from the source directory to the destination directory (both given as arguments), creating the destination if needed, and print the number of files copied. It breaks on file names with spaces and silently continues on errors. Fix both problems: handle any file names, and exit non-zero with a message on stderr if the source directory does not exist."
+}

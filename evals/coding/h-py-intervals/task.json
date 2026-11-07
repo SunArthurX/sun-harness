@@ -1,0 +1,8 @@
+{
+  "id": "h-py-intervals",
+  "title": "Merge intervals with options",
+  "category": "hard-algorithm",
+  "tier": "hard",
+  "language": "py",
+  "prompt": "Implement `merge(intervals, merge_touching=False)` in intervals.py. Intervals are (start, end) tuples of numbers with start <= end (raise ValueError otherwise). Return a new sorted list of merged, non-overlapping tuples. Overlapping intervals are merged; intervals that only touch (end == next start) are merged only when merge_touching=True. Input may be unsorted and is not modified. A zero-length interval (x, x) is absorbed by another interval that strictly contains x; if x is only an endpoint of another interval it is kept separately unless merge_touching=True."
+}
