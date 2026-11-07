@@ -478,7 +478,7 @@ export class HarnessHost {
       killJob: (jobId) => (this.jobs.kill(jobId) ? `Stopped ${jobId}.` : `${jobId} is not running.`),
       scheduleTask: async (spec) => {
         const t = addSchedule({ title: spec.title ?? spec.prompt.slice(0, 50), prompt: spec.prompt, at: spec.at, cron: spec.cron, mode: 'assistant', cwd });
-        return `Scheduled ${t.id} (${t.cron ? `cron ${t.cron}` : `at ${t.at}`}). It runs while the sun-harness desktop app is open.`;
+        return `Scheduled ${t.id} (${t.cron ? `cron ${t.cron}` : `at ${t.at}`}). It runs while the sun-harness gateway (sun gateway install) or desktop app is running.`;
       },
     };
   }

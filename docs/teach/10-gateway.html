@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" /><meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>10 · The gateway — sun-harness</title>
+<link rel="stylesheet" href="teach.css" />
+<script type="module">import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs'; mermaid.initialize({ startOnLoad: true, theme: 'neutral' });</script>
+</head>
+<body>
+<header class="top"><div class="wrap"><a class="brand" href="index.html">sun<em>harness</em> · teach</a><nav><a href="index.html">All pages</a></nav></div></header>
+<main class="wrap">
+<p class="muted">Iteration 5 · spec <code>specs/012-gateway.md</code> · ADR <code>0005-gateway-owner</code></p>
+<h1>10 · The <em>gateway</em></h1>
+<p class="lede">Up to now, whichever window was open owned the sessions. Close the desktop and your reminders stopped; run the CLI next to it and two processes could drive one session. Hermes Agent 0.23 named the fix: one process owns every session, and every surface is a client.</p>
+
+<h2>Before and after</h2>
+<div class="mermaid">
+flowchart LR
+  subgraph Before
+    D1[Desktop<br/>own host] --> L1[(sessions)]
+    C1[CLI<br/>own host] --> L1
+  end
+  subgraph After
+    D2[Desktop] -->|IPC → HTTP| G
+    C2[CLI · RemoteHost] -->|HTTP + SSE| G
+    W2[Browser · web-bridge] -->|HTTP + SSE| G
+    G[sun serve<br/>HarnessHost · jobs · schedules · auto-resume] --> L2[(sessions)]
+    LD[launchd KeepAlive] -.-> G
+  end
+</div>
+
+<h2>One method table, three transports</h2>
+<p>The desktop already had a list of methods the renderer may call over IPC. Moving it into core as <code>hostMethods(host)</code> made it the single contract: Electron IPC, <code>POST /api/call</code>, and <code>GatewayClient.call()</code> all speak it. When the gateway is up, the desktop's IPC handlers become one-line proxies to HTTP; the renderer doesn't know the difference.</p>
+<div class="mermaid">
+sequenceDiagram
+  participant R as Renderer (desktop or browser)
+  participant B as Bridge (preload IPC or web-bridge.ts)
+  participant G as Gateway
+  participant H as HarnessHost
+  R->>B: window.sun.call('send', id, text)
+  B->>G: POST /api/call {method:'send'} + bearer token
+  G->>H: hostMethods.send(id, text)
+  H-->>G: live events
+  G-->>B: SSE data: {kind:'event', …}
+  B-->>R: onLive(event)
+</div>
+
+<figure><img src="img/web.png" alt="Web UI" width="100%" style="border-radius:12px;border:1px solid var(--line)"/><figcaption>The same React app in a browser, attached to the gateway: a live agent-mode session next to a session started from the CLI.</figcaption></figure>
+
+<h2>Design questions</h2>
+<div class="qa"><p class="q">How does a client know a gateway exists, and that it is the right one?</p><p class="a">The gateway writes <code>~/.sun/gateway.json</code> with its URL, token and pid. <code>findGateway()</code> reads the file, calls <code>/api/health</code> with the token, and requires the returned <code>home</code> to equal its own <code>SUN_HOME</code>. A crashed gateway leaves a stale file, which the health check ignores. During testing the gateway was in fact killed together with the shell that started it, and clients correctly fell back to in-process mode.</p></div>
+<div class="qa"><p class="q">Who answers approvals now?</p><p class="a">Iteration 1 made approvals fail closed when no approver is registered. Over HTTP, an approver is an open event stream with <code>?approver=1</code>. The desktop window and interactive terminals open one; a piped <code>sun run</code> does not. So the policy is unchanged: no human connected means deny with a reason. Verified live: the desktop attached to the gateway, showed the gateway's approval card, and the approved command ran.</p></div>
+<div class="qa"><p class="q">How does the browser authenticate an EventSource, which cannot set headers?</p><p class="a">The token is accepted as a query parameter on API paths. The web UI gets it once from the URL fragment (<code>#token=…</code>; fragments are never sent to servers or written to access logs), stores it in <code>localStorage</code>, and removes it from the address bar.</p></div>
+<div class="qa"><p class="q">Why did <code>sun run --approval</code> need a change?</p><p class="a">It used to set <code>host.config.approval</code> in-process. Through a gateway that would change the policy for every session. The mode is now part of <code>createSession</code>, stored in <code>session/meta</code>, and inherited by subagents.</p></div>
+<div class="qa"><p class="q">Did schedules really run with nothing open?</p><p class="a">Yes. A one-shot reminder was written to the gateway's home 30 seconds ahead; with no desktop and no CLI attached, the gateway's background tick created a <code>[scheduled] gateway reminder</code> session that answered on its own.</p></div>
+<p class="lesson">Separate who owns state from who shows it. Once one process owns the log, adding a surface is a transport problem, not a consistency problem.</p>
+
+<div class="nav"><a href="09-background-jobs.html">← 09 · Background jobs</a><a href="11-hybrid-knowledge.html">11 · Hybrid knowledge →</a></div>
+</main>
+</body>
+</html>

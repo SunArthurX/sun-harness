@@ -85,7 +85,7 @@ export const SERVICE_TOOLS: Tool[] = [
   {
     name: 'schedule_task',
     description:
-      'Schedule a prompt to run later as a new session: once at an ISO time ("at") or repeatedly with a 5-field cron ("cron", local time). Runs while the desktop app is open.',
+      'Schedule a prompt to run later as a new session: once at an ISO time ("at") or repeatedly with a 5-field cron ("cron", local time). Runs while the gateway or the desktop app is running.',
     parameters: {
       type: 'object',
       properties: { prompt: { type: 'string' }, at: { type: 'string' }, cron: { type: 'string' }, title: { type: 'string' } },

@@ -12,9 +12,13 @@ sun kb search <query> | add <title> <file|-> | stats
 sun evolve reflect <sessionId> | list [pending|accepted|rejected] | accept <id> | reject <id>
 sun worktree list | status <id> | diff <id> | merge <id> [--strategy squash|merge] | discard <id>
 sun skills | sun mcp | sun plugins | sun schedules
+sun serve [--port 4471] [--host 127.0.0.1]
+sun gateway status | url | install | uninstall
 sun doctor
 sun desktop
 ```
+
+Session commands (`chat`, `run`, `resume`, `sessions`) attach to a running gateway; `--local` runs them in-process. See [Gateway](gateway.md).
 
 ## Exit codes (`run`, `resume`)
 

@@ -14,7 +14,7 @@ In Agent (and Coding) mode the model can call `task` with a self-contained promp
 
 ## Schedules
 
-Ask the assistant: "Remind me every weekday at 9:00 to review pull requests" or "At 2026-11-08T15:00 remind me to call Alex". It calls `schedule_task` (cron or ISO time). Due tasks start a new Assistant session while the desktop app is open. Manage them on the Skills · MCP · Plugins screen or with `sun schedules`.
+Ask the assistant: "Remind me every weekday at 9:00 to review pull requests" or "At 2026-11-08T15:00 remind me to call Alex". It calls `schedule_task` (cron or ISO time). Due tasks start a new Assistant session while the gateway (`sun gateway install`) or the desktop app is running. Manage them on the Skills · MCP · Plugins screen or with `sun schedules`.
 
 ## Custom modes
 

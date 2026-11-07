@@ -4,6 +4,7 @@
 |---|---|
 | [Getting started](getting-started.md) | Install, configure a model, first session (desktop and CLI) |
 | [Desktop app](desktop.md) | Every screen and control |
+| [Gateway and web UI](gateway.md) | One always-on owner for sessions; browser UI; CLI/desktop attach |
 | [CLI](cli.md) | `sun` commands and chat slash commands |
 | [Modes](modes.md) | Coding, Agent, Assistant; subagents; schedules |
 | [Worktree sessions](worktrees.md) | Parallel coding sessions on isolated branches; review, merge, discard |

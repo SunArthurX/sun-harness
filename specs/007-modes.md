@@ -13,4 +13,4 @@ A mode is a system prompt + a tool filter (+ optional default approval). Plugins
 - Default workspace: `coding` uses the chosen folder; `agent` and `assistant` default to `~/.sun/workspace`.
 - Subagents (`task` tool) run in a child session (`parent` set), inherit cwd and model, cannot spawn further subagents, and surface their approvals in the parent session.
 - Switching mode mid-session logs `mode/switch`; the next request uses the new prompt and tool set.
-- Scheduled tasks (`~/.sun/schedules.json`, one-shot `at` or 5-field cron) start new `assistant` sessions while the desktop app runs.
+- Scheduled tasks (`~/.sun/schedules.json`, one-shot `at` or 5-field cron) start new `assistant` sessions while the gateway (`sun serve`, specs/012) or the desktop app runs.

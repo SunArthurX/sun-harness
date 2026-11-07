@@ -32,7 +32,7 @@ Provider presets: `deepseek`, `anthropic`, `openai`, `glm`, `qwen` (DashScope), 
 
 ```text
 ~/.sun/
-  config.json  .env  AGENTS.md  mcp.json  hooks.json  schedules.json
+  config.json  .env  AGENTS.md  mcp.json  hooks.json  schedules.json  gateway.json  gateway.log
   sessions/<id>.jsonl          # durable session logs
   memory/MEMORY.md
   kb/                          # personal notes (kb_add_note writes to kb/notes/)
@@ -43,5 +43,6 @@ Provider presets: `deepseek`, `anthropic`, `openai`, `glm`, `qwen` (DashScope), 
   jobs/<job-id>.log            # background job output
   worktrees/<repo>-<id>/       # worktree sessions
   bin/sun.mjs                  # self-contained CLI used by launchd
+  web/                         # web UI served by the gateway
   workspace/                   # default folder for agent/assistant sessions
 ```
