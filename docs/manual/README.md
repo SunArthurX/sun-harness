@@ -4,7 +4,7 @@
 |---|---|
 | [Getting started](getting-started.md) | Install, configure a model, first session (desktop and CLI) |
 | [Desktop app](desktop.md) | Every screen and control |
-| [Everyday conveniences](everyday.md) | Custom /commands, @files, images, diffs, cost, rewind, export/import, ⌘K, search, notifications |
+| [Everyday conveniences](everyday.md) | Context usage report, steering, custom /commands, @files, images, diffs, cost, rewind, export/import, ⌘K, search, pins, shortcuts |
 | [Gateway and web UI](gateway.md) | One always-on owner for sessions; browser UI; CLI/desktop attach; remote access over TLS |
 | [Chat bots](bots.md) | Telegram, DingTalk and webhook bots with allowlists and approvals in chat |
 | [CLI](cli.md) | `sun` commands and chat slash commands |

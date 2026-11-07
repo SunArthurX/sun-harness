@@ -38,6 +38,7 @@ export function Composer({
   onLocalCommand,
   onAbort,
   extra,
+  lastMessage,
 }: {
   cwd: string;
   placeholder: string;
@@ -49,6 +50,8 @@ export function Composer({
   onLocalCommand: (cmd: string) => Promise<boolean>;
   onAbort: () => void;
   extra?: React.ReactNode;
+  /** ↑ in an empty composer brings back the last message (Claude Code / shell habit). */
+  lastMessage?: string;
 }) {
   const [input, setInput] = useState(inject?.replace ? inject.text : '');
   const [images, setImages] = useState<Image[]>([]);
@@ -187,6 +190,16 @@ export function Composer({
               return;
             }
             if (e.key === 'Escape') return setSuggestions([]);
+          }
+          if (e.key === 'ArrowUp' && !input && lastMessage) {
+            e.preventDefault();
+            setInput(lastMessage);
+            return;
+          }
+          if (e.key === 'Escape' && running) {
+            e.preventDefault();
+            onAbort();
+            return;
           }
           if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
             e.preventDefault();

@@ -33,6 +33,8 @@ export interface AgentDeps {
   approvalMode(): ApprovalMode;
   /** Done gate: verify commands for the session's cwd (empty = none), run when a coding run ends after edits. */
   verify?: { commands(cwd: string): string[]; maxAttempts: number; timeoutMs: number; sandbox?(): import('./sandbox.js').ExecSandbox | undefined };
+  /** User messages sent while this run is active; taken at the next step boundary. */
+  drainSteer?(): SessionEventBody[];
   /** Whether a model accepts images; when absent every model is assumed to. */
   vision?(modelRef: string): boolean;
   /** Resolve a routing pseudo-model ("auto") to a concrete model for the next request. */
@@ -126,6 +128,9 @@ export class Agent {
           await this.executeTools(pending, signal);
           if (signal.aborted) return this.setStatus('aborted', 'user');
         }
+        // Steering: messages typed during the run join the conversation now, between steps (never between a tool
+        // call and its result), instead of waiting for the run to end.
+        for (const body of this.d.drainSteer?.() ?? []) this.emit(body);
 
         if (!this.owesRequest()) {
           // Done gate: a failed verification appends its output as a new message, which owes another request.
@@ -200,7 +205,7 @@ export class Agent {
     const first = this.d.log.all().find((e) => e.type === 'user/message') as Extract<SessionEvent, { type: 'user/message' }> | undefined;
     if (!first) return;
     const t = first.text.replace(/\s+/g, ' ').trim();
-    this.emit({ type: 'session/title', title: t.length > 60 ? t.slice(0, 57) + '...' : t || 'Untitled' });
+    this.emit({ type: 'session/title', title: t.length > 60 ? t.slice(0, 57) + '...' : t || 'Untitled', source: 'first-message' });
   }
 
   private async callModel(modelRef: string, signal: AbortSignal): Promise<ModelResponse> {

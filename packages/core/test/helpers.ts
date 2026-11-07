@@ -24,6 +24,8 @@ export function testConfig(patch: Partial<SunConfig> = {}): SunConfig {
     approval: 'full-auto',
     // Language servers are exercised by their own test; spawning one per test workspace would only slow the suite.
     lsp: { ...defaultConfig().lsp, enabled: false },
+    // A title request would consume scripted model steps; tests that want it opt in.
+    titles: 'first-message',
     ...patch,
   };
 }

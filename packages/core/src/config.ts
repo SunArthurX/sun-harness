@@ -102,6 +102,10 @@ export interface SunConfig {
   lsp: LspConfig;
   /** Abort silent model connections (no headers within firstByteMs, no data for idleMs) and retry. */
   streamTimeouts: { firstByteMs: number; idleMs: number };
+  /** Messages sent during a run: delivered at the next step ("immediate", Codex/Claude Code-style) or after the run. */
+  steering: 'immediate' | 'after-run';
+  /** Session titles: written by the (background) model after the first run, or the first message. */
+  titles: 'model' | 'first-message';
   /** USD per million tokens by `provider/model` (prefix* allowed); merged over the built-in table. */
   pricing?: Record<string, ModelPrice>;
   /** Chat bots run inside the gateway (sun serve). Allowlists are platform user ids; empty = nobody. */
@@ -209,6 +213,8 @@ export function defaultConfig(): SunConfig {
     voice: structuredClone(DEFAULT_VOICE),
     lsp: structuredClone(DEFAULT_LSP),
     streamTimeouts: { firstByteMs: 90_000, idleMs: 120_000 },
+    steering: 'immediate',
+    titles: 'model',
     bots: {
       defaultMode: 'assistant',
       approvals: 'chat',

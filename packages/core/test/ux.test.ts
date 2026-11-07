@@ -56,6 +56,7 @@ describe('@mentions and path completion', () => {
     expect(r.images).toEqual([join(ws, 'shot.png')]);
     expect(r.text).not.toContain('<attached file="../');
     expect(r.files).toHaveLength(2);
+    expect(expandMentions('Document @src/a.ts.', ws).files).toEqual([join(ws, 'src', 'a.ts')]);
   });
 
   it('completes paths by prefix, base name, and subsequence', () => {

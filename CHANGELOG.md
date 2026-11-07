@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.6.0 — 2026-11-07
+
+Context usage and conversation flow (`specs/026`, teaching page 24).
+
+- Context usage for every conversation: `contextUsage` report of the next request (system prompt sections, tool definitions, compaction summary, user messages, attached files, images, recalled memories, assistant messages, tool results), context window and compaction threshold, provider-reported last request, suggestions. Desktop ring in the session bar with a report panel (Compact now, Export HTML), percent per session in the sidebar; `sun context [--json|--format html]`, chat and bot `/context`, `sun sessions` column.
+- Steering: messages sent during a run reach the model at the next step (`steering: immediate | after-run`).
+- Model-written session titles after the first run (`titles: model | first-message`); renames win.
+- Desktop shortcuts: Esc stops, ↑ recalls the last message, ⌘N new session.
+- Pin and archive sessions (sidebar groups, `sun pin|unpin|archive|unarchive`, `sun sessions --all`).
+- Fix: `@path.` at the end of a sentence now attaches the file.
+
 ## 0.5.0 — 2026-11-07
 
 UX absorbed from Claude Code, Codex, Cursor, Manus and Cline (`specs/025`, teaching page 23).

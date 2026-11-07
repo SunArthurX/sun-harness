@@ -49,6 +49,7 @@ import {
   type LiveEvent,
   type PendingApproval,
   type SandboxMode,
+  formatContextReport,
   formatUsd,
   imageMime,
   type MemoryKind,
@@ -86,6 +87,8 @@ Usage:
   sun undo <sessionId> [--steps n]   Revert the session's last file edits (checkpoints)
   sun browser status | login [url] [--profile name] | stop   Agent browser (CDP); login opens the profile visibly so you can sign in
   sun export <sessionId> [--format markdown|html|jsonl] [-o file] | sun import <file.jsonl> | sun search <text> | sun commands
+  sun context <sessionId> [--format html -o report.html]   What fills the session's context (and how to shrink it)
+  sun pin | unpin | archive | unarchive <sessionId>        Organize sessions (sun sessions --all shows archived)
   sun run "<prompt>" --output stream-json [--image shot.png]   JSON lines for scripts; attach images
   sun memory list | search <query> | add <text> [--kind preference] | rm <id> | extract <sessionId>   Long-term memory
   sun briefing run | show [date] | enable [--at 08:30] | disable    Daily briefing (runs in the gateway/desktop background)
@@ -114,7 +117,7 @@ Usage:
 
 Session commands (chat, run, resume, sessions) use --remote <name>, else the default remote, else a local gateway; --local runs in-process.
 
-Chat commands: /model <ref>  /mode <id> (coding|plan|agent|assistant)  /undo [n]  /rewind [n] [files]  /compact  /cost  /export [md|html|jsonl] [file]  /voice [seconds]  /<custom>  /resume  /abort  /reflect  /sessions  /help  /exit
+Chat commands: /model <ref>  /mode <id> (coding|plan|agent|assistant)  /undo [n]  /rewind [n] [files]  /context  /compact  /cost  /export [md|html|jsonl] [file]  /voice [seconds]  /<custom>  /resume  /abort  /reflect  /sessions  /help  /exit
 Home: ${sunHome()}`;
 
 function printEvent(e: LiveEvent, sessionId: string, state: { streamed: boolean; reasoning: boolean }): void {
@@ -289,6 +292,8 @@ async function chat(host: SessionHost, initialSession: string): Promise<void> {
         console.log(c.dim('Accept with: sun evolve accept <id>'));
       } else if (cmd === 'compact') {
         console.log((await host.compact(sessionId)) ? 'Compacted older history into a summary.' : c.dim('Nothing to compact yet.'));
+      } else if (cmd === 'context') {
+        console.log(formatContextReport(await host.contextUsage(sessionId)));
       } else if (cmd === 'cost' || cmd === 'status') {
         await statusLine(host, sessionId, true);
       } else if (cmd === 'export') {
@@ -381,10 +386,12 @@ async function statusLine(host: SessionHost, sessionId: string, verbose = false)
   if (verbose) for (const m of cost.byModel) console.log(c.dim(`  ${m.model}: ${m.input} in (${m.cached} cached) / ${m.output} out${m.usd !== undefined ? ` · ${formatUsd(m.usd)}` : ' · no price (add "pricing" in config)'}`));
 }
 
-async function listSessions(host: SessionHost): Promise<void> {
-  for (const s of (await host.listSessions()).slice(0, 30)) {
+async function listSessions(host: SessionHost, all = false): Promise<void> {
+  const list = (await host.listSessions()).filter((s) => all || !s.archived).sort((a, b) => Number(!!b.pinned) - Number(!!a.pinned));
+  for (const s of list.slice(0, 30)) {
     const st = s.status === 'paused' ? c.yellow(`paused:${s.statusReason}`) : s.status === 'error' ? c.red('error') : c.dim(s.status);
-    console.log(`${s.id}  ${st.padEnd(20)} ${c.dim(s.mode.padEnd(9))} ${s.title.slice(0, 50).padEnd(50)} ${c.dim(s.model)}`);
+    const ctx = s.contextTokens && s.contextWindow ? `${Math.round((s.contextTokens / s.contextWindow) * 100)}%`.padStart(4) : '    ';
+    console.log(`${s.pinned ? '📌' : '  '}${s.id}  ${st.padEnd(20)} ${c.dim(s.mode.padEnd(9))} ${(s.archived ? c.dim(`[archived] ${s.title}`) : s.title).slice(0, 50).padEnd(50)} ${c.dim(`${ctx} ctx · ${s.model}`)}`);
   }
 }
 
@@ -620,7 +627,7 @@ async function sessionCommands(
   host: SessionHost,
   cmd: string,
   args: string[],
-  values: { mode?: string; model?: string; json?: boolean; chat?: boolean; worktree?: boolean; steps?: string; sandbox?: string; output?: string; image?: string[] },
+  values: { mode?: string; model?: string; json?: boolean; chat?: boolean; worktree?: boolean; steps?: string; sandbox?: string; output?: string; image?: string[]; all?: boolean },
   sessionCwd: string | undefined,
   approval: ApprovalMode | undefined,
 ): Promise<void> {
@@ -676,7 +683,7 @@ async function sessionCommands(
       break;
     }
     case 'sessions':
-      await listSessions(host);
+      await listSessions(host, values.all);
       break;
     case 'undo': {
       if (!args[0]) throw new Error('Usage: sun undo <sessionId> [--steps n]');
@@ -714,6 +721,7 @@ async function main(): Promise<void> {
       concurrency: { type: 'string' },
       token: { type: 'string' },
       'best-of': { type: 'string' },
+      all: { type: 'boolean' },
       kind: { type: 'string' },
       output: { type: 'string', short: 'o' },
       image: { type: 'string', multiple: true },
@@ -866,6 +874,28 @@ async function main(): Promise<void> {
         spawnSync('docker', ['rm', '-f', `sun-browser-${cfg.profile.replace(/[^\w.-]/g, '_')}`], { stdio: 'ignore' });
         console.log('Stopped the browser container (if any). Local Chrome stops with the sun process that started it.');
       } else throw new Error(`Unknown browser command ${sub}`);
+      break;
+    }
+    case 'context': {
+      const id = args[0] ?? host.listSessions()[0]?.id;
+      if (!id) throw new Error('Usage: sun context <sessionId>');
+      if (values.format === 'html') {
+        const html = await host.contextReportHtml(id);
+        if (values.output) {
+          writeFileSync(values.output, html);
+          console.log(`Report written to ${values.output}`);
+        } else process.stdout.write(html);
+      } else if (values.json) console.log(JSON.stringify(await host.contextUsage(id), null, 2));
+      else console.log(formatContextReport(await host.contextUsage(id)));
+      break;
+    }
+    case 'pin':
+    case 'unpin':
+    case 'archive':
+    case 'unarchive': {
+      if (!args[0]) throw new Error(`Usage: sun ${cmd} <sessionId>`);
+      const s = host.setSessionFlags(args[0], cmd.endsWith('pin') ? { pinned: cmd === 'pin' } : { archived: cmd === 'archive' });
+      console.log(`${s.title}: ${s.pinned ? 'pinned' : 'not pinned'}, ${s.archived ? 'archived' : 'active'}`);
       break;
     }
     case 'export': {

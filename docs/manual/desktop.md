@@ -20,6 +20,8 @@ Choose a mode card, pick a workspace (required for Coding; Agent and Assistant d
 - **Approval card**: Allow / Always allow `<tool>` (for this session) / Deny. The buttons arm after a moment ("read first…") so a click or Enter aimed at something else can't approve. Subagent approvals appear in the parent session.
 - **Paused banner**: shown for quota, auth, rate limit, network, step limit, or interruption. **Resume** retries the same model; pick another model and **Switch & resume** to continue elsewhere. Nothing is lost.
 - **Composer**: Enter sends, Shift+Enter adds a line. `@` completes file paths, `/` shows custom commands and `/compact` `/cost` `/export`; paste, drop or ⊕ attach images.
+- **Context**: the ring in the session bar shows context usage; click for the report (categories, largest items, suggestions, Compact now, Export HTML). The sidebar shows each session's percent; hover to pin or archive.
+- **Keys**: Esc stops a run, ↑ recalls your last message, ⌘N new session, ⌘K palette.
 - **Session bar**: sandbox, Files, Browser, estimated cost, **Export…**, tokens and cache share, Undo. Edit tool cards show diffs. Hover your message for **↶ Rewind**.
 - **⌘K** palette and the sidebar **search**; background **notifications**. See [Everyday conveniences](everyday.md).
 - **Queue and stop**: while running, messages are queued and sent when the run ends. **Stop** aborts the run (including a running shell command).

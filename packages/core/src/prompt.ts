@@ -23,6 +23,13 @@ export interface PromptParts {
 }
 
 export function buildSystemPrompt(p: PromptParts): string {
+  return buildSystemPromptSections(p)
+    .map((x) => x.text)
+    .join('\n\n');
+}
+
+/** The system prompt as titled sections (the context report measures each one). */
+export function buildSystemPromptSections(p: PromptParts): { title: string; text: string }[] {
   const out: string[] = [p.mode.prompt];
   const now = p.now ?? new Date();
   out.push(
@@ -73,5 +80,5 @@ export function buildSystemPrompt(p: PromptParts): string {
   }
   if (p.untrustedNote) out.push(UNTRUSTED_PROMPT);
   for (const s of p.extraSections ?? []) out.push(`# ${s.title}\n${s.text}`);
-  return out.join('\n\n');
+  return out.map((text, i) => ({ title: i === 0 ? `${p.mode.label} mode instructions` : text.split('\n')[0].replace(/^#\s*/, '').replace(/\s*\(.*$/, ''), text }));
 }

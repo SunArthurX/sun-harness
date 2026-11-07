@@ -216,12 +216,46 @@ describe('agent loop', () => {
     });
     const s = host.createSession({ cwd: ws });
     await host.send(s.id, 'one');
+    await new Promise((r) => setTimeout(r, 40));
+    await host.send(s.id, 'two');
+    await host.wait(s.id);
+    // Steering: "two" arrived during the first model call and was answered in the same run.
+    const reqs = providers.get('mock/a')!.requests;
+    expect(reqs).toHaveLength(2);
+    expect(reqs[1].messages.map((m: any) => m.content)).toEqual(['one', 'first', 'two']);
+    expect(SessionLog.open(s.id).last('assistant/message')?.text).toBe('second');
+    expect(SessionLog.open(s.id).all().filter((e) => e.type === 'run/status' && e.status === 'running')).toHaveLength(1);
+  });
+
+  it('delivers messages after the run when steering is "after-run"', async () => {
+    const { host, providers } = await mockHost(
+      { 'mock/a': [async () => (await new Promise((r) => setTimeout(r, 100)), { text: 'first', toolCalls: [] }), { text: 'second', toolCalls: [] }] },
+      { steering: 'after-run' },
+    );
+    const s = host.createSession({ cwd: ws });
+    await host.send(s.id, 'one');
     await host.send(s.id, 'two');
     await host.wait(s.id);
     await new Promise((r) => setTimeout(r, 50));
     await host.wait(s.id);
-    expect(providers.get('mock/a')!.requests).toHaveLength(2);
+    expect(providers.get('mock/a')!.requests[0].messages.map((m: any) => m.content)).toEqual(['one']);
     expect(SessionLog.open(s.id).last('assistant/message')?.text).toBe('second');
+  });
+
+  it('steers between steps, never between a tool call and its result', async () => {
+    const { host, providers } = await mockHost({
+      'mock/a': [
+        { text: '', toolCalls: [call('bash', { command: 'sleep 0.3; echo done' })] },
+        { text: 'finished', toolCalls: [] },
+      ],
+    });
+    const s = host.createSession({ cwd: ws });
+    await host.send(s.id, 'run it');
+    await new Promise((r) => setTimeout(r, 150));
+    await host.send(s.id, 'also mention the time');
+    await host.wait(s.id);
+    const second = providers.get('mock/a')!.requests[1].messages.map((m: any) => m.role);
+    expect(second).toEqual(['user', 'assistant', 'tool', 'user']);
   });
 
   it('compacts long history into a summary event', async () => {

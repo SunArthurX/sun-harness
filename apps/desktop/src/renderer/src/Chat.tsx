@@ -5,6 +5,7 @@ import { MODE_META, StatusDot } from './App';
 import { Markdown } from './markdown';
 import { BrowserPanel } from './Browser';
 import { Composer } from './Composer';
+import { ContextPanel, ContextRing } from './Context';
 
 type ResultEvent = Extract<SessionEvent, { type: 'tool/result' }>;
 
@@ -408,6 +409,11 @@ export function Chat({
   const [showChanges, setShowChanges] = useState(false);
   const [showBrowser, setShowBrowser] = useState(false);
   const [showFiles, setShowFiles] = useState(false);
+  const [showContext, setShowContext] = useState(false);
+  const lastMessage = useMemo(() => {
+    const u = [...events].reverse().find((e) => e.type === 'user/message' && (!e.source || e.source === 'user')) as Extract<SessionEvent, { type: 'user/message' }> | undefined;
+    return u ? (u.command?.input ?? u.text.replace(/\n\n<attached (file|dir)="[^"]*">[\s\S]*?<\/attached>/g, '')) : undefined;
+  }, [events]);
   const [speak, setSpeak] = useState(() => localStorage.getItem('sun.speak') === '1');
   const speakRef = useRef(speak);
   speakRef.current = speak;
@@ -482,6 +488,15 @@ export function Chat({
     setTimeout(() => setUndoMsg(''), 4000);
   };
 
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || !running || document.querySelector('.palette')) return;
+      if ((e.target as HTMLElement)?.closest?.('.composer')) return; // the composer handles its own Esc
+      void api.abort(summary.id);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [running, summary.id]);
   const [notice, setNotice] = useState('');
   const [costUsd, setCostUsd] = useState<number>();
   useEffect(() => {
@@ -590,6 +605,7 @@ export function Chat({
             ◎ Browser
           </button>
         )}
+        <ContextRing used={summary.contextTokens} window={summary.contextWindow} active={showContext} onClick={() => setShowContext(!showContext)} />
         <span className="spacer" />
         {notice && <span className="small notice">{notice}</span>}
         {costUsd !== undefined && costUsd > 0 && (
@@ -613,8 +629,9 @@ export function Chat({
           ↶ Undo{undoable ? ` (${undoable})` : ''}
         </button>
       </div>
-      {(showBrowser || showFiles || (showChanges && summary.worktree)) && (
+      {(showBrowser || showFiles || showContext || (showChanges && summary.worktree)) && (
         <div className="chat-panels">
+          {showContext && <ContextPanel sessionId={summary.id} version={events.length} onClose={() => setShowContext(false)} onCompacted={flash} />}
           {showChanges && summary.worktree && <ChangesPanel s={summary} onClose={() => setShowChanges(false)} />}
           {showBrowser && <BrowserPanel sessionId={summary.id} onClose={() => setShowBrowser(false)} />}
           {showFiles && <FilesPanel sessionId={summary.id} version={events.length} onClose={() => setShowFiles(false)} />}
@@ -776,6 +793,7 @@ export function Chat({
         }}
         onLocalCommand={localCommand}
         onAbort={() => api.abort(summary.id)}
+        lastMessage={lastMessage}
         extra={
           <>
             <VoiceButton onText={(t) => setInject({ text: t, n: Date.now() })} />

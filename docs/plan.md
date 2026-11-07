@@ -142,6 +142,10 @@ Derived from a first-principles comparison with Codex / Claude Code (coding), Ma
 - [x] `/compact`, CLI status line, `sun run --output stream-json`; image input (paste, drop, attach, `--image`) with vision gating
 - [x] Stream watchdog for silent provider connections (`specs/025`, teach 23)
 
+## 0.6.0 — Context usage and flow `[x]`
+- [x] Per-conversation context usage: report (system sections, tools, messages by kind, attachments, images, provider usage, suggestions), desktop ring + panel + sidebar percent, `sun context`, `/context` (CLI, bots), HTML export
+- [x] Steering messages mid-run; model-written titles; Esc / ↑ / ⌘N shortcuts; pin and archive (`specs/026`, teach 24)
+
 ## Iteration backlog (research loop)
 
 Filled from intel reports (`~/.sun/evolution/proposals`); each item becomes a spec before code.

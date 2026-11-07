@@ -1,3 +1,4 @@
+import { formatContextReport } from '../ux/context.js';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import type { HarnessHost } from '../host.js';
 import { homePath } from '../paths.js';
@@ -33,7 +34,7 @@ const HELP = `sun-harness bot
 /status — current session, model, state
 /stop — stop the current run · /resume [model] — continue a paused run
 /approve [always] · /deny — answer a pending approval
-/compact — summarize older history · /cost — tokens and estimated cost
+/compact — summarize older history · /cost — tokens and estimated cost · /context — what fills the context
 /commands — custom commands (from .sun/commands, ~/.sun/commands)
 /id — show your user id`;
 
@@ -182,6 +183,10 @@ export class BotBridge {
         if (!sid) return this.say(chatId, 'No session yet.');
         const c = this.host.cost(sid);
         return this.say(chatId, c.byModel.map((m) => `${m.model}: ${m.input} in (${m.cached} cached), ${m.output} out${m.usd !== undefined ? `, $${m.usd.toFixed(4)}` : ''}`).join('\n') || 'No usage yet.');
+      }
+      case '/context': {
+        if (!sid) return this.say(chatId, 'No session yet.');
+        return this.say(chatId, formatContextReport(await this.host.contextUsage(sid), false));
       }
       case '/commands': {
         const list = this.host.listCommands(this.opts.cwd);

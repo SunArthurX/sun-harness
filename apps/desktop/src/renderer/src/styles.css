@@ -1368,3 +1368,24 @@ table.metrics th { color: var(--muted); font-weight: 500; }
 .palette-list { overflow: auto; padding: 0 6px 8px; }
 .palette-list button { display: flex; justify-content: space-between; gap: 16px; width: 100%; padding: 8px 12px; border: 0; background: none; color: var(--text); text-align: left; border-radius: 8px; cursor: pointer; }
 .palette-list button.on { background: rgba(255, 170, 70, 0.14); }
+
+/* Context usage: ring, mini percent, report panel */
+.context-chip { display: inline-flex; align-items: center; gap: 4px; }
+.ctx-mini { font-size: 10px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.ctx-mini.hot { color: var(--err); }
+.context-panel .ctx-bar { position: relative; display: flex; height: 12px; border-radius: 6px; overflow: hidden; background: rgba(255, 255, 255, 0.06); margin: 10px 0 4px; }
+.context-panel .ctx-bar span { display: block; height: 100%; }
+.ctx-threshold { position: absolute; top: 0; bottom: 0; border-left: 2px dashed var(--text); opacity: 0.6; }
+.ctx-row { display: grid; grid-template-columns: 12px 1fr 80px 40px; gap: 8px; align-items: center; width: 100%; background: none; border: 0; color: var(--text); padding: 4px 2px; cursor: pointer; text-align: left; }
+.ctx-row i { width: 10px; height: 10px; border-radius: 3px; }
+.ctx-row .mono { text-align: right; }
+.ctx-items { padding: 2px 0 6px 20px; }
+.ctx-item { display: flex; justify-content: space-between; gap: 12px; font-size: 12px; color: var(--muted); padding: 1px 0; }
+.ctx-suggest { margin: 8px 0 0; padding-left: 18px; color: var(--sun); }
+
+/* Sidebar: pin / archive */
+.session-row { position: relative; }
+.session-actions { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); display: none; gap: 2px; }
+.session-row:hover .session-actions { display: flex; }
+.session-row:hover .mode-tag, .session-row:hover .ctx-mini { visibility: hidden; }
+.session-actions button { background: var(--bg); border: 1px solid var(--line); border-radius: 5px; color: var(--muted); font-size: 11px; padding: 0 5px; cursor: pointer; }

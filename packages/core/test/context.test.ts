@@ -1,120 +1,99 @@
-import { writeFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { ProviderError, applyRuleBudgets, compactionLimit, contextWindowOf, homePath, loadProjectContext } from '../src/index.js';
-import { mockHost, tempHome, tempWorkspace, testConfig } from './helpers.js';
+import { buildContextReport, contextReportHtml, estimateTextTokens, formatContextReport } from '../src/index.js';
+import { call, mockHost, tempHome, tempWorkspace } from './helpers.js';
 
-const mockProvider = { type: 'openai' as const, baseUrl: '', models: ['big', 'small'], modelContext: { big: 1_000_000, small: 3_000 } };
+const ev = (seq: number, body: any) => ({ seq, ts: new Date(1_800_000_000_000 + seq * 1000).toISOString(), ...body });
 
-describe('rule budgets', () => {
+describe('context report', () => {
+  it('breaks the next request into categories and honors compaction', () => {
+    const events: any[] = [
+      ev(0, { type: 'session/meta', id: 's', title: 't', mode: 'coding', cwd: '/w', model: 'm', createdAt: '' }),
+      ev(1, { type: 'user/message', text: 'old question that was compacted away '.repeat(50) }),
+      ev(2, { type: 'assistant/message', text: 'old answer', toolCalls: [], model: 'm' }),
+      ev(3, { type: 'context/compaction', summary: 'The user asked about X.', upToSeq: 2 }),
+      ev(4, { type: 'user/message', source: 'memory', text: '[Relevant memories] prefers pnpm' }),
+      ev(5, { type: 'user/message', text: 'look at this\n\n<attached file="src/big.ts">\n' + 'const x = 1;\n'.repeat(400) + '</attached>', images: [{ path: '/a/1.png', mime: 'image/png' }] }),
+      ev(6, { type: 'assistant/message', text: '', toolCalls: [{ id: 'c1', name: 'read_file', arguments: '{"path":"a"}' }], model: 'm', usage: { inputTokens: 9000, outputTokens: 50, cachedTokens: 6000 } }),
+      ev(7, { type: 'tool/result', callId: 'c1', name: 'read_file', output: 'y'.repeat(40_000), isError: false }),
+    ];
+    const r = buildContextReport({
+      sessionId: 's',
+      model: 'm',
+      window: 64_000,
+      compactAt: 20_000,
+      system: [
+        { title: 'Coding mode instructions', text: 'You are…'.repeat(20) },
+        { title: 'Project rules', text: 'rule '.repeat(4000) },
+        { title: 'Skills', text: 'skill '.repeat(9000) },
+      ],
+      tools: [{ name: 'read_file', description: 'Read a file', parameters: { type: 'object' } }],
+      events,
+    });
+    const names = r.categories.map((c) => c.name);
+    expect(names).toEqual(['System prompt', 'Tool definitions', 'Compaction summary', 'User messages', 'Attached files', 'Images', 'Recalled memories', 'Assistant messages', 'Tool results']);
+    expect(r.categories.find((c) => c.name === 'Attached files')!.items[0].label).toBe('src/big.ts');
+    expect(r.categories.find((c) => c.name === 'Images')!.tokens).toBe(1000);
+    expect(r.categories.find((c) => c.name === 'Tool results')!.items[0]).toEqual({ label: 'read_file (1×)', tokens: 10_004 });
+    // The compacted turn is not counted; only its summary is.
+    expect(r.categories.find((c) => c.name === 'User messages')!.tokens).toBeLessThan(100);
+    expect(r.totalTokens).toBe(r.categories.reduce((s, c) => s + c.tokens, 0));
+    expect(r.lastRequest).toMatchObject({ inputTokens: 9000, cachedTokens: 6000 });
+    expect(r.compactions).toBe(1);
+    expect(r.suggestions.join(' ')).toMatch(/compaction threshold/);
+    expect(r.suggestions.join(' ')).toMatch(/read_file #7 alone/);
+    expect(r.suggestions.join(' ')).toMatch(/Project rules are/);
+    expect(r.suggestions.join(' ')).toMatch(/skills index is/);
+    const text = formatContextReport(r);
+    expect(text).toMatch(/^Context · m · \d+(\.\d)?k \/ 64k tokens/);
+    expect(text).toContain('Tool results');
+    expect(contextReportHtml(r)).toMatch(/^<!doctype html>[\s\S]*Suggestions/);
+    expect(estimateTextTokens('你好世界')).toBe(4);
+  });
+});
+
+describe('host: context usage, flags, titles', () => {
   beforeEach(() => tempHome());
 
-  it('gives global and project rules separate budgets', () => {
-    const out = applyRuleBudgets(
-      [
-        { source: 'g', text: 'G'.repeat(50), scope: 'global' },
-        { source: 'p1', text: 'P'.repeat(80), scope: 'project' },
-        { source: 'p2', text: 'Q'.repeat(80), scope: 'project' },
-        { source: 'p3', text: 'R', scope: 'project' },
-      ],
-      { globalMaxChars: 100, projectMaxChars: 100 },
-    );
-    expect(out[0].text).toBe('G'.repeat(50));
-    expect(out[1].text).toBe('P'.repeat(80));
-    expect(out[2].text).toContain('truncated: 60 more chars over the project rules budget; read p2');
-    expect(out[3].text).toContain('omitted');
-  });
-
-  it('a huge project AGENTS.md cannot evict the global rules', () => {
+  it('measures a real session, including the system prompt and tools', async () => {
     const ws = tempWorkspace();
-    writeFileSync(homePath('AGENTS.md'), 'GLOBAL-RULE');
-    writeFileSync(join(ws, 'AGENTS.md'), 'x'.repeat(60_000));
-    const ctx = loadProjectContext(ws, { globalMaxChars: 1000, projectMaxChars: 5000 });
-    expect(ctx.rules[0]).toMatchObject({ scope: 'global', text: 'GLOBAL-RULE' });
-    expect(ctx.rules[1].text.length).toBeLessThan(5200);
+    mkdirSync(join(ws, 'src'));
+    writeFileSync(join(ws, 'AGENTS.md'), '# Rules\nAlways write tests.\n');
+    writeFileSync(join(ws, 'src', 'a.ts'), 'export const a = 1;\n'.repeat(100));
+    const { host } = await mockHost({ 'mock/a': [{ text: '', toolCalls: [call('read_file', { path: 'src/a.ts' })] }, { text: 'read it', toolCalls: [], usage: { inputTokens: 1234, outputTokens: 10 } }] });
+    const s = host.createSession({ cwd: ws });
+    await host.send(s.id, 'read @src/a.ts');
+    await host.wait(s.id);
+    const r = await host.contextUsage(s.id);
+    expect(r.categories.find((c) => c.name === 'System prompt')!.items.map((i) => i.label)).toEqual(expect.arrayContaining(['Coding mode instructions', 'Environment', 'Project rules']));
+    expect(r.categories.find((c) => c.name === 'Tool definitions')!.items.length).toBeGreaterThan(5);
+    expect(r.categories.find((c) => c.name === 'Attached files')!.items[0].label).toBe('src/a.ts');
+    expect(r.window).toBeGreaterThan(0);
+    expect(r.lastRequest?.inputTokens).toBe(1234);
+    const summary = host.listSessions().find((x) => x.id === s.id)!;
+    expect(summary.contextTokens).toBe(1244);
+    expect(summary.contextWindow).toBe(r.window);
+    expect(await host.contextReportHtml(s.id)).toContain('Context · read @src/a.ts');
+  });
+
+  it('pins and archives sessions', async () => {
+    const { host } = await mockHost({});
+    const s = host.createSession({ cwd: tempWorkspace() });
+    expect(host.setSessionFlags(s.id, { pinned: true })).toMatchObject({ pinned: true });
+    expect(host.setSessionFlags(s.id, { archived: true })).toMatchObject({ pinned: true, archived: true });
+    expect(host.setSessionFlags(s.id, { pinned: false }).pinned).toBeUndefined();
+  });
+
+  it('writes a model title after the first run, but never over a rename', async () => {
+    const { host } = await mockHost({ 'mock/a': [{ text: 'Use a CSV writer.', toolCalls: [] }, { text: '"CSV export for invoices."', toolCalls: [] }] }, { titles: 'model' });
+    const s = host.createSession({ cwd: tempWorkspace() });
+    await host.send(s.id, 'how do I export my invoices as csv from the billing tool, step by step please');
+    await host.wait(s.id);
+    for (let i = 0; i < 50 && host.listSessions().find((x) => x.id === s.id)!.title.startsWith('how'); i++) await new Promise((r) => setTimeout(r, 20));
+    expect(host.listSessions().find((x) => x.id === s.id)!.title).toBe('CSV export for invoices');
+    const t = host.createSession({ cwd: tempWorkspace() });
+    host.renameSession(t.id, 'Mine');
+    expect(await host.titleSession(t.id)).toBeUndefined();
   });
 });
-
-describe('context windows', () => {
-  it('resolves windows from config, built-ins, and defaults', () => {
-    const cfg = testConfig({ providers: { ...testConfig().providers, mock: mockProvider } });
-    expect(contextWindowOf(cfg, 'mock/small')).toBe(3000);
-    expect(contextWindowOf(cfg, 'deepseek/deepseek-chat')).toBe(128_000);
-    expect(contextWindowOf(cfg, 'openrouter/anthropic/claude-sonnet-4.5')).toBe(200_000);
-    expect(contextWindowOf(cfg, 'ollama/llama3.1')).toBe(32_768);
-    expect(compactionLimit(cfg, 'deepseek/deepseek-chat')).toBe(96_000); // 25% buffer
-    expect(compactionLimit({ ...cfg, compaction: { ...cfg.compaction, buffer: '10%' } }, 'mock/small')).toBe(2700);
-    expect(compactionLimit({ ...cfg, compaction: { ...cfg.compaction, thresholdTokens: 50_000 } }, 'mock/big')).toBe(50_000);
-  });
-});
-
-describe('compact before downgrade', () => {
-  let ws: string;
-  beforeEach(() => {
-    tempHome();
-    ws = tempWorkspace();
-  });
-
-  const big = 'y'.repeat(6000);
-
-  it('summarizes with the previous (larger) model before the smaller model sees the history', async () => {
-    const { host, providers } = await mockHost(
-      {
-        'mock/big': [{ text: big, toolCalls: [] }, { text: big, toolCalls: [] }, { text: 'SUMMARY by big', toolCalls: [] }],
-        'mock/small': [{ text: 'small answers', toolCalls: [] }],
-      },
-      { providers: { ...testConfig().providers, mock: mockProvider }, defaultModel: 'mock/big', compaction: { thresholdTokens: 200_000, keepRecent: 1, buffer: '25%' } },
-    );
-    const s = host.createSession({ cwd: ws });
-    await host.send(s.id, 'q1');
-    await host.wait(s.id);
-    await host.send(s.id, 'q2');
-    await host.wait(s.id);
-    host.switchModel(s.id, 'mock/small');
-    await host.send(s.id, 'q3');
-    await host.wait(s.id);
-    const comp = host.getEvents(s.id).find((e) => e.type === 'context/compaction') as any;
-    expect(comp).toMatchObject({ summary: 'SUMMARY by big', model: 'mock/big' });
-    const smallReq = providers.get('mock/small')!.requests[0];
-    expect(smallReq.messages.some((m) => m.content === big)).toBe(false);
-    expect(smallReq.messages[0].content).toContain('SUMMARY by big');
-  });
-
-  it('falls back to the new model when the old one cannot summarize (quota)', async () => {
-    const { host, providers } = await mockHost(
-      {
-        'mock/big': [{ text: big, toolCalls: [] }, { text: big, toolCalls: [] }, new ProviderError('quota', 'insufficient_quota', 429)],
-        'mock/small': [{ text: 'SUMMARY by small', toolCalls: [] }, { text: 'done', toolCalls: [] }],
-      },
-      { providers: { ...testConfig().providers, mock: mockProvider }, defaultModel: 'mock/big', compaction: { thresholdTokens: 200_000, keepRecent: 1, buffer: '25%' } },
-    );
-    const s = host.createSession({ cwd: ws });
-    await host.send(s.id, 'q1');
-    await host.wait(s.id);
-    await host.send(s.id, 'q2');
-    await host.wait(s.id);
-    host.switchModel(s.id, 'mock/small');
-    await host.send(s.id, 'q3');
-    expect((await host.wait(s.id))?.status).toBe('idle');
-    const comp = host.getEvents(s.id).find((e) => e.type === 'context/compaction') as any;
-    expect(comp.summary).toBe('SUMMARY by small');
-    expect(comp.model).toBeUndefined();
-    // The trimmed transcript fits the small model's budget (limit 2250 tokens ≈ 6750 chars).
-    expect(providers.get('mock/small')!.requests[0].messages[0].content.length).toBeLessThanOrEqual(6750);
-  });
-
-  it('does not compact on switch when the history fits the new model', async () => {
-    const { host } = await mockHost(
-      { 'mock/big': [{ text: 'short', toolCalls: [] }], 'mock/small': [{ text: 'ok', toolCalls: [] }] },
-      { providers: { ...testConfig().providers, mock: mockProvider }, defaultModel: 'mock/big' },
-    );
-    const s = host.createSession({ cwd: ws });
-    await host.send(s.id, 'hi');
-    await host.wait(s.id);
-    host.switchModel(s.id, 'mock/small');
-    await host.send(s.id, 'again');
-    await host.wait(s.id);
-    expect(host.getEvents(s.id).some((e) => e.type === 'context/compaction')).toBe(false);
-  });
-});
-

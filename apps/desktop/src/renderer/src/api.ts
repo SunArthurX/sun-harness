@@ -14,6 +14,7 @@ import type {
   KnowledgeHit,
   WorktreeStatus,
   Job,
+  ContextReport,
 } from '@sun/core';
 
 declare global {
@@ -64,6 +65,9 @@ export const api = {
   exportSession: (id: string, format: 'markdown' | 'html' | 'jsonl') => call<string>('exportSession', id, format),
   importSession: (jsonl: string) => call<SessionSummary>('importSession', jsonl),
   searchSessions: (q: string) => call<{ id: string; title: string; mode: string; updatedAt: string; snippet: string }[]>('searchSessions', q),
+  contextUsage: (id: string) => call<ContextReport>('contextUsage', id),
+  contextReportHtml: (id: string) => call<string>('contextReportHtml', id),
+  setSessionFlags: (id: string, flags: { pinned?: boolean; archived?: boolean }) => call<SessionSummary>('setSessionFlags', id, flags),
   readAttachment: (path: string) => call<{ data: string; mime: string }>('readAttachment', path),
   sandboxInfo: (id?: string) => call<{ mode: string; kind: string; description: string; network: string; blocked: string[] }>('sandboxInfo', id),
   undo: (id: string, steps?: number) => call<{ undone: string[]; restored: string[] }>('undo', id, steps),

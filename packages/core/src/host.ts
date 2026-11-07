@@ -22,6 +22,7 @@ import { expandCommand, loadCommands, type CustomCommand } from './ux/commands.j
 import { completePaths, expandMentions, imageMime } from './ux/mentions.js';
 import { DEFAULT_PRICING, sessionCost, type CostReport, type ModelPrice } from './ux/pricing.js';
 import { sessionToHtml, sessionToMarkdown } from './ux/export.js';
+import { buildContextReport, contextReportHtml, type ContextReport } from './ux/context.js';
 import { createSandbox, secretEnvNames, startAllowlistProxy, type ExecSandbox, type SandboxMode } from './sandbox.js';
 import { JobManager, restorableJobIds, type JobResult } from './jobs.js';
 import { createWorktree, mergeWorktree, removeWorktree, worktreeDiff, worktreeStatus, type WorktreeInfo, type WorktreeStatus } from './worktree.js';
@@ -38,13 +39,13 @@ import { readMemory, saveMemoryFact } from './memory.js';
 import { BUILTIN_MODES, type ModeDef } from './modes.js';
 import { ensureDir, ensureHome, homePath } from './paths.js';
 import { loadPlugins, type PluginState } from './plugins.js';
-import { buildSystemPrompt } from './prompt.js';
+import { buildSystemPrompt, buildSystemPromptSections } from './prompt.js';
 import { findProjectRoot, loadProjectContext } from './rules.js';
 import { addSchedule, dueTasks, listSchedules, saveSchedules } from './schedule.js';
 import { discoverSkills, loadSkillBody, skillDirs, type Skill } from './skills.js';
 import { BUILTIN_TOOLS } from './tools/builtin.js';
 import { SERVICE_TOOLS } from './tools/services.js';
-import type { Tool, ToolServices } from './tools/types.js';
+import { toSchema, type Tool, type ToolServices } from './tools/types.js';
 import type { ApprovalDecision, LiveEvent, PendingApproval, SessionEvent, SessionEventBody, SessionSummary, TodoItem } from './types.js';
 import { analyzeIntelDay, listIntelReports, loadIntelState, runIntel, type IntelRunResult } from './intel.js';
 import { reflectSession, type Proposal } from './evolution.js';
@@ -218,7 +219,20 @@ export class HarnessHost {
   // ---------- sessions ----------
 
   listSessions(): SessionSummary[] {
-    return SessionLog.list().map((s) => (this.runs.has(s.id) && s.status === 'idle' ? { ...s, status: 'running' } : s));
+    return SessionLog.list().map((s) => ({
+      ...s,
+      ...(this.runs.has(s.id) && s.status === 'idle' ? { status: 'running' as const } : {}),
+      contextWindow: contextWindowOf(this.config, s.model === 'auto' ? this.config.defaultModel : s.model),
+    }));
+  }
+
+  /** Pin or archive a session (organization only; logged, not model-visible). */
+  setSessionFlags(id: string, flags: { pinned?: boolean; archived?: boolean }): SessionSummary {
+    const log = SessionLog.open(id);
+    const cur = log.last('session/flags');
+    this.append(log, { type: 'session/flags', pinned: flags.pinned ?? cur?.pinned ?? false, archived: flags.archived ?? cur?.archived ?? false });
+    this.broadcastSessions();
+    return log.summary()!;
   }
 
   getEvents(id: string): SessionEvent[] {
@@ -258,7 +272,7 @@ export class HarnessHost {
   }
 
   renameSession(id: string, title: string): void {
-    this.append(SessionLog.open(id), { type: 'session/title', title });
+    this.append(SessionLog.open(id), { type: 'session/title', title, source: 'user' });
   }
 
   private append(log: SessionLog, body: Parameters<SessionLog['append']>[0]): SessionEvent {
@@ -290,7 +304,7 @@ export class HarnessHost {
     this.append(log, body);
     if (log.meta()!.title === 'New session' && !log.last('session/title')) {
       const t = text.replace(/\s+/g, ' ').trim();
-      this.append(log, { type: 'session/title', title: t.length > 60 ? t.slice(0, 57) + '...' : t || 'Untitled' });
+      this.append(log, { type: 'session/title', title: t.length > 60 ? t.slice(0, 57) + '...' : t || 'Untitled', source: 'first-message' });
     }
     this.startRun(id);
   }
@@ -348,6 +362,28 @@ export class HarnessHost {
   /** Estimated cost from logged usage and the pricing table (config.pricing overrides the defaults). */
   cost(sessionId: string): CostReport {
     return sessionCost(SessionLog.open(sessionId).all(), { ...DEFAULT_PRICING, ...(this.config.pricing ?? {}) });
+  }
+
+  /** What the next request to the model would contain, measured section by section (Claude Code /context). */
+  async contextUsage(sessionId: string): Promise<ContextReport> {
+    const log = SessionLog.open(sessionId);
+    if (!log.meta()) throw new Error(`No session ${sessionId}`);
+    const model = log.currentModel() === 'auto' ? this.routeAuto(log) : log.currentModel();
+    const tools = (await this.toolsFor(log)).filter((t) => this.modeAllows(log.currentMode(), t, !!log.meta()?.parent));
+    return buildContextReport({
+      sessionId,
+      model,
+      window: contextWindowOf(this.config, model),
+      compactAt: compactionLimit(this.config, model),
+      system: this.systemPromptSections(log, model),
+      tools: tools.map(toSchema),
+      events: log.all(),
+    });
+  }
+
+  async contextReportHtml(sessionId: string): Promise<string> {
+    const title = SessionLog.open(sessionId).summary()?.title ?? sessionId;
+    return contextReportHtml(await this.contextUsage(sessionId), `Context · ${title}`);
   }
 
   /** /compact: summarize older history now. */
@@ -485,7 +521,10 @@ export class HarnessHost {
     this.broadcastSessions();
     promise
       .then((r) => {
-        if (r?.status === 'idle') this.extractMemories(id).catch(() => undefined);
+        if (r?.status === 'idle') {
+          this.extractMemories(id).catch(() => undefined);
+          this.titleSession(id).catch(() => undefined);
+        }
       })
       .catch(() => undefined)
       .finally(() => {
@@ -515,6 +554,12 @@ export class HarnessHost {
         systemPrompt: (modelRef) => this.systemPrompt(log, modelRef),
         approvalMode: () => log.meta()?.approval ?? this.config.approval,
         routeModel: (ref) => (ref === 'auto' ? this.routeAuto(log) : ref),
+        drainSteer: () => {
+          if (this.config.steering === 'after-run') return [];
+          const q = this.queued.get(id) ?? [];
+          this.queued.delete(id);
+          return q;
+        },
         vision: (ref) => supportsVision(this.config, ref),
         policy: () => {
           const taints = log.all().filter((e): e is Extract<SessionEvent, { type: 'context/taint' }> => e.type === 'context/taint');
@@ -620,6 +665,29 @@ export class HarnessHost {
       steps: since.filter((e) => e.type === 'assistant/message').length,
     });
     return (tier === 'strong' ? (strong ?? fast) : (fast ?? strong)) ?? fallback;
+  }
+
+  /** ChatGPT-style: after the first finished run, a short model-written title replaces the first-message title. */
+  async titleSession(sessionId: string): Promise<string | undefined> {
+    if (this.config.titles !== 'model') return undefined;
+    const log = SessionLog.open(sessionId);
+    const meta = log.meta();
+    const current = log.last('session/title');
+    if (!meta || meta.parent || current?.source === 'model' || current?.source === 'user' || /^\[/.test(log.summary()?.title ?? '')) return undefined;
+    const turns = log
+      .all()
+      .filter((e) => (e.type === 'user/message' && (!e.source || e.source === 'user')) || (e.type === 'assistant/message' && e.text))
+      .slice(0, 4)
+      .map((e) => `${e.type === 'user/message' ? 'User' : 'Assistant'}: ${((e as { command?: { input: string } }).command?.input ?? (e as { text: string }).text).slice(0, 600)}`)
+      .join('\n');
+    if (!turns) return undefined;
+    const model = this.backgroundModel(log.currentModel() === 'auto' ? this.routeAuto(log) : log.currentModel());
+    const raw = await this.complete('Write a title for this conversation: at most 6 words, in the language the user writes in, no quotes, no trailing period. Answer with the title only.', turns, model);
+    const title = raw.split('\n')[0].replace(/^["'“”「『]+|["'“”」』.。]+$/g, '').trim().slice(0, 80);
+    if (!title || log.last('session/title')?.source === 'user') return undefined;
+    this.append(log, { type: 'session/title', title, source: 'model' });
+    this.broadcastSessions();
+    return title;
   }
 
   /** Mine a finished run for durable memories with a background model call; logs memory/extract. */
@@ -843,9 +911,15 @@ export class HarnessHost {
   }
 
   systemPrompt(log: SessionLog, modelRef: string): string {
+    return this.systemPromptSections(log, modelRef)
+      .map((x) => x.text)
+      .join('\n\n');
+  }
+
+  systemPromptSections(log: SessionLog, modelRef: string): { title: string; text: string }[] {
     const meta = log.meta()!;
     const mode = this.modes.get(log.currentMode()) ?? this.modes.get('coding')!;
-    return buildSystemPrompt({
+    return buildSystemPromptSections({
       mode,
       cwd: meta.cwd,
       model: modelRef,

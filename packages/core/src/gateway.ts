@@ -1,6 +1,7 @@
 import { readBriefing } from './assistant/briefing.js';
 import type { CustomCommand } from './ux/commands.js';
 import type { CostReport } from './ux/pricing.js';
+import type { ContextReport } from './ux/context.js';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { createServer as createHttpsServer, request as httpsRequest } from 'node:https';
 import { Readable } from 'node:stream';
@@ -19,7 +20,7 @@ import { fingerprintOf, matchDevice } from './remote.js';
 import type { RouteHandler } from './bots/adapters.js';
 import type { ApprovalDecision, LiveEvent, RunStatus, SessionEvent, SessionSummary } from './types.js';
 
-export const VERSION = '0.5.0';
+export const VERSION = '0.6.0';
 
 type Method = (...args: any[]) => unknown;
 
@@ -54,6 +55,9 @@ export function hostMethods(host: HarnessHost, info: { mode: 'local' | 'gateway'
     importSession: (jsonl: string) => host.importSession(jsonl),
     searchSessions: (query: string) => host.searchSessions(query),
     readAttachment: (path: string) => host.readAttachment(path),
+    contextUsage: (id: string) => host.contextUsage(id),
+    setSessionFlags: (id: string, flags: { pinned?: boolean; archived?: boolean }) => host.setSessionFlags(id, flags),
+    contextReportHtml: (id: string) => host.contextReportHtml(id),
     metrics: (days?: number) => host.metrics(days),
     runBriefing: () => host.runBriefing(),
     readBriefing: (date: string) => readBriefing(date),
@@ -449,6 +453,8 @@ export interface SessionHost {
   listCommands(cwd?: string): CustomCommand[] | Promise<CustomCommand[]>;
   exportSession(id: string, format?: 'markdown' | 'html' | 'jsonl'): string | Promise<string>;
   fork(id: string, opts: { beforeSeq: number; restoreFiles?: boolean }): { session: SessionSummary; text: string } | Promise<{ session: SessionSummary; text: string }>;
+  contextUsage(id: string): Promise<ContextReport>;
+  setSessionFlags(id: string, flags: { pinned?: boolean; archived?: boolean }): SessionSummary | Promise<SessionSummary>;
   send(id: string, text: string, source?: 'user', opts?: { images?: { data: string; mime: string }[] }): Promise<void>;
   /** Resolves when every live subscription is connected (remote hosts); send only after this. */
   ready?(): Promise<void>;
@@ -496,6 +502,12 @@ export class RemoteHost implements SessionHost {
   }
   fork(id: string, opts: { beforeSeq: number; restoreFiles?: boolean }) {
     return this.client.call<{ session: SessionSummary; text: string }>('fork', id, opts.beforeSeq, opts.restoreFiles);
+  }
+  contextUsage(id: string) {
+    return this.client.call<ContextReport>('contextUsage', id);
+  }
+  setSessionFlags(id: string, flags: { pinned?: boolean; archived?: boolean }) {
+    return this.client.call<SessionSummary>('setSessionFlags', id, flags);
   }
   switchMode(id: string, mode: string) {
     return this.client.call<void>('switchMode', id, mode);

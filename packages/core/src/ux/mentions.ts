@@ -27,7 +27,9 @@ export function expandMentions(text: string, cwd: string): MentionResult {
   const images: string[] = [];
   const blocks: string[] = [];
   for (const m of text.matchAll(/(?:^|\s)@((?:[\w.~-]+\/)*[\w.~-]+\/?)/g)) {
-    const rel = m[1];
+    // Sentence punctuation right after a path ("see @src/a.ts.") is not part of it.
+    let rel = m[1];
+    if (!existsSync(resolveIn(cwd, rel))) rel = rel.replace(/[.,;:!?]+$/, '');
     const abs = resolveIn(cwd, rel);
     if (!existsSync(abs) || relative(cwd, abs).startsWith('..') || files.includes(abs) || images.includes(abs)) continue;
     const st = statSync(abs);

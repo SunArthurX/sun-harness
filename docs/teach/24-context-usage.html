@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" /><meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>24 · Context usage — sun-harness</title>
+<link rel="stylesheet" href="teach.css" />
+<script type="module">import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs'; mermaid.initialize({ startOnLoad: true, theme: 'neutral' });</script>
+</head>
+<body>
+<header class="top"><div class="wrap"><a class="brand" href="index.html">sun<em>harness</em> · teach</a><nav><a href="index.html">All pages</a></nav></div></header>
+<main class="wrap">
+<p class="muted">Release 0.6.0 · spec <code>specs/026-context-usage-and-flow.md</code></p>
+<h1>24 · See what fills the <em>context</em></h1>
+<p class="lede">The context window is the agent's working memory and most of its bill. Claude Code's <code>/context</code> and Cursor's context tray made it visible; sun-harness now shows it for every conversation, explains each part, and says what to do about it. Four smaller habits from the same tools came along: steering mid-run, model-written titles, keyboard shortcuts, pins and archive.</p>
+
+<h2>Measuring the model's view, not the transcript</h2>
+<div class="mermaid">
+flowchart LR
+  L[(session log)] --> C{latest compaction?}
+  C -->|yes| S["summary + events after it"]
+  C -->|no| A[all events]
+  S --> M[classify]
+  A --> M
+  P["system prompt sections"] --> R
+  T["tool schemas for this mode"] --> R
+  M --> R["ContextReport: categories, items, suggestions"]
+  U["last request usage (provider)"] --> R
+  R --> D[desktop ring + panel]
+  R --> CLI["sun context · /context"]
+  R --> B["bot /context"]
+  R --> H[HTML export]
+</div>
+<div class="qa"><p class="q">Why not just show the provider's token count?</p><p class="a">It is one number from the past: the last request. The report answers a different question: <em>what will the next request contain, and which part is big?</em> So it rebuilds the request the way the agent does (same compaction rule as <code>deriveMessages</code>, the same system prompt split into its sections, the tools the current mode offers) and measures each part with the same estimator compaction uses. The provider's real count sits next to it as a check: on a live deepseek-chat session the estimate said 5.5k tokens, the provider reported 5,462.</p></div>
+<div class="qa"><p class="q">How did the system prompt get its sections?</p><p class="a"><code>buildSystemPrompt</code> already assembled numbered chunks, each starting with a <code>#</code> heading. Exposing them as <code>buildSystemPromptSections</code> (and joining them for the prompt) keeps one source of truth: the report can never describe a prompt that differs from the one sent.</p></div>
+
+<figure><img src="img/ctx-report.png" alt="Context report panel"/><figcaption>The report on a live session: 5.5k of 128k tokens; the skills index (2.3k) is the largest system-prompt section; compaction is marked at 96k. The sidebar shows each session's percent, a Pinned group and Archived (1).</figcaption></figure>
+
+<h2>Suggestions that come from the numbers</h2>
+<table>
+<tr><th>Signal</th><th>Suggestion</th></tr>
+<tr><td>≥ 80 % of the compaction threshold</td><td>run <code>/compact</code> or start a new session for an unrelated task</td></tr>
+<tr><td>one tool result &gt; 15 % and &gt; 2k tokens</td><td>ask for narrower reads; compaction will drop it</td></tr>
+<tr><td>tool definitions &gt; 25 % with &gt; 30 tools</td><td>disable unused MCP servers</td></tr>
+<tr><td>project rules &gt; 4k tokens</td><td>mark rarely needed rule files <code>alwaysApply: false</code></td></tr>
+<tr><td>skills index &gt; 1.5k tokens and &gt; 20 %</td><td><code>skills.compat: false</code> or prune skills (added after the live report showed it)</td></tr>
+<tr><td>attached files &gt; 30 %</td><td>mention smaller files or folders</td></tr>
+</table>
+<p>Every session summary also carries the last request's real size and the model's window, so the sidebar and <code>sun sessions</code> can show a percent for every conversation without measuring each one.</p>
+
+<h2>Steering: talk to it while it works</h2>
+<div class="mermaid">
+sequenceDiagram
+  participant U as You
+  participant H as Host
+  participant A as Agent loop
+  U->>H: list files, then sleep 4 and print the date
+  H->>A: run
+  A->>A: list_dir, bash (sleeping…)
+  U->>H: "answer in three bullet points"
+  Note over H: queued (prepared: commands, mentions)
+  A->>A: tool results logged
+  A->>H: drainSteer() at the step boundary
+  H-->>A: the queued message
+  A->>A: next request includes it
+  A-->>U: three bullet points, same run
+</div>
+<p>The rule that made it safe: steering messages are taken only at the top of a step, after every pending tool call has its result, because providers reject a history where a user message splits a tool call from its result. The live run did exactly that: one <code>running</code> status, the message logged after the bash results, the answer in three bullets.</p>
+
+<h2>Titles, shortcuts, pins</h2>
+<ul>
+<li><strong>Titles</strong>: the first message gives an instant title (<code>source: first-message</code>); after the first answer a background call writes a short one (<code>source: model</code>, live: "List repo files and date output"); a rename (<code>source: user</code>) is never overwritten.</li>
+<li><strong>Keys</strong>: Esc stops the run, ↑ in an empty composer brings back the last message (the command as typed, without the attached file contents), ⌘N opens a new session.</li>
+<li><strong>Pins and archive</strong>: a <code>session/flags</code> event, so organization survives restarts and syncs to every client like everything else.</li>
+</ul>
+
+<h2>A bug found on the way</h2>
+<div class="qa"><p class="q">Why did a report show no attached files for <code>/jsdoc @src/greet.js</code>?</p><p class="a">The command template ended the sentence: "… in @src/greet.js." The mention parser took the final period as part of the path, the file "src/greet.js." did not exist, and nothing was attached. Trailing sentence punctuation is now stripped when the path with it does not exist. The context report made the missing attachment visible.</p></div>
+
+<h2>Verified</h2>
+<table>
+<tr><th>Check</th><th>Result</th></tr>
+<tr><td>report categories, compaction honored, attachments and images split out, provider usage, suggestions, text and HTML formats</td><td>pass</td></tr>
+<tr><td>host report on a real session (system sections, tools, attachments), summary percent fields</td><td>pass</td></tr>
+<tr><td>steering: immediate, after-run, never between a tool call and its result</td><td>pass</td></tr>
+<tr><td>model title after the first run, not over a rename; pin/archive</td><td>pass</td></tr>
+<tr><td>live: steering and model title on deepseek-chat; report screenshot through the web UI</td><td>pass</td></tr>
+</table>
+<p class="lesson">Make the expensive thing visible, measure it the way the system actually builds it, and attach advice to each number.</p>
+
+<div class="nav"><a href="23-ux-from-competitors.html">← 23 · UX from competitors</a><a href="index.html">All pages →</a></div>
+</main>
+</body>
+</html>

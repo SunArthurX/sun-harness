@@ -10,6 +10,8 @@ sun sandbox status | test                                which shell sandbox is 
 sun browser status | login [url] [--profile name] | stop  agent browser; sign in to a profile
 sun export <session> [--format markdown|html|jsonl] [-o file] | sun import <file.jsonl>
 sun search <text> | sun commands
+sun context <session> [--json | --format html -o report.html]   what fills the context
+sun pin | unpin | archive | unarchive <session>   ·   sun sessions [--all]
 sun run "<prompt>" --output stream-json [--image shot.png]
 sun memory list | search <q> | add <text> [--kind k] | rm <id> | extract <session>
 sun briefing run | show [date] | enable [--at 08:30] | disable
@@ -56,6 +58,7 @@ In an interactive terminal, approvals prompt `[y]es / [n]o / [a]lways`. Anything
 |---|---|
 | `/model [ref]` | list ready models, or switch this session |
 | `/mode <id>` | switch mode (`coding`, `plan`, `agent`, `assistant`) |
+| `/context` | what fills the context: categories, largest items, suggestions |
 | `/compact` | summarize older history now |
 | `/cost` (`/status`) | tokens, cache share and estimated cost per model |
 | `/rewind [n] [files]` | list your messages, or start a new session from before message n (`files`: also undo file edits) |

@@ -64,7 +64,7 @@ export type SessionEventBody =
       /** Set when the session was forked (rewound) from another session before event `seq`. */
       forkOf?: { session: string; seq: number };
     }
-  | { type: 'session/title'; title: string }
+  | { type: 'session/title'; title: string; /** first-message (default), model, or user (renamed). */ source?: 'first-message' | 'model' | 'user' }
   | {
       type: 'user/message';
       text: string;
@@ -96,6 +96,9 @@ export type SessionEventBody =
   | { type: 'verify/result'; passed: boolean; results: { command: string; code: number | null; output: string }[] }
   | { type: 'checkpoint/undo'; id: string; restored: string[] }
   | { type: 'browser/takeover'; on: boolean }
+  /** Organization only (not model-visible). */
+  | { type: 'session/flags'; pinned?: boolean; archived?: boolean }
+
   /** External content entered the context (first time per session, and whenever injection signals are found). */
   | { type: 'context/taint'; tool: string; findings: string[] }
   /** Long-term memories extracted from this session by a background model call. */
@@ -128,6 +131,11 @@ export interface SessionSummary {
   statusDetail?: string;
   parent?: string;
   worktree?: { repo: string; branch: string; closed?: 'merged' | 'discarded' };
+  pinned?: boolean;
+  archived?: boolean;
+  /** Provider-reported size of the last request (input + output), and the model's window (set by the host). */
+  contextTokens?: number;
+  contextWindow?: number;
 }
 
 export interface PendingApproval {

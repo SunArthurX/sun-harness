@@ -133,6 +133,14 @@ export class SessionLog {
       statusDetail: st.detail,
       parent: meta.parent,
       worktree: meta.worktree ? { repo: meta.worktree.repo, branch: meta.worktree.branch, closed: this.last('worktree/closed')?.action } : undefined,
+      ...(() => {
+        const f = this.last('session/flags');
+        return f ? { ...(f.pinned ? { pinned: true } : {}), ...(f.archived ? { archived: true } : {}) } : {};
+      })(),
+      ...(() => {
+        const u = this.last('assistant/message')?.usage;
+        return u ? { contextTokens: u.inputTokens + u.outputTokens } : {};
+      })(),
     };
   }
 }

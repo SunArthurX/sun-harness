@@ -1,6 +1,6 @@
 # Everyday conveniences
 
-Small things that save time in every session.
+Small things that save time in every session, and the context report that shows what each session costs in tokens.
 
 ## Custom slash commands
 
@@ -41,6 +41,35 @@ The session bar shows the estimated cost; `/cost` breaks it down per model, incl
 ## Rewind
 
 Hover a message you sent and click **↶ Rewind**. sun opens a new session with the conversation as it was before that message, puts your message back in the composer to edit, and (if you choose OK) also undoes the file edits made since. The original session is kept. CLI: `/rewind` lists your messages, `/rewind 3 files` rewinds to message 3 and restores files.
+
+## How full is the context?
+
+Every session shows a small ring in its bar (and a percent in the sidebar): how much of the model's context window the last request used. Click it for the **context report**:
+
+- a bar split by what fills the context (system prompt, tool definitions, your messages, attached files, images, recalled memories, assistant messages, tool results), with the compaction threshold marked;
+- each category opens to show its largest parts (for example which rule file, which tool output);
+- the provider's own numbers for the last request (input, cache share, output);
+- suggestions ("run /compact", "this read_file result alone is 30 %", "disable unused MCP servers", "the skills index is large"), plus **Compact now** and **Export HTML**.
+
+CLI: `/context` in chat, or `sun context <session>` (`--json`, or `--format html -o report.html`). Chat bots: `/context`.
+
+## Steer while it works
+
+Type while the agent is running: your message reaches it at the next step (after the current tool finishes), not after the whole run. Prefer the old behavior? `"steering": "after-run"`.
+
+## Titles, pins, archive
+
+Sessions get a short title written by the model after the first answer (turn off with `"titles": "first-message"`; renaming always wins). Hover a session in the sidebar to pin it (○ → ◉, Pinned group at the top) or archive it (↧; Archived is collapsed at the bottom). CLI: `sun pin | archive <session>`, `sun sessions --all`.
+
+## Keyboard
+
+| Keys | Does |
+|---|---|
+| Esc | stop the running session |
+| ↑ (empty composer) | bring back your last message |
+| ⌘N / Ctrl+N | new session |
+| ⌘K / Ctrl+K | command palette |
+| @ · / | file completion · command menu |
 
 ## /compact
 

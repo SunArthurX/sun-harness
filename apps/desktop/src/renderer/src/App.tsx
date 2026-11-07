@@ -25,17 +25,20 @@ export const MODE_META: Record<string, { label: string; blurb: string; glyph: st
 /** Modes that work inside a project folder (and may use a worktree). */
 const isRepoMode = (mode: string) => mode === 'coding' || mode === 'plan';
 
-function groupSessions(sessions: SessionSummary[]) {
-  const top = sessions.filter((s) => !s.parent);
+function groupSessions(sessions: SessionSummary[], showArchived: boolean) {
+  const top = sessions.filter((s) => !s.parent && !s.archived);
+  const archived = sessions.filter((s) => !s.parent && s.archived);
   const children = new Map<string, SessionSummary[]>();
   for (const s of sessions) if (s.parent) children.set(s.parent, [...(children.get(s.parent) ?? []), s]);
   const today = new Date().toISOString().slice(0, 10);
   return {
     children,
     groups: [
-      { label: 'Today', items: top.filter((s) => s.updatedAt.slice(0, 10) === today) },
-      { label: 'Earlier', items: top.filter((s) => s.updatedAt.slice(0, 10) !== today) },
-    ].filter((g) => g.items.length),
+      { label: 'Pinned', items: top.filter((s) => s.pinned) },
+      { label: 'Today', items: top.filter((s) => !s.pinned && s.updatedAt.slice(0, 10) === today) },
+      { label: 'Earlier', items: top.filter((s) => !s.pinned && s.updatedAt.slice(0, 10) !== today) },
+      { label: `Archived (${archived.length})`, items: showArchived ? archived : [], archived: true, count: archived.length },
+    ].filter((g) => g.items.length || ('count' in g && g.count)),
   };
 }
 
@@ -99,13 +102,18 @@ export function App() {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
         setPalette((v) => !v);
+      } else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'n') {
+        e.preventDefault();
+        setPage('chat');
+        setNewMode('coding');
       } else if (e.key === 'Escape') setPalette(false);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
-  const { groups, children } = useMemo(() => groupSessions(sessions), [sessions]);
+  const [showArchived, setShowArchived] = useState(false);
+  const { groups, children } = useMemo(() => groupSessions(sessions, showArchived), [sessions, showArchived]);
   const currentSummary = sessions.find((s) => s.id === current);
   const attention = sessions.filter((s) => s.status === 'paused' || s.status === 'awaiting_approval').length + approvals.length;
 
@@ -160,15 +168,38 @@ export function App() {
             )}
             {query.trim().length < 2 && groups.map((g) => (
               <div key={g.label}>
-                <div className="group-label">{g.label}</div>
+                <div className="group-label">
+                  {'archived' in g ? (
+                    <button className="linklike" onClick={() => setShowArchived(!showArchived)}>
+                      {showArchived ? '▾' : '▸'} {g.label}
+                    </button>
+                  ) : (
+                    g.label
+                  )}
+                </div>
                 {g.items.map((s) => (
                   <div key={s.id}>
-                    <button className={`session ${current === s.id ? 'on' : ''}`} onClick={() => (setCurrent(s.id), setNewMode(null))}>
-                      <StatusDot s={s} />
-                      <span className="session-title">{s.title}</span>
-                      {s.worktree && !s.worktree.closed && <span className="mode-tag wt" title={s.worktree.branch}>⑂</span>}
-                      <span className={`mode-tag m-${s.mode}`}>{MODE_META[s.mode]?.label ?? s.mode}</span>
-                    </button>
+                    <div className={`session-row ${current === s.id ? 'on' : ''}`}>
+                      <button className={`session ${current === s.id ? 'on' : ''}`} onClick={() => (setCurrent(s.id), setNewMode(null))}>
+                        <StatusDot s={s} />
+                        <span className="session-title">{s.title}</span>
+                        {s.contextTokens && s.contextWindow ? (
+                          <span className={`ctx-mini ${s.contextTokens / s.contextWindow > 0.8 ? 'hot' : ''}`} title={`context: ${s.contextTokens.toLocaleString('en')} of ${s.contextWindow.toLocaleString('en')} tokens at the last request`}>
+                            {Math.round((s.contextTokens / s.contextWindow) * 100)}%
+                          </span>
+                        ) : null}
+                        {s.worktree && !s.worktree.closed && <span className="mode-tag wt" title={s.worktree.branch}>⑂</span>}
+                        <span className={`mode-tag m-${s.mode}`}>{MODE_META[s.mode]?.label ?? s.mode}</span>
+                      </button>
+                      <span className="session-actions">
+                        <button title={s.pinned ? 'Unpin' : 'Pin to the top'} onClick={() => void api.setSessionFlags(s.id, { pinned: !s.pinned })}>
+                          {s.pinned ? '◉' : '○'}
+                        </button>
+                        <button title={s.archived ? 'Unarchive' : 'Archive'} onClick={() => void api.setSessionFlags(s.id, { archived: !s.archived })}>
+                          {s.archived ? '↥' : '↧'}
+                        </button>
+                      </span>
+                    </div>
                     {(children.get(s.id) ?? []).map((c) => (
                       <button key={c.id} className={`session child ${current === c.id ? 'on' : ''}`} onClick={() => setCurrent(c.id)}>
                         <StatusDot s={c} />
