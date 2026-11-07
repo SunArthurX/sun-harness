@@ -36,8 +36,8 @@ const c = {
 const HELP = `sun — personal agent harness
 
 Usage:
-  sun [chat] [--mode coding|agent|assistant] [--model provider/model] [--cwd dir]   Interactive session
-  sun run "<prompt>" [--mode ..] [--model ..] [--approval suggest|auto-edit|full-auto] [--json]
+  sun [chat] [--mode coding|agent|assistant] [--model provider/model] [--cwd dir] [--worktree]   Interactive session
+  sun run "<prompt>" [--mode ..] [--model ..] [--approval suggest|auto-edit|full-auto] [--worktree] [--json]
   sun resume <sessionId> [--model provider/model] [--chat]
   sun sessions | sun show <sessionId>
   sun models | sun modes
@@ -45,6 +45,7 @@ Usage:
   sun intel run [--force] | analyze <date> | list | show [date] | install-schedule | uninstall-schedule
   sun kb search <query> | add <title> <file> | stats
   sun evolve reflect <sessionId> | list | accept <id> | reject <id>
+  sun worktree list | status <id> | diff <id> | merge <id> [--strategy squash|merge] | discard <id>
   sun skills | sun mcp | sun plugins | sun schedules
   sun doctor
   sun desktop                      Launch the desktop app (from a source checkout)
@@ -268,6 +269,8 @@ async function main(): Promise<void> {
       force: { type: 'boolean' },
       json: { type: 'boolean' },
       chat: { type: 'boolean' },
+      worktree: { type: 'boolean' },
+      strategy: { type: 'string' },
       help: { type: 'boolean', short: 'h' },
     },
   });
@@ -283,14 +286,14 @@ async function main(): Promise<void> {
 
   switch (cmd) {
     case 'chat': {
-      const s = host.createSession({ cwd: sessionCwd, mode: values.mode, model: values.model });
+      const s = host.createSession({ cwd: sessionCwd, mode: values.mode, model: values.model, worktree: values.worktree });
       await chat(host, s.id);
       break;
     }
     case 'run': {
       const prompt = args.join(' ') || (!process.stdin.isTTY ? readFileSync(0, 'utf8') : '');
       if (!prompt) throw new Error('Usage: sun run "<prompt>"');
-      const s = host.createSession({ cwd: sessionCwd, mode: values.mode, model: values.model });
+      const s = host.createSession({ cwd: sessionCwd, mode: values.mode, model: values.model, worktree: values.worktree });
       const state = { streamed: false, reasoning: false };
       if (!values.json) host.subscribe((e) => printEvent(e, s.id, state));
       wireApprovals(host);
@@ -397,6 +400,28 @@ async function main(): Promise<void> {
       } else if (sub === 'accept') console.log(`Applied → ${acceptProposal(args[1]).appliedTo}`);
       else if (sub === 'reject') rejectProposal(args[1]), console.log('Rejected.');
       else for (const p of listProposals(args[1] as never)) console.log(`${p.id}  ${p.status.padEnd(8)} [${p.type}] ${p.title} ${c.dim(`(${p.source.kind} ${p.source.ref})`)}`);
+      break;
+    }
+    case 'worktree': {
+      const sub = args[0] ?? 'list';
+      const id = args[1];
+      if (sub === 'list') {
+        for (const s of host.listSessions().filter((x) => x.worktree)) {
+          const st = s.worktree!.closed ?? (() => {
+            const w = host.worktreeStatus(s.id);
+            return `${w.files.length} files +${w.insertions} -${w.deletions}`;
+          })();
+          console.log(`${s.id}  ${c.cyan(s.worktree!.branch)}  ${st}  ${c.dim(s.title.slice(0, 50))}`);
+        }
+      } else if (sub === 'status') {
+        const w = host.worktreeStatus(id);
+        console.log(`${w.info.branch} → ${w.info.repo}\n${w.files.map((f) => `  ${f.status} ${f.path}`).join('\n') || '  (no changes)'}\n  +${w.insertions} -${w.deletions}`);
+      } else if (sub === 'diff') console.log(host.worktreeDiff(id));
+      else if (sub === 'merge') {
+        const r = host.mergeWorktree(id, { strategy: values.strategy === 'merge' ? 'merge' : 'squash' });
+        console.log(r.strategy === 'squash' ? c.green('Squashed into the main checkout (staged). Review and commit there.') : c.green('Merged with a merge commit.'));
+      } else if (sub === 'discard') host.discardWorktree(id), console.log('Discarded worktree and branch.');
+      else throw new Error(`Unknown worktree command ${sub}`);
       break;
     }
     case 'skills':

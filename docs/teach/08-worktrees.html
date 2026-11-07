@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" /><meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>08 · Worktrees — sun-harness</title>
+<link rel="stylesheet" href="teach.css" />
+<script type="module">import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs'; mermaid.initialize({ startOnLoad: true, theme: 'neutral' });</script>
+</head>
+<body>
+<header class="top"><div class="wrap"><a class="brand" href="index.html">sun<em>harness</em> · teach</a><nav><a href="index.html">All pages</a></nav></div></header>
+<main class="wrap">
+<p class="muted">Iteration 3 · spec <code>specs/010-worktrees.md</code></p>
+<h1>08 · <em>Worktrees</em></h1>
+<p class="lede">An agent editing your working copy is fine for one task. For three tasks at once, or one task you are not sure about, you want the agent in its own sandbox and a clean way to accept or reject the result. Git already has that sandbox: the worktree.</p>
+
+<h2>Which principle does this serve?</h2>
+<p><strong>Policy</strong>, and specifically <em>human in control</em>. The approval policy decides individual tool calls; a worktree lets you approve or reject the <em>whole outcome</em> at the end, as a diff. It also gives the <strong>tools</strong> part true parallelism: two sessions writing the same file never collide.</p>
+
+<h2>Lifecycle</h2>
+<div class="mermaid">
+stateDiagram-v2
+  [*] --> Created: createSession(worktree) · git worktree add -b sun/id
+  Created --> Working: agent edits inside ~/.sun/worktrees/repo-id
+  Working --> Working: status / diff (main checkout untouched)
+  Working --> Merged: Merge (squash) → staged in main, branch kept
+  Working --> Merged: Merge commit → --no-ff
+  Working --> Discarded: worktree remove + branch -D
+  Merged --> [*]: worktree/closed (merged)
+  Discarded --> [*]: worktree/closed (discarded)
+</div>
+
+<figure><img src="img/worktree.png" alt="Changes panel" width="100%" style="border-radius:12px;border:1px solid var(--line)"/><figcaption>The Changes panel after a live session in a worktree: one added file, the main checkout untouched until <strong>Merge (squash)</strong>.</figcaption></figure>
+
+<h2>Design questions</h2>
+<div class="qa"><p class="q">Where should the worktree live: inside the repo or outside?</p><p class="a">Outside, in <code>~/.sun/worktrees</code>. Inside the repo it would show up in the main checkout's file watchers, searches and <code>git status</code>, and agents searching the main repo would find a second copy of everything. <code>~/.sun</code> is also outside macOS-protected folders (see page 05).</p></div>
+<div class="qa"><p class="q">How does the diff include brand-new files the agent created?</p><p class="a"><code>git diff base</code> ignores untracked files. Running <code>git add -N .</code> ("intent to add") first records new paths without staging their contents, so they appear in the diff and the status counts, while the real commit still happens only at merge time.</p></div>
+<div class="qa"><p class="q">Why is squash the default, and why keep the branch after it?</p><p class="a">A squash leaves the agent's whole change staged in your checkout, so you review it with your usual tools and write the commit message yourself. Until you commit, those staged changes are the only copy outside the branch, so the branch is kept as a safety net. A merge commit records history instead, which is better for long agent sessions.</p></div>
+<div class="qa"><p class="q">What if the merge conflicts?</p><p class="a">The merge is aborted (<code>git merge --abort</code>) and the error is shown. Your checkout is exactly as before, and the branch is still there to merge by hand.</p></div>
+<div class="qa"><p class="q">How was this verified?</p><p class="a">Unit tests cover squash and merge-commit paths, discard, refusing non-git folders, and two sessions writing the same file in parallel. The desktop end-to-end test runs a live model in a worktree, checks the main checkout has no new file, clicks <strong>Merge (squash)</strong>, and checks <code>git status</code> shows <code>A hello.txt</code>.</p></div>
+<p class="lesson">Reuse the strongest isolation primitive the domain already has. For code, that is git: branches for parallel work, diffs for review, merges for acceptance.</p>
+
+<div class="nav"><a href="07-context-budgets.html">← 07 · Context budgets</a><a href="09-background-jobs.html">09 · Background jobs →</a></div>
+</main>
+</body>
+</html>

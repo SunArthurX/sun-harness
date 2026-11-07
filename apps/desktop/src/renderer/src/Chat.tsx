@@ -1,4 +1,4 @@
-import type { LiveEvent, PendingApproval, SessionEvent, SessionSummary, TodoItem, ToolCall } from '@sun/core';
+import type { LiveEvent, PendingApproval, SessionEvent, SessionSummary, TodoItem, ToolCall, WorktreeStatus } from '@sun/core';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { api } from './api';
 import { MODE_META, StatusDot } from './App';
@@ -132,6 +132,75 @@ function PausedBanner({ s, models }: { s: SessionSummary; models: string[] }) {
   );
 }
 
+function ChangesPanel({ s, onClose }: { s: SessionSummary; onClose: () => void }) {
+  const [status, setStatus] = useState<WorktreeStatus>();
+  const [diff, setDiff] = useState('');
+  const [msg, setMsg] = useState('');
+  const load = () => {
+    api.worktreeStatus(s.id).then(setStatus, (e) => setMsg(String(e.message ?? e)));
+    api.worktreeDiff(s.id).then(setDiff, () => undefined);
+  };
+  useEffect(load, [s.id, s.status]);
+  const act = async (f: () => Promise<unknown>, done: string) => {
+    try {
+      await f();
+      setMsg(done);
+    } catch (e) {
+      setMsg(String((e as Error).message ?? e).replace(/^Error invoking remote method 'sun:call': (Error: )?/, ''));
+    }
+  };
+  const closed = s.worktree?.closed;
+  return (
+    <div className="changes">
+      <div className="row-between">
+        <strong>
+          ⑂ {s.worktree?.branch} <span className="muted small">→ {s.worktree?.repo.replace(/^\/Users\/[^/]+/, '~')}</span>
+        </strong>
+        <button className="btn-ghost small" onClick={onClose}>
+          Close
+        </button>
+      </div>
+      {closed ? (
+        <p className="muted">This worktree was {closed}.</p>
+      ) : (
+        <>
+          <p className="muted small">
+            {status ? `${status.files.length} files · +${status.insertions} −${status.deletions}` : 'Loading…'} · the main checkout is untouched until you merge.
+          </p>
+          <div className="change-files mono small">
+            {status?.files.map((f) => (
+              <div key={f.path}>
+                <span className={`fs fs-${f.status[0]}`}>{f.status[0]}</span> {f.path}
+              </div>
+            ))}
+          </div>
+          {diff && (
+            <details>
+              <summary className="small">Diff</summary>
+              <pre className="diff">{diff.slice(0, 200_000)}</pre>
+            </details>
+          )}
+          <div className="row">
+            <button className="btn-primary small" disabled={!status?.files.length} onClick={() => act(() => api.mergeWorktree(s.id, 'squash'), 'Squashed into the main checkout (staged). Review and commit there.')}>
+              Merge (squash)
+            </button>
+            <button className="btn-ghost small" disabled={!status?.files.length} onClick={() => act(() => api.mergeWorktree(s.id, 'merge'), 'Merged with a merge commit.')}>
+              Merge commit
+            </button>
+            <button className="btn-danger small" onClick={() => confirm('Discard all changes in this worktree?') && act(() => api.discardWorktree(s.id), 'Discarded.')}>
+              Discard
+            </button>
+            <button className="btn-ghost small" onClick={load}>
+              Refresh
+            </button>
+          </div>
+        </>
+      )}
+      {msg && <p className="small">{msg}</p>}
+    </div>
+  );
+}
+
 function Todos({ items }: { items: TodoItem[] }) {
   const done = items.filter((i) => i.status === 'done').length;
   return (
@@ -168,6 +237,7 @@ export function Chat({
   const [input, setInput] = useState('');
   const [models, setModels] = useState<string[]>([]);
   const [modes, setModes] = useState<{ id: string; label: string }[]>([]);
+  const [showChanges, setShowChanges] = useState(false);
   const scroller = useRef<HTMLDivElement>(null);
   const stick = useRef(true);
 
@@ -233,6 +303,12 @@ export function Chat({
           <button className="chip mono" title="Open workspace" onClick={() => api.openPath(summary.cwd)}>
             {summary.cwd.replace(/^\/Users\/[^/]+/, '~')}
           </button>
+          {summary.worktree && (
+            <button className={`chip mono branch ${showChanges ? "on" : ""}`} title="Worktree changes" onClick={() => setShowChanges(!showChanges)}>
+              ⑂ {summary.worktree.branch}
+              {summary.worktree.closed ? ` (${summary.worktree.closed})` : ''}
+            </button>
+          )}
         </div>
         <div className="chat-controls">
           <select value={summary.mode} onChange={(e) => api.switchMode(summary.id, e.target.value)} title="Mode">
@@ -271,6 +347,7 @@ export function Chat({
           stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
         }}
       >
+        {showChanges && summary.worktree && <ChangesPanel s={summary} onClose={() => setShowChanges(false)} />}
         {todos && todos.items.length > 0 && <Todos items={todos.items} />}
         {events.map((e) => {
           switch (e.type) {

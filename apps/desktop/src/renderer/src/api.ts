@@ -12,6 +12,7 @@ import type {
   Skill,
   SunConfig,
   KnowledgeHit,
+  WorktreeStatus,
 } from '@sun/core';
 
 declare global {
@@ -29,7 +30,11 @@ export const api = {
   appInfo: () => call<{ home: string; version: string; platform: string; defaultCwd: string }>('appInfo'),
   listSessions: () => call<SessionSummary[]>('listSessions'),
   getEvents: (id: string) => call<SessionEvent[]>('getEvents', id),
-  createSession: (input: { cwd?: string; mode?: string; model?: string }) => call<SessionSummary>('createSession', input),
+  createSession: (input: { cwd?: string; mode?: string; model?: string; worktree?: boolean }) => call<SessionSummary>('createSession', input),
+  worktreeStatus: (id: string) => call<WorktreeStatus>('worktreeStatus', id),
+  worktreeDiff: (id: string) => call<string>('worktreeDiff', id),
+  mergeWorktree: (id: string, strategy?: 'squash' | 'merge') => call<{ strategy: string; output: string }>('mergeWorktree', id, strategy),
+  discardWorktree: (id: string) => call<void>('discardWorktree', id),
   deleteSession: (id: string) => call<void>('deleteSession', id),
   renameSession: (id: string, title: string) => call<void>('renameSession', id, title),
   send: (id: string, text: string) => call<void>('send', id, text),

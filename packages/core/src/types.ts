@@ -53,6 +53,8 @@ export type SessionEventBody =
       createdAt: string;
       /** Set for subagent sessions. */
       parent?: string;
+      /** Set when the session runs in an isolated git worktree (specs/010). */
+      worktree?: { repo: string; path: string; branch: string; base: string };
     }
   | { type: 'session/title'; title: string }
   | { type: 'user/message'; text: string; source?: 'user' | 'hook' | 'schedule' | 'system' }
@@ -72,7 +74,8 @@ export type SessionEventBody =
   | { type: 'model/switch'; from: string; to: string; reason: string }
   | { type: 'mode/switch'; from: string; to: string }
   | { type: 'context/compaction'; summary: string; upToSeq: number; /** Summarizer model when it differs from the session model. */ model?: string }
-  | { type: 'todo/update'; items: TodoItem[] };
+  | { type: 'todo/update'; items: TodoItem[] }
+  | { type: 'worktree/closed'; action: 'merged' | 'discarded'; detail?: string };
 
 export type SessionEvent = EventBase & SessionEventBody;
 
@@ -98,6 +101,7 @@ export interface SessionSummary {
   statusReason?: string;
   statusDetail?: string;
   parent?: string;
+  worktree?: { repo: string; branch: string; closed?: 'merged' | 'discarded' };
 }
 
 export interface PendingApproval {

@@ -61,8 +61,8 @@ export function App() {
   const currentSummary = sessions.find((s) => s.id === current);
   const attention = sessions.filter((s) => s.status === 'paused' || s.status === 'awaiting_approval').length + approvals.length;
 
-  const startSession = async (mode: string, cwd?: string) => {
-    const s = await api.createSession({ mode, cwd });
+  const startSession = async (mode: string, cwd?: string, worktree?: boolean) => {
+    const s = await api.createSession({ mode, cwd, worktree });
     setNewMode(null);
     setCurrent(s.id);
     setPage('chat');
@@ -102,6 +102,7 @@ export function App() {
                     <button className={`session ${current === s.id ? 'on' : ''}`} onClick={() => (setCurrent(s.id), setNewMode(null))}>
                       <StatusDot s={s} />
                       <span className="session-title">{s.title}</span>
+                      {s.worktree && !s.worktree.closed && <span className="mode-tag wt" title={s.worktree.branch}>⑂</span>}
                       <span className={`mode-tag m-${s.mode}`}>{MODE_META[s.mode]?.label ?? s.mode}</span>
                     </button>
                     {(children.get(s.id) ?? []).map((c) => (
@@ -136,9 +137,11 @@ export function App() {
   );
 }
 
-function Welcome({ initialMode, onStart }: { initialMode: string; onStart: (mode: string, cwd?: string) => void }) {
+function Welcome({ initialMode, onStart }: { initialMode: string; onStart: (mode: string, cwd?: string, worktree?: boolean) => void | Promise<void> }) {
   const [mode, setMode] = useState(initialMode);
   const [cwd, setCwd] = useState<string | undefined>();
+  const [worktree, setWorktree] = useState(false);
+  const [error, setError] = useState('');
   const hour = new Date().getHours();
   const greet = hour < 5 ? 'Late night' : hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
   return (
@@ -161,10 +164,27 @@ function Welcome({ initialMode, onStart }: { initialMode: string; onStart: (mode
         <button className="chip" onClick={async () => setCwd((await api.pickFolder()) ?? cwd)}>
           {cwd ? `📁 ${cwd}` : mode === 'coding' ? 'Choose a project folder…' : 'Workspace: ~/.sun/workspace (change…)'}
         </button>
-        <button className="btn-primary" onClick={() => onStart(mode, cwd)} disabled={mode === 'coding' && !cwd}>
+        {mode === 'coding' && (
+          <label className="chip toggle" title="Work on a new branch in a separate checkout; merge or discard when done.">
+            <input type="checkbox" checked={worktree} onChange={(e) => setWorktree(e.target.checked)} /> Isolated git worktree
+          </label>
+        )}
+        <button
+          className="btn-primary"
+          onClick={async () => {
+            setError('');
+            try {
+              await onStart(mode, cwd, mode === 'coding' && worktree);
+            } catch (e) {
+              setError(String((e as Error).message ?? e).replace(/^Error invoking remote method 'sun:call': (Error: )?/, ''));
+            }
+          }}
+          disabled={mode === 'coding' && !cwd}
+        >
           Start {MODE_META[mode].label} session →
         </button>
       </div>
+      {error && <p className="welcome-error">{error}</p>}
     </div>
   );
 }

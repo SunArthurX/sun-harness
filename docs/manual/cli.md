@@ -1,8 +1,8 @@
 # CLI
 
 ```text
-sun [chat] [--mode coding|agent|assistant] [--model provider/model] [--cwd dir]
-sun run "<prompt>" [--mode ..] [--model ..] [--approval suggest|auto-edit|full-auto] [--json]
+sun [chat] [--mode coding|agent|assistant] [--model provider/model] [--cwd dir] [--worktree]
+sun run "<prompt>" [--mode ..] [--model ..] [--approval suggest|auto-edit|full-auto] [--worktree] [--json]
 sun resume <sessionId> [--model provider/model] [--chat]
 sun sessions | sun show <sessionId>
 sun models | sun modes
@@ -10,6 +10,7 @@ sun init
 sun intel run [--force] | analyze <date> | list | show [date] | install-schedule | uninstall-schedule
 sun kb search <query> | add <title> <file|-> | stats
 sun evolve reflect <sessionId> | list [pending|accepted|rejected] | accept <id> | reject <id>
+sun worktree list | status <id> | diff <id> | merge <id> [--strategy squash|merge] | discard <id>
 sun skills | sun mcp | sun plugins | sun schedules
 sun doctor
 sun desktop

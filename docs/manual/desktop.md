@@ -4,12 +4,13 @@ Start with `pnpm desktop:start` (built) or `pnpm desktop` (dev). The left rail s
 
 ## Welcome
 
-Choose a mode card, pick a workspace (required for Coding; Agent and Assistant default to `~/.sun/workspace`), then **Start**.
+Choose a mode card, pick a workspace (required for Coding; Agent and Assistant default to `~/.sun/workspace`), optionally tick **Isolated git worktree** (Coding), then **Start**.
 
 ## Session
 
 - **Header**: status dot (green idle, pulsing amber running, yellow paused, red error), title, workspace chip (opens Finder), mode and model selectors (take effect on the next request), token counter, delete.
 - **Transcript**: your messages on the right; assistant text in Markdown; collapsible **Reasoning** for thinking models; one **tool card** per call — click to see arguments and output. MCP tools show as `server › tool`.
+- **Worktree**: sessions on a worktree show ⑂ in the sidebar and a branch chip in the header; the chip opens the Changes panel (files, diff, Merge (squash), Merge commit, Discard). See [Worktree sessions](worktrees.md).
 - **Plan**: when the agent uses `todo_write`, a sticky plan with a progress bar appears at the top.
 - **Approval card**: Allow / Always allow `<tool>` (for this session) / Deny. Subagent approvals appear in the parent session.
 - **Paused banner**: shown for quota, auth, rate limit, network, step limit, or interruption. **Resume** retries the same model; pick another model and **Switch & resume** to continue elsewhere. Nothing is lost.

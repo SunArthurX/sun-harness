@@ -1,5 +1,8 @@
 import { localDate } from './util/date.js';
-import { existsSync, mkdirSync } from 'node:fs';
+import { existsSync, mkdirSync, realpathSync } from 'node:fs';
+import { randomUUID } from 'node:crypto';
+import { join, relative } from 'node:path';
+import { createWorktree, mergeWorktree, removeWorktree, worktreeDiff, worktreeStatus, type WorktreeInfo, type WorktreeStatus } from './worktree.js';
 import { Agent, type AgentHooks, type ApprovalRequest, type RunResult } from './agent.js';
 import { availableModels, compactionLimit, contextWindowOf, createProviderFactory, isProviderReady, loadConfig, saveConfig, type ProviderFactory, type SunConfig } from './config.js';
 import { createShellHooks } from './hooks.js';
@@ -37,6 +40,8 @@ export interface CreateSessionInput {
   model?: string;
   title?: string;
   parent?: string;
+  /** Run in an isolated git worktree on a new branch (coding sessions in a git repo). */
+  worktree?: boolean;
 }
 
 const AUTO_RESUME_REASONS = new Set(['quota', 'rate_limit', 'network']);
@@ -160,8 +165,14 @@ export class HarnessHost {
 
   createSession(input: CreateSessionInput = {}): SessionSummary {
     const mode = input.mode && this.modes.has(input.mode) ? input.mode : 'coding';
-    const cwd = input.cwd && existsSync(input.cwd) ? input.cwd : this.defaultCwd(mode);
-    const log = SessionLog.create({ mode, cwd, model: input.model || this.config.defaultModel, title: input.title, parent: input.parent });
+    let cwd = input.cwd && existsSync(input.cwd) ? input.cwd : this.defaultCwd(mode);
+    const worktree = input.worktree ? createWorktree(cwd, randomUUID().slice(0, 8)) : undefined;
+    if (worktree) {
+      // Keep the same sub-folder inside the worktree when the session started below the repo root.
+      const sub = relative(realpathSync(worktree.repo), realpathSync(cwd));
+      cwd = sub && !sub.startsWith('..') ? join(worktree.path, sub) : worktree.path;
+    }
+    const log = SessionLog.create({ mode, cwd, model: input.model || this.config.defaultModel, title: input.title, parent: input.parent, worktree });
     this.broadcastSessions();
     return log.summary()!;
   }
@@ -194,6 +205,8 @@ export class HarnessHost {
     }
     const log = SessionLog.open(id);
     if (!log.meta()) throw new Error(`No session ${id}`);
+    const closed = log.last('worktree/closed');
+    if (closed) throw new Error(`This session's worktree was ${closed.action}; start a new session to continue.`);
     if (!log.all().some((e) => e.type === 'user/message') && this.opts.shellHooks !== false) {
       const ctx = await createShellHooks(log.meta()!.cwd).sessionStart(id);
       if (ctx) this.append(log, { type: 'user/message', text: `[sessionStart hook context]\n${ctx}`, source: 'hook' });
@@ -307,6 +320,45 @@ export class HarnessHost {
       knowledgeProviders: this.knowledgeProviders().map((k) => ({ id: k.id, name: k.name })),
       extraSections: this.promptSections.map((s) => ({ title: s.title, text: s.text() })),
     });
+  }
+
+  // ---------- worktrees ----------
+
+  private worktreeOf(id: string): WorktreeInfo {
+    const wt = SessionLog.open(id).meta()?.worktree;
+    if (!wt) throw new Error(`Session ${id} does not use a worktree.`);
+    return wt;
+  }
+
+  worktreeStatus(id: string): WorktreeStatus {
+    return worktreeStatus(this.worktreeOf(id));
+  }
+
+  worktreeDiff(id: string): string {
+    return worktreeDiff(this.worktreeOf(id));
+  }
+
+  /** Merge the session branch into the main checkout (squash by default), then remove the worktree. */
+  mergeWorktree(id: string, opts: { strategy?: 'squash' | 'merge'; keep?: boolean } = {}): { strategy: string; output: string } {
+    if (this.runs.has(id)) throw new Error('Stop the run before merging.');
+    const log = SessionLog.open(id);
+    const info = this.worktreeOf(id);
+    const title = log.summary()?.title ?? id;
+    const r = mergeWorktree(info, { strategy: opts.strategy, message: `sun: ${title}\n\nSession ${id} (${info.branch})` });
+    if (!opts.keep) {
+      removeWorktree(info, { keepBranch: r.strategy === 'squash' });
+      this.append(log, { type: 'worktree/closed', action: 'merged', detail: `${r.strategy} into ${info.repo}` });
+    }
+    this.broadcastSessions();
+    return r;
+  }
+
+  discardWorktree(id: string): void {
+    this.abort(id);
+    const log = SessionLog.open(id);
+    removeWorktree(this.worktreeOf(id));
+    this.append(log, { type: 'worktree/closed', action: 'discarded' });
+    this.broadcastSessions();
   }
 
   // ---------- approvals ----------

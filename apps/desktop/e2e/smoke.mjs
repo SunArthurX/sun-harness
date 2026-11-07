@@ -2,6 +2,7 @@
 // Usage: pnpm --filter @sun/desktop run build && node apps/desktop/e2e/smoke.mjs   (needs DEEPSEEK_API_KEY)
 import { _electron as electron } from 'playwright-core';
 import { createRequire } from 'node:module';
+import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -102,6 +103,34 @@ const recovered = await win.evaluate(async (id) => {
 }, broken.id);
 console.log('recovery', JSON.stringify(recovered));
 if (!recovered.paused || !recovered.switched || !/recovered/i.test(recovered.text ?? '')) process.exitCode = 1;
+
+// Worktree session: the agent works on a branch; the Changes panel squash-merges it into the main checkout.
+const repo = mkdtempSync(join(tmpdir(), 'sun-e2e-repo-'));
+for (const args of [['init', '-q'], ['config', 'user.email', 'e2e@example.com'], ['config', 'user.name', 'E2E']]) spawnSync('git', args, { cwd: repo });
+writeFileSync(join(repo, 'README.md'), '# repo\n');
+spawnSync('git', ['add', '-A'], { cwd: repo });
+spawnSync('git', ['commit', '-q', '-m', 'init'], { cwd: repo });
+const wt = await win.evaluate((cwd) => window.sun.call('createSession', { cwd, mode: 'coding', worktree: true }), repo);
+await win.evaluate((id) => window.sun.call('send', id, 'Create hello.txt containing exactly: hi from the worktree. Do nothing else.'), wt.id);
+await win.click(`.session:has-text("Create hello.txt")`);
+for (let i = 0; ; i++) {
+  const s = await win.evaluate(async (id) => (await window.sun.call('listSessions')).find((x) => x.id === id), wt.id);
+  if (s?.status === 'idle') break;
+  if (i > 240) throw new Error(`Worktree session did not finish (${s?.status})`);
+  if (await win.$('.approval .btn-primary')) await win.click('.approval .btn-primary').catch(() => {});
+  await win.waitForTimeout(500);
+}
+const inMainBefore = existsSync(join(repo, 'hello.txt'));
+await win.click('.chat-head .chip:has-text("⑂")');
+await win.waitForSelector('.changes .fs');
+await win.waitForTimeout(300);
+await win.screenshot({ path: join(shots, '11-worktree.png') });
+await win.click('.changes .btn-primary');
+await win.waitForSelector('.changes :text("Squashed")', { timeout: 10_000 });
+const merged = existsSync(join(repo, 'hello.txt'));
+const staged = spawnSync('git', ['status', '--porcelain'], { cwd: repo, encoding: 'utf8' }).stdout;
+console.log('worktree', JSON.stringify({ inMainBefore, merged, staged: staged.trim() }));
+if (inMainBefore || !merged || !/hello\.txt/.test(staged)) process.exitCode = 1;
 
 const pages = [
   ['Knowledge', '04-knowledge.png'],

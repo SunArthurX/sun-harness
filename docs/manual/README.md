@@ -6,6 +6,7 @@
 | [Desktop app](desktop.md) | Every screen and control |
 | [CLI](cli.md) | `sun` commands and chat slash commands |
 | [Modes](modes.md) | Coding, Agent, Assistant; subagents; schedules |
+| [Worktree sessions](worktrees.md) | Parallel coding sessions on isolated branches; review, merge, discard |
 | [Rules and specs](rules.md) | Keeping agents on track: AGENTS.md, specs, `.sun/rules`, `sun init` |
 | [Extensions](extensions.md) | Skills, MCP servers, plugins, hooks |
 | [Knowledge and memory](knowledge.md) | Personal KB, company KB, memory |

@@ -1114,3 +1114,69 @@ em {
   border: 3px solid transparent;
   background-clip: padding-box;
 }
+
+/* worktrees */
+.mode-tag.wt {
+  color: var(--sun);
+  border-color: rgba(255, 179, 71, 0.4);
+}
+.chip.toggle {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  cursor: pointer;
+}
+.welcome-error {
+  color: var(--err);
+  position: relative;
+  margin-top: 12px;
+}
+.changes {
+  border: 1px solid rgba(255, 179, 71, 0.4);
+  background: var(--bg-2);
+  border-radius: 12px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.changes p {
+  margin: 0;
+}
+.change-files {
+  max-height: 180px;
+  overflow: auto;
+  color: var(--text-2);
+}
+.fs {
+  display: inline-block;
+  width: 16px;
+  font-weight: 700;
+}
+.fs-A {
+  color: var(--ok);
+}
+.fs-M {
+  color: var(--warn);
+}
+.fs-D {
+  color: var(--err);
+}
+pre.diff {
+  font: 12px/1.45 var(--mono);
+  max-height: 360px;
+  overflow: auto;
+  background: #0e0c0a;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px;
+  white-space: pre;
+}
+.chat-title .chip {
+  min-width: 0;
+  flex-shrink: 1;
+}
+.chat-title .chip.branch {
+  flex: none;
+  max-width: 260px;
+}
