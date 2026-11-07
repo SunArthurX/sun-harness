@@ -38,3 +38,5 @@ export * from './kb/hybrid.js';
 export * from './remote.js';
 export * from './bots/bridge.js';
 export * from './bots/adapters.js';
+export * from './bots/feishu.js';
+export * from './bots/wechat.js';

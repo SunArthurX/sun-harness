@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.1 — 2026-11-07
+
+### Chat bots: Feishu, WeChat, WeCom
+- Feishu/Lark bot: event callbacks with challenge, verification token, optional encryption, event dedupe, IM API replies.
+- WeChat Official Account bot (incl. sandbox 测试号): signed GET verification, plain/safe-mode XML, `MsgId` dedupe, customer-service replies.
+- WeCom self-built app bot: encrypted verification and messages, corp-id receiver check, `message/send` replies.
+- Gateway bot routes accept GET (URL verification). Crypto pinned to the vendors' published test vectors.
+
 ## 0.3.0 — 2026-11-07
 
 ### Iteration 8 — Durable background jobs

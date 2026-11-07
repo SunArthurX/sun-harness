@@ -27,7 +27,7 @@ A harness reduces to six parts: **model, context, tools, loop, log, policy**. su
 - **Hybrid knowledge (optional)**: BM25 + embeddings with rank fusion; finds notes across languages.
 - **Packaged macOS app**: `pnpm desktop:install` → `~/Applications/sun-harness.app`.
 - **Remote access**: `sun serve --tls`, per-device tokens, certificate-pinned `sun remote` clients.
-- **Chat bots**: Telegram, DingTalk and webhook bots with allowlists and approvals in chat.
+- **Chat bots**: Telegram, DingTalk, Feishu, WeChat Official Account, WeCom and webhook bots with allowlists and approvals in chat.
 - **Durable jobs and safe approvals**: background jobs survive restarts; approvals can't be answered by stray keys or clicks.
 
 ## Quick start

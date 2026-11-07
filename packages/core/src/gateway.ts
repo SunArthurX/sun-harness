@@ -16,7 +16,7 @@ import { fingerprintOf, matchDevice } from './remote.js';
 import type { RouteHandler } from './bots/adapters.js';
 import type { ApprovalDecision, LiveEvent, RunStatus, SessionEvent, SessionSummary } from './types.js';
 
-export const VERSION = '0.3.0';
+export const VERSION = '0.3.1';
 
 type Method = (...args: any[]) => unknown;
 
@@ -143,7 +143,7 @@ export interface GatewayOptions {
   tls?: { cert: string; key: string };
   /** Allow plain HTTP on a non-loopback address (not recommended). */
   insecure?: boolean;
-  /** Extra POST routes (chat bots). Handlers get `authorized` (owner or device token) and the raw body; they do their own auth. */
+  /** Extra GET/POST routes (chat bots; GET for WeChat/WeCom URL verification). Handlers get `authorized` (owner or device token) and the raw body; they do their own auth. */
   routes?: Record<string, RouteHandler>;
 }
 
@@ -182,7 +182,7 @@ export async function startGateway(host: HarnessHost, opts: GatewayOptions = {})
   const handler = async (req: IncomingMessage, res: ServerResponse) => {
     const url = new URL(req.url ?? '/', 'http://localhost');
     const route = opts.routes?.[url.pathname];
-    if (route && req.method === 'POST') {
+    if (route && (req.method === 'POST' || req.method === 'GET')) {
       let body = '';
       for await (const chunk of req) body += chunk;
       return route(req, res, { authorized: authed(req, url), body });

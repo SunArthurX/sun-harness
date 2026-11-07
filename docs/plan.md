@@ -95,6 +95,7 @@ flowchart LR
 - [x] 9 — Approval race guard: prompt ids, stale-answer rejection, CLI pre-typed input guard, desktop arm delay, scoped approvers (`specs/016`, teach 14)
 - [x] 10 — Remote gateway: TLS with self-signed pinned certificate, device tokens, `sun remote` (`specs/017`, ADR 0006, teach 15)
 - [x] 11 — Chat bots: Telegram, DingTalk outgoing robot, webhook; allowlist, per-chat sessions, approvals in chat (`specs/018`, teach 16)
+- [x] 11.1 — Feishu/Lark, WeChat Official Account, WeCom bots (`specs/018`, teach 16)
 
 ## Iteration backlog (research loop)
 
@@ -105,7 +106,7 @@ Filled from intel reports (`~/.sun/evolution/proposals`); each item becomes a sp
 | Locked, honest config writes (file lock, non-zero exit on failed writes) | Claude Code 2.1.317–318 | Log |
 | Negative capability cache for MCP servers that fail fast | Claude Code 2.1.318 | Tools |
 | Credential / key expiry surfaced in status | Claude Code 2.1.318 | Model |
-| DingTalk Stream mode (no public URL) and Feishu/Slack native adapters | Hermes Agent | Architecture |
+| DingTalk Stream / Feishu long-connection modes (no public URL); Slack native adapter | Hermes Agent | Architecture |
 | Desktop attaches to remote gateways (pinned), device management UI | — | Desktop |
 | Developer ID signing + notarization; auto-update | — | Desktop |
 | Session export/import and sharing | Codex, Claude Code | Log |

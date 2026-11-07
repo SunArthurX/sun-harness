@@ -157,6 +157,9 @@ export function defaultConfig(): SunConfig {
       telegram: { enabled: false, tokenEnv: 'TELEGRAM_BOT_TOKEN', allowedUsers: [] },
       dingtalk: { enabled: false, appSecretEnv: 'DINGTALK_APP_SECRET', allowedUsers: [] },
       webhook: { enabled: false, allowedUsers: [] },
+      feishu: { enabled: false, appIdEnv: 'FEISHU_APP_ID', appSecretEnv: 'FEISHU_APP_SECRET', verificationTokenEnv: 'FEISHU_VERIFICATION_TOKEN', encryptKeyEnv: 'FEISHU_ENCRYPT_KEY', allowedUsers: [] },
+      wechat: { enabled: false, appIdEnv: 'WECHAT_APP_ID', appSecretEnv: 'WECHAT_APP_SECRET', tokenEnv: 'WECHAT_TOKEN', encodingAesKeyEnv: 'WECHAT_ENCODING_AES_KEY', allowedUsers: [] },
+      wecom: { enabled: false, corpIdEnv: 'WECOM_CORP_ID', secretEnv: 'WECOM_SECRET', agentId: '', tokenEnv: 'WECOM_TOKEN', encodingAesKeyEnv: 'WECOM_ENCODING_AES_KEY', allowedUsers: [] },
     },
   };
 }

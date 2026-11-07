@@ -2,6 +2,8 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { HarnessHost } from '../host.js';
 import { BotBridge, type BotMessage, type BotTransport, type BridgeOptions } from './bridge.js';
+import { FeishuBot } from './feishu.js';
+import { WeChatBot, WeComBot } from './wechat.js';
 
 export type RouteHandler = (req: IncomingMessage, res: ServerResponse, ctx: { authorized: boolean; body: string }) => Promise<void>;
 
@@ -206,6 +208,9 @@ export interface BotsConfig {
   telegram: { enabled: boolean; tokenEnv: string; allowedUsers: string[]; apiBase?: string };
   dingtalk: { enabled: boolean; appSecretEnv: string; allowedUsers: string[] };
   webhook: { enabled: boolean; allowedUsers: string[] };
+  feishu: { enabled: boolean; appIdEnv: string; appSecretEnv: string; verificationTokenEnv: string; encryptKeyEnv: string; apiBase?: string; allowedUsers: string[] };
+  wechat: { enabled: boolean; appIdEnv: string; appSecretEnv: string; tokenEnv: string; encodingAesKeyEnv: string; apiBase?: string; allowedUsers: string[] };
+  wecom: { enabled: boolean; corpIdEnv: string; secretEnv: string; agentId: string; tokenEnv: string; encodingAesKeyEnv: string; apiBase?: string; allowedUsers: string[] };
 }
 
 export interface RunningBots {
@@ -249,6 +254,54 @@ export function startBots(host: HarnessHost, cfg: BotsConfig, env: NodeJS.Proces
     routes['/bots/webhook'] = w.route;
     stops.push(() => w.stop());
     started.push('webhook');
+  }
+  const need = (platform: string, names: string[]) => {
+    const missing = names.filter((n) => !env[n]);
+    if (missing.length) skipped.push(`${platform} (set ${missing.join(', ')})`);
+    return !missing.length;
+  };
+  if (cfg.feishu?.enabled) {
+    const f = cfg.feishu;
+    if (need('feishu', [f.appIdEnv, f.appSecretEnv, f.verificationTokenEnv])) {
+      const b = new FeishuBot(
+        host,
+        { appId: env[f.appIdEnv]!, appSecret: env[f.appSecretEnv]!, verificationToken: env[f.verificationTokenEnv]!, encryptKey: env[f.encryptKeyEnv] || undefined, apiBase: f.apiBase },
+        { ...base, allowedUsers: f.allowedUsers.map(String) },
+      );
+      b.start();
+      routes['/bots/feishu'] = b.route;
+      stops.push(() => b.stop());
+      started.push('feishu');
+    }
+  }
+  if (cfg.wechat?.enabled) {
+    const w = cfg.wechat;
+    if (need('wechat', [w.appIdEnv, w.appSecretEnv, w.tokenEnv])) {
+      const b = new WeChatBot(
+        host,
+        { appId: env[w.appIdEnv]!, appSecret: env[w.appSecretEnv]!, token: env[w.tokenEnv]!, encodingAesKey: env[w.encodingAesKeyEnv] || undefined, apiBase: w.apiBase },
+        { ...base, allowedUsers: w.allowedUsers.map(String) },
+      );
+      b.start();
+      routes['/bots/wechat'] = b.route;
+      stops.push(() => b.stop());
+      started.push('wechat');
+    }
+  }
+  if (cfg.wecom?.enabled) {
+    const w = cfg.wecom;
+    if (!w.agentId) skipped.push('wecom (set bots.wecom.agentId)');
+    else if (need('wecom', [w.corpIdEnv, w.secretEnv, w.tokenEnv, w.encodingAesKeyEnv])) {
+      const b = new WeComBot(
+        host,
+        { corpId: env[w.corpIdEnv]!, secret: env[w.secretEnv]!, agentId: String(w.agentId), token: env[w.tokenEnv]!, encodingAesKey: env[w.encodingAesKeyEnv]!, apiBase: w.apiBase },
+        { ...base, allowedUsers: w.allowedUsers.map(String) },
+      );
+      b.start();
+      routes['/bots/wecom'] = b.route;
+      stops.push(() => b.stop());
+      started.push('wecom');
+    }
   }
   return { started, skipped, routes, stop: () => stops.forEach((s) => s()) };
 }

@@ -23,7 +23,7 @@
 | `evolution.autoReflect` | `false` | reserved |
 | `jobs.promoteAfterMs` | `30000` | MCP calls still running after this move to a background job (0 = never) |
 | `jobs.killOnExit` | `false` | kill background jobs when sun-harness exits (default: they keep running and are re-attached) |
-| `bots` | all disabled | `{defaultMode, approvals: chat|deny, telegram{enabled,tokenEnv,allowedUsers,apiBase?}, dingtalk{enabled,appSecretEnv,allowedUsers}, webhook{enabled,allowedUsers}}` — see [Chat bots](bots.md) |
+| `bots` | all disabled | `{defaultMode, approvals: chat|deny, telegram{enabled,tokenEnv,allowedUsers,apiBase?}, dingtalk{enabled,appSecretEnv,allowedUsers}, webhook{enabled,allowedUsers}, feishu{…}, wechat{…}, wecom{…,agentId}}` — see [Chat bots](bots.md) |
 
 Provider presets: `deepseek`, `anthropic`, `openai`, `glm`, `qwen` (DashScope), `gemini`, `openrouter`, `ollama`. Add your own:
 

@@ -30,6 +30,18 @@ flowchart LR
 <div class="qa"><p class="q">Why long polling for Telegram but callbacks for DingTalk?</p><p class="a">Each uses what needs the least infrastructure. Telegram's <code>getUpdates</code> works from behind NAT with no public URL. DingTalk's outgoing robot only pushes to a URL, so the gateway exposes <code>/bots/dingtalk</code>, verifies DingTalk's HMAC signature and timestamp, and replies through the per-message <code>sessionWebhook</code>.</p></div>
 <div class="qa"><p class="q">How can a script use it synchronously?</p><p class="a"><code>POST /bots/webhook?wait=1</code> holds the response until the run ends, or until it stops on an approval, and returns <code>{sessionId, replies}</code>. That makes the bot a one-line <code>curl</code> API for shortcuts, cron jobs and other agents.</p></div>
 <div class="qa"><p class="q">What was verified?</p><p class="a">Telegram against a local fake of the Bot API (allowlist, an approval answered in the chat, replies); DingTalk signature rejection and acceptance with replies to a fake session webhook; and live, the webhook bot on a real gateway with DeepSeek: a stranger refused, a question answered, a shell command held for approval, then <code>/approve</code> ran it and the output came back. The real Telegram API is unreachable from this network, so live Telegram is left to the owner's token.</p></div>
+<h2>Adding Feishu and WeChat</h2>
+<p>Because the bridge owns the policy, three more platforms took about 300 lines of translation code: Feishu/Lark, WeChat Official Accounts and WeCom. All three push to a URL, sign or encrypt their callbacks, and expect a reply through a separate API with a short-lived access token.</p>
+<table>
+<tr><th></th><th>Feishu</th><th>WeChat Official Account</th><th>WeCom</th></tr>
+<tr><td>URL check</td><td>POST <code>url_verification</code> → echo challenge</td><td>GET, plain <code>signature</code> → echo</td><td>GET, encrypted <code>echostr</code> → decrypt</td></tr>
+<tr><td>Message</td><td>JSON event v2</td><td>XML (plain or AES)</td><td>XML, always AES</td></tr>
+<tr><td>Reply</td><td><code>im/v1/messages</code></td><td><code>message/custom/send</code></td><td><code>message/send</code> + agentid</td></tr>
+<tr><td>Retries</td><td>dedupe <code>event_id</code></td><td>dedupe <code>MsgId</code></td><td>dedupe <code>MsgId</code></td></tr>
+</table>
+<div class="qa"><p class="q">WeChat gives a passive reply 5 seconds. Agent runs take longer. Now what?</p><p class="a">Answer <code>success</code> immediately, which stops WeChat from retrying, and send the real answer later with the customer-service API. Retries that arrive anyway are recognized by <code>MsgId</code> and dropped, so a slow reply never becomes three sessions' worth of work.</p></div>
+<div class="qa"><p class="q">How do you trust hand-written crypto?</p><p class="a">Round-trip tests only show the code agrees with itself. The WeChat/WeCom implementation is pinned to the official <code>WXBizMsgCrypt</code> sample: the signature <code>477715d1…</code> and the decrypted message (<code>hello</code> from <code>mycreate</code>, receiver <code>wx5823bf96d3bd56c7</code>) match exactly. Feishu decryption is pinned to its documented sample (<code>"test key"</code> → <code>hello world</code>). A first attempt used a vector recalled from memory; it was malformed, and checking it against the vendor's published sample caught that before it became a test.</p></div>
+
 <p class="lesson">Put the policy in the bridge, not the adapters. Allowlists, sessions and approvals are written once; a new platform is a hundred lines of translation.</p>
 
 <div class="nav"><a href="15-remote-gateway.html">← 15 · Remote gateway</a><a href="index.html">All pages →</a></div>
