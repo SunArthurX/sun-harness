@@ -6,6 +6,12 @@ coverage/
 *.tsbuildinfo
 .DS_Store
 .env
+.env.*
+!.env.example
+*.log
+.idea/
+.vscode/
+*.local
 .sun-test-home*/
 test-results/
 apps/desktop/e2e/shots/

@@ -56,4 +56,4 @@ Read [`AGENTS.md`](AGENTS.md) first: English-only artifacts, spec-first changes,
 
 ## License
 
-MIT
+[MIT](LICENSE)
