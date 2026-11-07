@@ -47,3 +47,4 @@ export * from './verify.js';
 export * from './repomap.js';
 export * from './diagnostics.js';
 export * from './bestofn.js';
+export * from './sandbox.js';

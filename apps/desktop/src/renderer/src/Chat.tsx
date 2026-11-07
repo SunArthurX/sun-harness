@@ -331,6 +331,10 @@ export function Chat({
     return events.filter((e) => e.type === 'checkpoint' && !undone.has(e.id)).length;
   }, [events]);
   const [undoMsg, setUndoMsg] = useState('');
+  const [sandbox, setSandbox] = useState<{ kind: string; description: string }>();
+  useEffect(() => {
+    api.sandboxInfo(summary.id).then(setSandbox, () => setSandbox(undefined));
+  }, [summary.id]);
   const undo = async () => {
     try {
       const r = await api.undo(summary.id, 1);
@@ -358,6 +362,11 @@ export function Chat({
           <button className="chip mono" title="Open workspace" onClick={() => api.openPath(summary.cwd)}>
             {summary.cwd.replace(/^\/Users\/[^/]+/, '~')}
           </button>
+          {sandbox && (
+            <span className={`chip mono ${sandbox.kind === 'none' ? 'warn' : ''}`} title={sandbox.description}>
+              {sandbox.kind === 'none' ? 'no sandbox' : `⛉ ${sandbox.kind}`}
+            </span>
+          )}
           {summary.worktree && (
             <button className={`chip mono branch ${showChanges ? "on" : ""}`} title="Worktree changes" onClick={() => setShowChanges(!showChanges)}>
               ⑂ {summary.worktree.branch}

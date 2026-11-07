@@ -436,6 +436,34 @@ export function SettingsPage() {
             Max steps per run
             <input type="number" value={cfg.maxSteps} onChange={(e) => save({ maxSteps: Number(e.target.value) })} />
           </label>
+          <h3 className="mt">Shell sandbox</h3>
+          <div className="segmented">
+            {(['auto', 'seatbelt', 'bwrap', 'docker', 'off'] as const).map((m) => (
+              <button key={m} className={cfg.sandbox.mode === m ? 'on' : ''} onClick={() => save({ sandbox: { ...cfg.sandbox, mode: m } })}>
+                {m}
+              </button>
+            ))}
+          </div>
+          <div className="segmented">
+            {(['on', 'allowlist', 'off'] as const).map((n) => (
+              <button key={n} className={cfg.sandbox.network === n ? 'on' : ''} onClick={() => save({ sandbox: { ...cfg.sandbox, network: n } })}>
+                network {n}
+              </button>
+            ))}
+          </div>
+          {cfg.sandbox.network === 'allowlist' && (
+            <label>
+              Allowed hosts (comma separated, *.domain for subdomains)
+              <input className="mono small" value={cfg.sandbox.allow.join(', ')} onChange={(e) => save({ sandbox: { ...cfg.sandbox, allow: e.target.value.split(',').map((x) => x.trim()).filter(Boolean) } })} />
+            </label>
+          )}
+          <label className="row">
+            <input type="checkbox" checked={cfg.sandbox.autoApprove} onChange={(e) => save({ sandbox: { ...cfg.sandbox, autoApprove: e.target.checked } })} />
+            In auto-edit, run sandboxed shell commands without asking
+          </label>
+          <p className="muted small">
+            auto: macOS seatbelt or Linux bubblewrap when available · docker: one container per session ({cfg.sandbox.docker.image}) · commands can write only the workspace and package caches; credentials and the harness's tokens are hidden
+          </p>
         </section>
         <div className="stack">
           <section className="card">

@@ -5,6 +5,7 @@ import { dirname, join, relative } from 'node:path';
 import { FileState } from './tools/edit.js';
 import { detectVerifyCommands } from './verify.js';
 import { buildRepoMap } from './repomap.js';
+import { createSandbox, secretEnvNames, startAllowlistProxy, type ExecSandbox, type SandboxMode } from './sandbox.js';
 import { JobManager, restorableJobIds, type JobResult } from './jobs.js';
 import { createWorktree, mergeWorktree, removeWorktree, worktreeDiff, worktreeStatus, type WorktreeInfo, type WorktreeStatus } from './worktree.js';
 import { Agent, type AgentHooks, type ApprovalRequest, type RunResult } from './agent.js';
@@ -51,6 +52,8 @@ export interface CreateSessionInput {
   worktree?: boolean;
   /** Approval mode for this session only (default: config.approval). */
   approval?: ApprovalMode;
+  /** Shell sandbox for this session only (default: config.sandbox.mode). */
+  sandbox?: SandboxMode;
 }
 
 const AUTO_RESUME_REASONS = new Set(['quota', 'rate_limit', 'network']);
@@ -221,13 +224,15 @@ export class HarnessHost {
       const sub = relative(realpathSync(worktree.repo), realpathSync(cwd));
       cwd = sub && !sub.startsWith('..') ? join(worktree.path, sub) : worktree.path;
     }
-    const log = SessionLog.create({ mode, cwd, model: input.model || this.config.defaultModel, title: input.title, parent: input.parent, worktree, approval: input.approval });
+    const log = SessionLog.create({ mode, cwd, model: input.model || this.config.defaultModel, title: input.title, parent: input.parent, worktree, approval: input.approval, sandbox: input.sandbox });
     this.broadcastSessions();
     return log.summary()!;
   }
 
   deleteSession(id: string): void {
     this.abort(id);
+    this.sandboxes.get(id)?.dispose?.();
+    this.sandboxes.delete(id);
     SessionLog.delete(id);
     this.broadcastSessions();
   }
@@ -308,6 +313,7 @@ export class HarnessHost {
     const promise = (async () => {
       const log = SessionLog.open(id);
       const cwd = log.meta()!.cwd;
+      await this.ensureProxy();
       const tools = await this.toolsFor(log);
       const hooks: AgentHooks | undefined = this.opts.shellHooks === false ? undefined : createShellHooks(cwd);
       const agent = new Agent({
@@ -317,10 +323,11 @@ export class HarnessHost {
         tools: () => tools.filter((t) => this.modeAllows(log.currentMode(), t, !!log.meta()?.parent)),
         systemPrompt: (modelRef) => this.systemPrompt(log, modelRef),
         approvalMode: () => log.meta()?.approval ?? this.config.approval,
+        policy: () => ({ sandboxedShell: this.config.sandbox.autoApprove && this.sandboxFor(log).kind !== 'none' }),
         contextLimit: (ref) => compactionLimit(this.config, ref),
         verify:
           this.config.verify?.enabled
-            ? { commands: (dir) => (log.currentMode() === 'coding' ? detectVerifyCommands(dir) : []), maxAttempts: this.config.verify.maxAttempts, timeoutMs: this.config.verify.timeoutMs }
+            ? { commands: (dir) => (log.currentMode() === 'coding' ? detectVerifyCommands(dir) : []), maxAttempts: this.config.verify.maxAttempts, timeoutMs: this.config.verify.timeoutMs, sandbox: () => this.sandboxFor(log) }
             : undefined,
         requestApproval: (req, signal) => this.requestApproval(req, log.meta()?.parent ?? id, signal),
         services: this.services(log, controller.signal),
@@ -369,6 +376,48 @@ export class HarnessHost {
   }
 
   private repoMaps = new Map<string, string>();
+  private sandboxes = new Map<string, ExecSandbox>();
+  private proxy?: { port: number; server: import('node:http').Server };
+  /** Hosts the allowlist proxy refused (shown by `sun sandbox status`). */
+  readonly blockedHosts = new Set<string>();
+
+  /** The session's shell sandbox (created once per session; Docker containers start on first use). */
+  sandboxFor(log: SessionLog): ExecSandbox {
+    let sb = this.sandboxes.get(log.id);
+    if (!sb) {
+      const meta = log.meta()!;
+      try {
+        sb = createSandbox({
+          mode: meta.sandbox ?? this.config.sandbox.mode,
+          cfg: this.config.sandbox,
+          sessionId: log.id,
+          cwd: meta.cwd,
+          secretEnv: secretEnvNames(this.config),
+          proxyPort: () => this.proxy?.port,
+        });
+      } catch (e) {
+        // An explicitly requested sandbox that is unavailable must not silently fall back to running unsandboxed.
+        const msg = `Shell sandbox unavailable: ${(e as Error).message}`;
+        sb = { kind: 'docker', describe: () => msg, shell: () => { throw new Error(msg); }, env: (b) => b };
+      }
+      this.sandboxes.set(log.id, sb);
+    }
+    return sb;
+  }
+
+  /** Start the allowlist proxy once, when the network policy needs it. */
+  private async ensureProxy(): Promise<void> {
+    if (this.proxy || this.config.sandbox.network !== 'allowlist') return;
+    this.proxy = await startAllowlistProxy(
+      () => this.config.sandbox.allow,
+      (h) => this.blockedHosts.add(h),
+    );
+  }
+
+  sandboxInfo(sessionId?: string): { mode: string; kind: string; description: string; network: string; proxyPort?: number; blocked: string[] } {
+    const sb = sessionId ? this.sandboxFor(SessionLog.open(sessionId)) : createSandbox({ mode: this.config.sandbox.mode, cfg: this.config.sandbox, sessionId: 'probe', cwd: process.cwd(), secretEnv: [] });
+    return { mode: this.config.sandbox.mode, kind: sb.kind, description: sb.describe(), network: this.config.sandbox.network, proxyPort: this.proxy?.port, blocked: [...this.blockedHosts] };
+  }
 
   /** One repository map per session: stable for the whole session so the provider's prompt cache keeps hitting. */
   private repoMapFor(log: SessionLog): string | undefined {
@@ -397,6 +446,7 @@ export class HarnessHost {
       skills: this.listSkills(meta.cwd).map((s) => ({ name: s.name, description: s.description })),
       memory: readMemory(),
       repoMap: this.repoMapFor(log),
+      sandbox: this.sandboxFor(log).kind === 'none' ? undefined : `${this.sandboxFor(log).describe()}. Writes outside the workspace fail with "Operation not permitted"${this.config.sandbox.network === 'off' ? '; there is no network access' : this.config.sandbox.network === 'allowlist' ? `; network only to: ${this.config.sandbox.allow.join(', ')}` : ''}. Ask the user if a command genuinely needs more access.`,
       knowledgeProviders: this.knowledgeProviders().map((k) => ({ id: k.id, name: k.name })),
       extraSections: this.promptSections.map((s) => ({ title: s.title, text: s.text() })),
     });
@@ -587,6 +637,7 @@ export class HarnessHost {
     const cwd = log.meta()!.cwd;
     return {
       fileState: this.fileStateOf(log.id),
+      sandbox: this.sandboxFor(log),
       checkpoint: (paths) => this.checkpoint(log, paths),
       setTodos: (items) => this.append(log, { type: 'todo/update', items }),
       kbSearch: (q, k, provider) => this.kbSearchText(q, k ?? 6, provider),
@@ -599,7 +650,8 @@ export class HarnessHost {
       },
       runSubagent: (prompt, o) => this.runSubagent(log, prompt, o.mode, signal),
       startJob: (command, jobCwd) => {
-        const job = this.jobs.startProcess(log.id, command, jobCwd);
+        const sb = this.sandboxFor(log);
+        const job = this.jobs.startProcess(log.id, command, jobCwd, 'bash', sb.kind === 'none' && !this.config.sandbox.scrubEnv ? undefined : { shell: sb.shell(command, jobCwd), env: sb.env(process.env) });
         return `Started background job ${job.id}. Its output is logged to ${job.logFile}; you will receive the result in this session when it ends. Use job_status to check progress or job_kill to stop it.`;
       },
       jobStatus: (jobId) => {
@@ -828,6 +880,8 @@ export class HarnessHost {
     if (this.config.jobs?.killOnExit) this.jobs.killAll();
     else this.jobs.detach();
     for (const id of this.runs.keys()) this.abort(id);
+    for (const sb of this.sandboxes.values()) sb.dispose?.();
+    this.proxy?.server.close();
     await Promise.all([...this.mcp.values()].map((m) => m.closeAll()));
   }
 }

@@ -59,6 +59,8 @@ export type SessionEventBody =
       worktree?: { repo: string; path: string; branch: string; base: string };
       /** Per-session approval mode; overrides config.approval. */
       approval?: 'suggest' | 'auto-edit' | 'full-auto';
+      /** Per-session shell sandbox; overrides config.sandbox.mode. */
+      sandbox?: 'off' | 'auto' | 'seatbelt' | 'bwrap' | 'docker';
     }
   | { type: 'session/title'; title: string }
   | { type: 'user/message'; text: string; source?: 'user' | 'hook' | 'schedule' | 'system' | 'job' | 'verify' }

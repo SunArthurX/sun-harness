@@ -49,10 +49,11 @@ describe('edit tools in sessions', () => {
     writeFileSync(join(ws, 'b.js'), 'const b = 1;\n');
   });
 
-  it('requires reading before editing and detects stale reads', async () => {
+  it('allows anchored edits of unread files, refuses blind overwrites, and detects stale reads', async () => {
+    writeFileSync(join(ws, 'u.js'), 'let u = 1;\n');
     const { host } = await mockHost({
       'mock/a': [
-        { text: '', toolCalls: [call('edit_file', { path: 'a.js', old_string: '1', new_string: '2' })] },
+        { text: '', toolCalls: [call('edit_file', { path: 'u.js', old_string: 'let u = 1;', new_string: 'let u = 2;' })] },
         { text: '', toolCalls: [call('read_file', { path: 'a.js' }), call('bash', { command: 'echo "// changed" >> a.js' }), call('edit_file', { path: 'a.js', old_string: 'const a = 1;', new_string: 'const a = 2;' })] },
         { text: '', toolCalls: [call('read_file', { path: 'a.js' }), call('edit_file', { path: 'a.js', old_string: 'const a = 1;', new_string: 'const a = 2;' }), call('edit_file', { path: 'a.js', old_string: 'const a = 2;', new_string: 'const a = 3;' })] },
         { text: '', toolCalls: [call('write_file', { path: 'new.js', content: 'x' }), call('write_file', { path: 'b.js', content: 'overwrite' })] },
@@ -63,7 +64,7 @@ describe('edit tools in sessions', () => {
     await host.send(s.id, 'go');
     await host.wait(s.id);
     const out = (host.getEvents(s.id).filter((e) => e.type === 'tool/result') as any[]).map((r) => `${r.name}:${r.isError ? 'ERR' : 'ok'}:${r.output.split('\n')[0].slice(0, 60)}`);
-    expect(out[0]).toMatch(/edit_file:ERR:Error: Read a.js with read_file before editing/);
+    expect(out[0]).toMatch(/edit_file:ok:Edited u.js/);
     expect(out[3]).toMatch(/edit_file:ERR:Error: a.js changed since you last read it/);
     expect(out[5]).toMatch(/edit_file:ok/);
     expect(out[6]).toMatch(/edit_file:ok/); // the session's own edit keeps the file fresh
@@ -130,7 +131,7 @@ describe('eval runner', () => {
 
     const { host } = await mockHost({
       'mock/a': [
-        { text: '', toolCalls: [call('edit_file', { path: 'value.txt', old_string: '1', new_string: '2' })] },
+        { text: '', toolCalls: [call('edit_file', { path: 'value.txt', old_string: 'NOT IN THE FILE', new_string: '2' })] },
         { text: '', toolCalls: [call('read_file', { path: 'value.txt' }), call('write_file', { path: 'value.txt', content: '2\n' })] },
         { text: 'done', toolCalls: [] },
       ],

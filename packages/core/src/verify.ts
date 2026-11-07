@@ -56,11 +56,12 @@ export interface VerifyOutcome {
 }
 
 /** Run verify commands in order; stop at the first failure. Output is tail-truncated. */
-export async function runVerify(cwd: string, commands: string[], timeoutMs = 300_000, signal?: AbortSignal): Promise<VerifyOutcome> {
+export async function runVerify(cwd: string, commands: string[], timeoutMs = 300_000, signal?: AbortSignal, sandbox?: import('./sandbox.js').ExecSandbox): Promise<VerifyOutcome> {
   const results: VerifyOutcome['results'] = [];
   for (const command of commands) {
     const r = await new Promise<{ code: number | null; output: string }>((resolve) => {
-      const child = spawn('bash', ['-c', command], { cwd, env: { ...process.env, CI: '1', PAGER: 'cat' } });
+      const env = { ...process.env, CI: '1', PAGER: 'cat' };
+      const child = spawn('bash', ['-c', sandbox ? sandbox.shell(command, cwd) : command], { cwd, env: sandbox ? sandbox.env(env) : env });
       let out = '';
       const add = (d: Buffer) => (out = (out + d.toString()).slice(-200_000));
       child.stdout.on('data', add);

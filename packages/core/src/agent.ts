@@ -31,7 +31,9 @@ export interface AgentDeps {
   systemPrompt(modelRef: string): string;
   approvalMode(): ApprovalMode;
   /** Done gate: verify commands for the session's cwd (empty = none), run when a coding run ends after edits. */
-  verify?: { commands(cwd: string): string[]; maxAttempts: number; timeoutMs: number };
+  verify?: { commands(cwd: string): string[]; maxAttempts: number; timeoutMs: number; sandbox?(): import('./sandbox.js').ExecSandbox | undefined };
+  /** Extra inputs for the approval policy (e.g. whether shell commands are sandboxed). */
+  policy?(): import('./policy.js').PolicyContext;
   /** Token count at which history must be compacted for a model (context window minus buffer). */
   contextLimit?(modelRef: string): number;
   /** `reason` explains a non-human decision (e.g. headless deny) to the model. */
@@ -240,7 +242,7 @@ export class Agent {
       try {
         const args = call.arguments?.trim() ? JSON.parse(call.arguments) : {};
         // Read-only calls that need no human decision can run concurrently.
-        const parallel = tool.risk === 'read' && !needsApproval(tool, args, this.d.approvalMode(), cwd);
+        const parallel = tool.risk === 'read' && !needsApproval(tool, args, this.d.approvalMode(), cwd, this.d.policy?.());
         return { call, tool, args, parallel };
       } catch {
         return { call, error: `Invalid JSON arguments: ${call.arguments.slice(0, 300)}. Retry with valid JSON.`, parallel: true };
@@ -253,7 +255,7 @@ export class Agent {
       const { call, tool, args } = p as Required<Pick<Prepared, 'call' | 'tool' | 'args'>>;
       const pre = await this.d.hooks?.preToolUse?.({ sessionId: this.id, tool: call.name, args, cwd });
       if (pre && pre.block) return { output: `Blocked by hook: ${pre.block}`, isError: true, ms: Date.now() - started };
-      if (!p.parallel && needsApproval(tool, args, this.d.approvalMode(), cwd) && !this.alwaysAllowed().has(tool.name)) {
+      if (!p.parallel && needsApproval(tool, args, this.d.approvalMode(), cwd, this.d.policy?.()) && !this.alwaysAllowed().has(tool.name)) {
         const already = this.d.log.all().some((e) => e.type === 'approval/request' && e.callId === call.id);
         if (!already) this.emit({ type: 'approval/request', callId: call.id, name: call.name, arguments: call.arguments, risk: tool.risk });
         this.setStatus('awaiting_approval', undefined, call.name);
@@ -316,7 +318,7 @@ export class Agent {
     const commands = v.commands(this.cwd());
     if (!commands.length) return 'skipped';
     this.d.onLive?.({ kind: 'delta', sessionId: this.id, reasoning: `\n[verifying: ${commands.join(' && ')}]\n` });
-    const out = await runVerify(this.cwd(), commands, v.timeoutMs, signal);
+    const out = await runVerify(this.cwd(), commands, v.timeoutMs, signal, v.sandbox?.());
     if (signal.aborted) return 'skipped';
     this.emit({ type: 'verify/result', passed: out.passed, results: out.results });
     if (out.passed) return 'passed';

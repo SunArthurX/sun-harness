@@ -20,10 +20,17 @@ export function isInside(root: string, target: string): boolean {
  * - auto-edit: asks for exec/network, and for writes outside the workspace or ~/.sun.
  * - suggest: asks for everything that is not a read.
  */
-export function needsApproval(tool: Tool, args: Record<string, unknown>, mode: ApprovalMode, cwd: string): boolean {
+export interface PolicyContext {
+  /** Shell commands run in an OS or container sandbox and sandbox.autoApprove is on. */
+  sandboxedShell?: boolean;
+}
+
+export function needsApproval(tool: Tool, args: Record<string, unknown>, mode: ApprovalMode, cwd: string, ctx: PolicyContext = {}): boolean {
   if (mode === 'full-auto') return false;
   if (tool.risk === 'read') return false;
   if (mode === 'suggest') return true;
+  // Codex-style: in auto-edit, a sandboxed command cannot write outside the workspace, so it runs without asking.
+  if (tool.name === 'bash' && ctx.sandboxedShell) return false;
   if (tool.risk === 'write') {
     const targets = tool.paths ? tool.paths(args) : tool.pathArg && typeof args[tool.pathArg] === 'string' ? [args[tool.pathArg] as string] : [];
     return targets.some((p) => {

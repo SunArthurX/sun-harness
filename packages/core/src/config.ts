@@ -1,3 +1,4 @@
+import { DEFAULT_SANDBOX, type SandboxConfig } from './sandbox.js';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { ensureDir, homePath, sunHome } from './paths.js';
 import { AnthropicProvider } from './providers/anthropic.js';
@@ -18,6 +19,8 @@ export interface ProviderConfig {
   headers?: Record<string, string>;
   /** Local servers (e.g. Ollama) need no key. */
   noKey?: boolean;
+  /** OpenAI-compatible APIs with explicit prompt caching (DashScope): mark the system prompt and the last message. */
+  cacheControl?: boolean;
   /** Default context window (tokens) for this provider's models. */
   contextWindow?: number;
   /** Per-model context windows (tokens), overriding built-in knowledge. */
@@ -65,6 +68,8 @@ export interface SunConfig {
   verify: { enabled: boolean; maxAttempts: number; timeoutMs: number };
   /** Repository map in the coding prompt (projects with at least minFiles source files). */
   repoMap: { enabled: boolean; budget: number; minFiles: number };
+  /** Shell sandbox for bash, background jobs, and verify commands (specs/021). */
+  sandbox: SandboxConfig;
   /** Chat bots run inside the gateway (sun serve). Allowlists are platform user ids; empty = nobody. */
   bots: BotsConfig;
 }
@@ -99,6 +104,7 @@ export const PROVIDER_PRESETS: Record<string, ProviderConfig> = {
     baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
     apiKeyEnv: 'DASHSCOPE_API_KEY',
     models: ['qwen3-coder-plus', 'qwen-plus', 'qwen-max'],
+    cacheControl: true,
   },
   gemini: {
     type: 'openai',
@@ -157,6 +163,7 @@ export function defaultConfig(): SunConfig {
     jobs: { promoteAfterMs: 30000, killOnExit: false },
     verify: { enabled: true, maxAttempts: 2, timeoutMs: 300000 },
     repoMap: { enabled: true, budget: 6000, minFiles: 8 },
+    sandbox: structuredClone(DEFAULT_SANDBOX),
     bots: {
       defaultMode: 'assistant',
       approvals: 'chat',
@@ -288,7 +295,7 @@ export function createProviderFactory(cfg: SunConfig): ProviderFactory {
       provider =
         pc.type === 'anthropic'
           ? new AnthropicProvider({ id: pid, baseUrl: pc.baseUrl, apiKey })
-          : new OpenAICompatProvider({ id: pid, baseUrl: pc.baseUrl, apiKey, headers: pc.headers, echoReasoning: pc.echoReasoning });
+          : new OpenAICompatProvider({ id: pid, baseUrl: pc.baseUrl, apiKey, headers: pc.headers, echoReasoning: pc.echoReasoning, cacheControl: pc.cacheControl });
       cache.set(pid, provider);
     }
     return { provider, model };

@@ -3,8 +3,8 @@ import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { homePath } from './paths.js';
 
-const CREDENTIAL_NAME = /(_API_KEY|_API_BASE|_BASE_URL|_TOKEN|_MODEL)$/;
-const RC_FILES = ['.zshenv', '.zprofile', '.zshrc', '.bash_profile', '.bashrc', '.profile'];
+export const CREDENTIAL_NAME = /(_API_KEY|_API_BASE|_BASE_URL|_TOKEN|_MODEL)$/;
+export const RC_FILES = ['.zshenv', '.zprofile', '.zshrc', '.bash_profile', '.bashrc', '.profile'];
 
 /** Parse `export NAME=value` / `NAME=value` lines. Lines needing evaluation ($(...), backticks, $VAR) are skipped. */
 export function parseEnvLines(text: string, accept: (name: string) => boolean = () => true): Record<string, string> {

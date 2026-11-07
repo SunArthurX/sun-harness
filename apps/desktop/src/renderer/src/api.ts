@@ -40,6 +40,7 @@ export const api = {
   mergeWorktree: (id: string, strategy?: 'squash' | 'merge') => call<{ strategy: string; output: string }>('mergeWorktree', id, strategy),
   discardWorktree: (id: string) => call<void>('discardWorktree', id),
   listCheckpoints: (id: string) => call<{ id: string; files: string[]; undone: boolean; ts: string }[]>('listCheckpoints', id),
+  sandboxInfo: (id?: string) => call<{ mode: string; kind: string; description: string; network: string; blocked: string[] }>('sandboxInfo', id),
   undo: (id: string, steps?: number) => call<{ undone: string[]; restored: string[] }>('undo', id, steps),
   deleteSession: (id: string) => call<void>('deleteSession', id),
   renameSession: (id: string, title: string) => call<void>('renameSession', id, title),

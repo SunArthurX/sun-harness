@@ -1,11 +1,12 @@
 # CLI
 
 ```text
-sun [chat] [--mode coding|plan|agent|assistant] [--model provider/model] [--cwd dir] [--worktree]
+sun [chat] [--mode coding|plan|agent|assistant] [--model provider/model] [--cwd dir] [--worktree] [--sandbox auto|seatbelt|bwrap|docker|off]
 sun run "<prompt>" [--mode ..] [--model ..] [--approval suggest|auto-edit|full-auto] [--worktree] [--json]
 sun run "<prompt>" --best-of N [--model a,b] [--apply]     parallel worktree attempts judged by your tests
 sun resume <sessionId> [--model provider/model] [--chat]
 sun undo <sessionId> [--steps n]                         revert the last edit steps (checkpoints)
+sun sandbox status | test                                which shell sandbox is used; self-test
 sun sessions | sun show <sessionId>
 sun models | sun modes
 sun init

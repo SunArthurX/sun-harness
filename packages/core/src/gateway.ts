@@ -38,6 +38,7 @@ export function hostMethods(host: HarnessHost, info: { mode: 'local' | 'gateway'
     isRunning: (id: string) => host.isRunning(id),
     listCheckpoints: (id: string) => host.listCheckpoints(id),
     undo: (id: string, steps?: number) => host.undo(id, { steps }),
+    sandboxInfo: (id?: string) => host.sandboxInfo(id),
     approve: (callId: string, decision: ApprovalDecision, promptId?: string) => {
       if (!host.approve(callId, decision, promptId)) throw new Error(`No pending approval for ${callId} with this prompt (already answered, expired, or re-issued).`);
       return true;

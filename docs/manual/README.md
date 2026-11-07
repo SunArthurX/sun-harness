@@ -9,6 +9,7 @@
 | [CLI](cli.md) | `sun` commands and chat slash commands |
 | [Modes](modes.md) | Coding, Plan, Agent, Assistant; subagents; schedules |
 | [Coding](coding.md) | Edits, verification (done gate), undo, plan mode, repo map, best-of-N, prompt cache |
+| [Shell sandbox](sandbox.md) | Seatbelt / bubblewrap / Docker isolation, network allowlist, hidden credentials |
 | [Worktree sessions](worktrees.md) | Parallel coding sessions on isolated branches; review, merge, discard |
 | [Background jobs](jobs.md) | Long commands and slow tools run in the background; results come back |
 | [Rules and specs](rules.md) | Keeping agents on track: AGENTS.md, specs, `.sun/rules`, `sun init` |

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { spawnSync } from 'node:child_process';
-import { copyFileSync, cpSync, existsSync, mkdirSync, readFileSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
-import { homedir } from 'node:os';
+import { copyFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
+import { homedir, tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { createInterface } from 'node:readline/promises';
 import { fileURLToPath } from 'node:url';
@@ -48,6 +48,8 @@ import {
   type ApprovalDecision,
   type LiveEvent,
   type PendingApproval,
+  type SandboxMode,
+  createSandbox,
   runBestOfN,
 } from '@sun/core';
 
@@ -67,6 +69,8 @@ Usage:
   sun run "<prompt>" [--mode ..] [--model ..] [--approval suggest|auto-edit|full-auto] [--worktree] [--json]
   sun run "<prompt>" --best-of N [--model a,b] [--apply]   N parallel worktree attempts judged by the project's tests
   sun undo <sessionId> [--steps n]   Revert the session's last file edits (checkpoints)
+  sun sandbox status | test   Shell sandbox in use (seatbelt / bwrap / docker / none) and a quick self-test
+  Session flags: --sandbox off|auto|seatbelt|bwrap|docker  (per session; default from config.sandbox.mode)
   sun resume <sessionId> [--model provider/model] [--chat]
   sun sessions | sun show <sessionId>
   sun models | sun modes
@@ -523,20 +527,20 @@ async function sessionCommands(
   host: SessionHost,
   cmd: string,
   args: string[],
-  values: { mode?: string; model?: string; json?: boolean; chat?: boolean; worktree?: boolean; steps?: string },
+  values: { mode?: string; model?: string; json?: boolean; chat?: boolean; worktree?: boolean; steps?: string; sandbox?: string },
   sessionCwd: string | undefined,
   approval: ApprovalMode | undefined,
 ): Promise<void> {
   switch (cmd) {
     case 'chat': {
-      const s = await host.createSession({ cwd: sessionCwd, mode: values.mode, model: values.model, worktree: values.worktree, approval });
+      const s = await host.createSession({ cwd: sessionCwd, mode: values.mode, model: values.model, worktree: values.worktree, approval, sandbox: values.sandbox as SandboxMode | undefined });
       await chat(host, s.id);
       break;
     }
     case 'run': {
       const prompt = args.join(' ') || (!process.stdin.isTTY ? readFileSync(0, 'utf8') : '');
       if (!prompt) throw new Error('Usage: sun run "<prompt>"');
-      const s = await host.createSession({ cwd: sessionCwd, mode: values.mode, model: values.model, worktree: values.worktree, approval });
+      const s = await host.createSession({ cwd: sessionCwd, mode: values.mode, model: values.model, worktree: values.worktree, approval, sandbox: values.sandbox as SandboxMode | undefined });
       const state = { streamed: false, reasoning: false };
       if (!values.json) host.subscribe((e) => printEvent(e, s.id, state));
       wireApprovals(host);
@@ -611,6 +615,7 @@ async function main(): Promise<void> {
       concurrency: { type: 'string' },
       token: { type: 'string' },
       'best-of': { type: 'string' },
+      sandbox: { type: 'string' },
       apply: { type: 'boolean' },
       steps: { type: 'string' },
       fingerprint: { type: 'string' },
@@ -725,6 +730,23 @@ async function main(): Promise<void> {
       } else if (sub === 'accept') console.log(`Applied → ${acceptProposal(args[1]).appliedTo}`);
       else if (sub === 'reject') rejectProposal(args[1]), console.log('Rejected.');
       else for (const p of listProposals(args[1] as never)) console.log(`${p.id}  ${p.status.padEnd(8)} [${p.type}] ${p.title} ${c.dim(`(${p.source.kind} ${p.source.ref})`)}`);
+      break;
+    }
+    case 'sandbox': {
+      const sub = args[0] ?? 'status';
+      const info = host.sandboxInfo();
+      console.log(`mode ${info.mode} → ${c.bold(info.kind)}: ${info.description}`);
+      console.log(c.dim(`network ${info.network}${info.network === 'allowlist' ? ` (allow: ${host.config.sandbox.allow.join(', ')})` : ''} · scrub secrets ${host.config.sandbox.scrubEnv} · auto-approve ${host.config.sandbox.autoApprove}`));
+      if (sub === 'test') {
+        const dir = mkdtempSync(join(tmpdir(), 'sun-sbtest-'));
+        const sb = createSandbox({ mode: host.config.sandbox.mode, cfg: host.config.sandbox, sessionId: 'selftest', cwd: dir, secretEnv: [] });
+        const probe = join(homedir(), `.sun-sandbox-selftest-${process.pid}`);
+        const r = spawnSync('bash', ['-c', sb.shell(`echo ok > inside.txt && cat inside.txt; echo x > ${probe} 2>/dev/null && echo OUTSIDE-WRITABLE || echo outside-blocked`, dir)], { cwd: dir, env: sb.env(process.env), encoding: 'utf8' });
+        if (existsSync(probe)) unlinkSync(probe);
+        sb.dispose?.();
+        console.log(r.stdout.trim() || r.stderr.trim());
+        process.exitCode = sb.kind !== 'none' && /OUTSIDE-WRITABLE/.test(r.stdout) ? 1 : 0;
+      }
       break;
     }
     case 'worktree': {

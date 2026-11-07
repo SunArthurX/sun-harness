@@ -14,6 +14,8 @@ export interface PromptParts {
   extraSections?: { title: string; text: string }[];
   /** Coding mode: outline of the repository (computed once per session to keep the prompt prefix cacheable). */
   repoMap?: string;
+  /** Description of the shell sandbox, when commands run in one. */
+  sandbox?: string;
   now?: Date;
 }
 
@@ -28,6 +30,7 @@ export function buildSystemPrompt(p: PromptParts): string {
       `- OS: ${platform()} ${release()}`,
       `- Date: ${localDate(now)}`,
       `- Model: ${p.model}`,
+      p.sandbox ? `- Shell sandbox: ${p.sandbox}` : '',
     ]
       .filter(Boolean)
       .join('\n'),

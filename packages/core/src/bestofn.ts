@@ -58,7 +58,7 @@ export async function runBestOfN(host: HarnessHost, o: BestOfNOptions): Promise<
       const log = SessionLog.open(s.id);
       const cwd = log.meta()!.cwd;
       const commands = detectVerifyCommands(cwd);
-      const v = commands.length ? await runVerify(cwd, commands, host.config.verify?.timeoutMs ?? 300_000) : undefined;
+      const v = commands.length ? await runVerify(cwd, commands, host.config.verify?.timeoutMs ?? 300_000, undefined, host.sandboxFor(log)) : undefined;
       const m = sessionMetrics(log.all());
       const c: Candidate = {
         sessionId: s.id,

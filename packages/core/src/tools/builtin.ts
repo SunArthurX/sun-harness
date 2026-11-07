@@ -135,7 +135,9 @@ const bash: Tool = {
   execute(args, ctx) {
     if (args.background && ctx.services.startJob) return Promise.resolve(ctx.services.startJob(String(args.command), ctx.cwd));
     return new Promise((resolvePromise) => {
-      const child = spawn('bash', ['-c', String(args.command)], { cwd: ctx.cwd, env: { ...process.env, PAGER: 'cat' } });
+      const sb = ctx.services.sandbox;
+      const command = sb ? sb.shell(String(args.command), ctx.cwd) : String(args.command);
+      const child = spawn('bash', ['-c', command], { cwd: ctx.cwd, env: sb ? sb.env(process.env) : { ...process.env, PAGER: 'cat' } });
       let out = '';
       const onData = (d: Buffer) => {
         if (out.length < 2_000_000) out += d.toString();

@@ -136,14 +136,15 @@ export class JobManager {
   }
 
   /** Start a shell command in the background (detached, survives this process), in cwd. */
-  startProcess(sessionId: string, command: string, cwd: string, name = 'bash'): Job {
+  /** `exec` runs a wrapped form of the command (e.g. sandboxed); `command` is what the job shows. */
+  startProcess(sessionId: string, command: string, cwd: string, name = 'bash', exec?: { shell: string; env: NodeJS.ProcessEnv }): Job {
     const job = this.newJob(sessionId, name, command, { cwd });
     job.exitFile = homePath('jobs', `${job.id}.exit`);
     const child = spawn('bash', ['-c', WRAPPER], {
       cwd,
       detached: true,
       stdio: 'ignore',
-      env: { ...process.env, PAGER: 'cat', SUN_JOB_CMD: command, SUN_JOB_LOG: job.logFile, SUN_JOB_EXIT: job.exitFile },
+      env: { ...(exec?.env ?? process.env), PAGER: 'cat', SUN_JOB_CMD: exec?.shell ?? command, SUN_JOB_LOG: job.logFile, SUN_JOB_EXIT: job.exitFile },
     });
     child.on('error', (e) => {
       appendFileSync(job.logFile, `\nFailed to start: ${e.message}\n`);

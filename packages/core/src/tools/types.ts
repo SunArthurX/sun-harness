@@ -17,6 +17,8 @@ export interface ToolServices {
   startJob?(command: string, cwd: string): string;
   jobStatus?(id?: string): string;
   killJob?(id: string): string;
+  /** Shell sandbox for this session (bash, jobs). */
+  sandbox?: import('../sandbox.js').ExecSandbox;
   /** Plan mode: record the approved plan and switch the session to coding mode. */
   exitPlanMode?(plan: string): string;
 }

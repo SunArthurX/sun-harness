@@ -131,10 +131,14 @@ export class FileState {
     this.seen.set(path, this.fp(content));
   }
 
-  /** Throws a model-actionable error if the file exists but was not read, or changed since it was read. */
-  assertFresh(path: string, displayPath: string): void {
+  /**
+   * Throws a model-actionable error if the file changed since it was last read or written, or — with requireRead
+   * (whole-file overwrites) — if it was never read. Anchored edits may target unread files: their old text must match.
+   */
+  assertFresh(path: string, displayPath: string, requireRead = true): void {
     if (!existsSync(path)) return;
     const prev = this.seen.get(path);
+    if (!prev && !requireRead) return;
     if (!prev) throw new Error(`Read ${displayPath} with read_file before editing it (edits must be based on the current content).`);
     if (prev !== this.fp(readFileSync(path, 'utf8'))) {
       throw new Error(`${displayPath} changed since you last read it (a command, another edit, or someone else modified it). Read it again before editing.`);
@@ -255,8 +259,8 @@ export function patchPaths(patch: string): string[] {
 
 // ---------------- tools ----------------
 
-function fresh(ctx: ToolContext, abs: string): void {
-  ctx.services.fileState?.assertFresh(abs, relative(ctx.cwd, abs) || abs);
+function fresh(ctx: ToolContext, abs: string, requireRead: boolean): void {
+  ctx.services.fileState?.assertFresh(abs, relative(ctx.cwd, abs) || abs, requireRead);
 }
 
 function written(ctx: ToolContext, abs: string, content: string | null): void {
@@ -273,7 +277,7 @@ export const writeFileTool: Tool = {
   async execute(args, ctx) {
     const p = resolveIn(ctx.cwd, args.path);
     const existed = existsSync(p);
-    if (existed) fresh(ctx, p);
+    if (existed) fresh(ctx, p, true);
     ctx.services.checkpoint?.([p]);
     mkdirSync(dirname(p), { recursive: true });
     const content = String(args.content ?? '');
@@ -286,7 +290,7 @@ export const writeFileTool: Tool = {
 export const editFileTool: Tool = {
   name: 'edit_file',
   description:
-    'Replace text in a file you have read. old_string should be copied from the file and match once (include surrounding lines if needed); set replace_all to change every occurrence. Small whitespace/indentation differences are tolerated.',
+    'Replace text in a file. old_string should be copied from the file and match once (include surrounding lines if needed); set replace_all to change every occurrence. Small whitespace/indentation differences are tolerated.',
   parameters: {
     type: 'object',
     properties: { path: { type: 'string' }, old_string: { type: 'string' }, new_string: { type: 'string' }, replace_all: { type: 'boolean' } },
@@ -298,7 +302,7 @@ export const editFileTool: Tool = {
   async execute(args, ctx) {
     const p = resolveIn(ctx.cwd, args.path);
     if (!existsSync(p)) throw new Error(`${args.path} does not exist; use write_file to create it.`);
-    fresh(ctx, p);
+    fresh(ctx, p, false);
     const before = readFileSync(p, 'utf8');
     const r = tolerantReplace(before, String(args.old_string), String(args.new_string ?? ''), !!args.replace_all);
     ctx.services.checkpoint?.([p]);
@@ -322,7 +326,7 @@ export const applyPatchTool: Tool = {
 +full content line
 *** Delete File: src/old.ts
 *** End Patch
-Use a few context lines around each change. "*** Move to: path" after Update File renames. Files being updated must have been read in this session.`,
+Use a few context lines around each change. "*** Move to: path" after Update File renames. Files must not have changed since you last read them.`,
   parameters: { type: 'object', properties: { patch: { type: 'string' } }, required: ['patch'] },
   risk: 'write',
   paths: (args) => patchPaths(String(args?.patch ?? '')),
@@ -342,7 +346,7 @@ Use a few context lines around each change. "*** Move to: path" after Update Fil
         writes.push({ abs, content: null });
       } else {
         if (!existsSync(abs)) throw new Error(`Update File: ${op.path} does not exist.`);
-        fresh(ctx, abs);
+        fresh(ctx, abs, false);
         const updated = applyHunks(readFileSync(abs, 'utf8'), op.hunks!, op.path);
         if (op.moveTo) {
           writes.push({ abs: resolveIn(ctx.cwd, op.moveTo), content: updated, from: abs });

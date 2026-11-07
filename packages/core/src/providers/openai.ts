@@ -9,6 +9,8 @@ export interface OpenAICompatOptions {
   headers?: Record<string, string>;
   /** Send `reasoning_content` back on assistant turns (needed by some thinking models during tool use). */
   echoReasoning?: boolean;
+  /** Explicit prompt caching (`cache_control` on content blocks), e.g. DashScope. */
+  cacheControl?: boolean;
 }
 
 /** OpenAI Chat Completions wire format; covers DeepSeek, OpenAI, GLM, Qwen, Gemini (compat), Ollama, OpenRouter. */
@@ -34,6 +36,15 @@ export class OpenAICompatProvider implements Provider {
       } else {
         out.push({ role: m.role, content: m.content });
       }
+    }
+    if (this.opts.cacheControl) {
+      // Two breakpoints: the stable system prompt, and the newest message (the next step reuses everything before it).
+      const mark = (msg: Record<string, unknown> | undefined) => {
+        if (msg && typeof msg.content === 'string' && msg.content) msg.content = [{ type: 'text', text: msg.content, cache_control: { type: 'ephemeral' } }];
+      };
+      if (system) mark(out[0] as Record<string, unknown>);
+      const last = out[out.length - 1] as Record<string, unknown> | undefined;
+      if (last && last.role !== 'assistant' && out.length > 1) mark(last);
     }
     return out;
   }

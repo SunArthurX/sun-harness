@@ -76,6 +76,25 @@ describe('providers', () => {
     expect(lastBody.messages[3]).toEqual({ role: 'tool', tool_call_id: 't0', content: 'a\nb' });
   });
 
+  it('OpenAI-compatible with cacheControl marks the system prompt and the newest message', async () => {
+    mode = 'openai';
+    const p = new OpenAICompatProvider({ id: 'x', baseUrl: base, apiKey: 'k', cacheControl: true });
+    await p.complete({
+      model: 'm',
+      system: 'sys',
+      messages: [
+        { role: 'user', content: 'hi' },
+        { role: 'assistant', content: '', toolCalls: [{ id: 't0', name: 'list_dir', arguments: '{}' }] },
+        { role: 'tool', toolCallId: 't0', name: 'list_dir', content: 'a\nb' },
+      ],
+      tools: [],
+    });
+    const eph = { type: 'ephemeral' };
+    expect(lastBody.messages[0].content).toEqual([{ type: 'text', text: 'sys', cache_control: eph }]);
+    expect(lastBody.messages[1].content).toBe('hi');
+    expect(lastBody.messages[3].content).toEqual([{ type: 'text', text: 'a\nb', cache_control: eph }]);
+  });
+
   it('Anthropic: streams text and tool_use blocks; merges tool results into user turns', async () => {
     mode = 'anthropic';
     const p = new AnthropicProvider({ id: 'a', baseUrl: base, apiKey: 'k' });
