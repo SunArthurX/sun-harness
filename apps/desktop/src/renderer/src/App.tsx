@@ -17,9 +17,13 @@ const NAV: { id: Page; label: string; glyph: string }[] = [
 
 export const MODE_META: Record<string, { label: string; blurb: string; glyph: string }> = {
   coding: { label: 'Coding', blurb: 'Read, edit, run and verify code in a repository.', glyph: '⟨/⟩' },
+  plan: { label: 'Plan', blurb: 'Explore read-only, propose a plan, then code it once you approve.', glyph: '◇' },
   agent: { label: 'Agent', blurb: 'Plan, research the web, and deliver files — Manus-style.', glyph: '✦' },
   assistant: { label: 'Assistant', blurb: 'A companion with memory, notes and reminders.', glyph: '☼' },
 };
+
+/** Modes that work inside a project folder (and may use a worktree). */
+const isRepoMode = (mode: string) => mode === 'coding' || mode === 'plan';
 
 function groupSessions(sessions: SessionSummary[]) {
   const top = sessions.filter((s) => !s.parent);
@@ -169,9 +173,9 @@ function Welcome({ initialMode, onStart }: { initialMode: string; onStart: (mode
       </div>
       <div className="welcome-actions">
         <button className="chip" onClick={async () => setCwd((await api.pickFolder()) ?? cwd)}>
-          {cwd ? `📁 ${cwd}` : mode === 'coding' ? 'Choose a project folder…' : 'Workspace: ~/.sun/workspace (change…)'}
+          {cwd ? `📁 ${cwd}` : isRepoMode(mode) ? 'Choose a project folder…' : 'Workspace: ~/.sun/workspace (change…)'}
         </button>
-        {mode === 'coding' && (
+        {isRepoMode(mode) && (
           <label className="chip toggle" title="Work on a new branch in a separate checkout; merge or discard when done.">
             <input type="checkbox" checked={worktree} onChange={(e) => setWorktree(e.target.checked)} /> Isolated git worktree
           </label>
@@ -181,12 +185,12 @@ function Welcome({ initialMode, onStart }: { initialMode: string; onStart: (mode
           onClick={async () => {
             setError('');
             try {
-              await onStart(mode, cwd, mode === 'coding' && worktree);
+              await onStart(mode, cwd, isRepoMode(mode) && worktree);
             } catch (e) {
               setError(String((e as Error).message ?? e).replace(/^Error invoking remote method 'sun:call': (Error: )?/, ''));
             }
           }}
-          disabled={mode === 'coding' && !cwd}
+          disabled={isRepoMode(mode) && !cwd}
         >
           Start {MODE_META[mode].label} session →
         </button>

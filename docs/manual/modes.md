@@ -3,6 +3,7 @@
 | Mode | Use it for | Behaves like |
 |---|---|---|
 | **Coding** | changing a repository | reads first, follows specs and rules, makes minimal edits, runs tests, summarizes |
+| **Plan** | designing a change before touching code | read-only exploration; ends with a plan you approve, then continues in Coding mode ([details](coding.md#plan-mode)) |
 | **Agent** | open-ended tasks: research, analysis, writing, data work | plans with a todo list, searches and fetches the web, delegates sub-tasks, writes deliverable files, cites sources |
 | **Assistant** | daily help, personal knowledge, reminders | uses your memory and notes, saves new facts, schedules reminders, stays concise |
 

@@ -69,7 +69,7 @@ describe('providers', () => {
     expect(r.text).toBe('Hello');
     expect(r.reasoning).toBe('think ');
     expect(r.toolCalls).toEqual([{ id: 'call_1', name: 'read_file', arguments: '{"path":"a"}' }]);
-    expect(r.usage).toEqual({ inputTokens: 10, outputTokens: 5 });
+    expect(r.usage).toEqual({ inputTokens: 10, outputTokens: 5, cachedTokens: 0 });
     expect(deltas).toEqual(['Hel', 'lo']);
     expect(lastBody.messages[0]).toEqual({ role: 'system', content: 'sys' });
     expect(lastBody.messages[2].tool_calls[0].function.name).toBe('list_dir');
@@ -92,7 +92,7 @@ describe('providers', () => {
     });
     expect(r.text).toBe('Hi');
     expect(r.toolCalls).toEqual([{ id: 'tu_1', name: 'bash', arguments: '{"command":"ls"}' }]);
-    expect(r.usage).toEqual({ inputTokens: 7, outputTokens: 3 });
+    expect(r.usage).toEqual({ inputTokens: 7, outputTokens: 3, cachedTokens: 0 });
     expect(lastBody.messages).toHaveLength(3);
     expect(lastBody.messages[2].content.map((c: any) => c.type)).toEqual(['tool_result', 'tool_result']);
   });

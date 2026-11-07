@@ -87,6 +87,13 @@ function ApprovalCard({ a }: { a: PendingApproval }) {
   } catch {
     // raw
   }
+  const plan = a.name === 'exit_plan_mode' ? (() => {
+    try {
+      return String(JSON.parse(a.arguments).plan ?? '');
+    } catch {
+      return '';
+    }
+  })() : '';
   const answer = async (d: 'allow' | 'allow_always' | 'deny') => {
     if (!armed) return;
     try {
@@ -98,19 +105,28 @@ function ApprovalCard({ a }: { a: PendingApproval }) {
   return (
     <div className={`approval ${armed ? 'armed' : 'arming'}`} data-prompt={a.promptId}>
       <div className="approval-head">
-        <span className="risk">{a.risk}</span>
-        <strong>{a.name}</strong> wants to run{a.sessionId !== a.displaySessionId ? ' (from a subagent)' : ''}
+        <span className="risk">{plan ? 'plan' : a.risk}</span>
+        {plan ? <strong>Review the plan</strong> : <><strong>{a.name}</strong> wants to run</>}
+        {a.sessionId !== a.displaySessionId ? ' (from a subagent)' : ''}
       </div>
-      <pre>{args.slice(0, 4000)}</pre>
+      {plan ? (
+        <div className="plan-body">
+          <Markdown text={plan} />
+        </div>
+      ) : (
+        <pre>{args.slice(0, 4000)}</pre>
+      )}
       <div className="approval-actions">
         <button className="btn-primary" disabled={!armed} onClick={() => answer('allow')}>
-          Allow
+          {plan ? 'Approve and start coding' : 'Allow'}
         </button>
-        <button className="btn-ghost" disabled={!armed} onClick={() => answer('allow_always')}>
-          Always allow {a.name}
-        </button>
+        {!plan && (
+          <button className="btn-ghost" disabled={!armed} onClick={() => answer('allow_always')}>
+            Always allow {a.name}
+          </button>
+        )}
         <button className="btn-danger" disabled={!armed} onClick={() => answer('deny')}>
-          Deny
+          {plan ? 'Keep planning' : 'Deny'}
         </button>
         {!armed && <span className="muted small">read first…</span>}
       </div>
@@ -308,6 +324,22 @@ export function Chat({
   const running = summary.status === 'running' || summary.status === 'awaiting_approval';
   const mine = approvals.filter((a) => a.displaySessionId === summary.id);
   const usage = events.reduce((acc, e) => (e.type === 'assistant/message' && e.usage ? acc + e.usage.inputTokens + e.usage.outputTokens : acc), 0);
+  const cached = events.reduce((acc, e) => (e.type === 'assistant/message' && e.usage?.cachedTokens ? acc + e.usage.cachedTokens : acc), 0);
+  const inputTokens = events.reduce((acc, e) => (e.type === 'assistant/message' && e.usage ? acc + e.usage.inputTokens : acc), 0);
+  const undoable = useMemo(() => {
+    const undone = new Set(events.filter((e) => e.type === 'checkpoint/undo').map((e) => (e as Extract<SessionEvent, { type: 'checkpoint/undo' }>).id));
+    return events.filter((e) => e.type === 'checkpoint' && !undone.has(e.id)).length;
+  }, [events]);
+  const [undoMsg, setUndoMsg] = useState('');
+  const undo = async () => {
+    try {
+      const r = await api.undo(summary.id, 1);
+      setUndoMsg(r.restored.length ? `Restored ${r.restored.map((f) => f.split('/').pop()).join(', ')}` : 'Nothing to undo');
+    } catch (e) {
+      setUndoMsg(String((e as Error).message ?? e).replace(/^Error invoking remote method 'sun:call': (Error: )?/, ''));
+    }
+    setTimeout(() => setUndoMsg(''), 4000);
+  };
 
   const submit = async () => {
     const text = input.trim();
@@ -346,7 +378,15 @@ export function Chat({
               <option key={m}>{m}</option>
             ))}
           </select>
-          {usage > 0 && <span className="muted small mono">{(usage / 1000).toFixed(1)}k tok</span>}
+          {usage > 0 && (
+            <span className="muted small mono" title={`${cached} of ${inputTokens} input tokens served from the provider's prompt cache`}>
+              {(usage / 1000).toFixed(1)}k tok{cached > 0 ? ` · ${Math.round((cached / Math.max(1, inputTokens)) * 100)}% cached` : ''}
+            </span>
+          )}
+          {undoMsg && <span className="muted small">{undoMsg}</span>}
+          <button className="btn-ghost small" title="Undo the last file edit step (checkpoint)" disabled={running || !undoable} onClick={undo}>
+            ↶ Undo{undoable ? ` (${undoable})` : ''}
+          </button>
           <button
             className="btn-ghost small"
             title="Delete session"
@@ -439,6 +479,21 @@ export function Chat({
                 <div key={e.seq} className="divider">
                   {e.jobId} {e.state}
                   {e.exitCode !== undefined ? ` · exit ${e.exitCode}` : ''}
+                </div>
+              );
+            case 'verify/result':
+              return (
+                <details key={e.seq} className={`verify-line ${e.passed ? 'ok' : 'bad'}`}>
+                  <summary>
+                    {e.passed ? '✓ verified' : '✗ verification failed'} <span className="mono small muted">{e.results.map((r) => r.command).join(' && ')}</span>
+                  </summary>
+                  <pre>{e.results.map((r) => `$ ${r.command}  (exit ${r.code})\n${r.output}`).join('\n\n').slice(-6000)}</pre>
+                </details>
+              );
+            case 'checkpoint/undo':
+              return (
+                <div key={e.seq} className="divider">
+                  undo {e.id} · restored {e.restored.length} file{e.restored.length === 1 ? '' : 's'}
                 </div>
               );
             case 'context/compaction':

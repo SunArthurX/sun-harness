@@ -4,6 +4,7 @@ import { deriveMessages, estimateTokens, pendingToolCalls } from './messages.js'
 import { needsApproval } from './policy.js';
 import { ProviderError, type ModelResponse, type Provider } from './providers/types.js';
 import { toSchema, truncate, type Tool, type ToolServices } from './tools/types.js';
+import { runVerify } from './verify.js';
 import type { ApprovalDecision, LiveEvent, RunStatus, SessionEvent, SessionEventBody, ToolCall } from './types.js';
 
 export interface ApprovalRequest {
@@ -29,6 +30,8 @@ export interface AgentDeps {
   tools(): Tool[];
   systemPrompt(modelRef: string): string;
   approvalMode(): ApprovalMode;
+  /** Done gate: verify commands for the session's cwd (empty = none), run when a coding run ends after edits. */
+  verify?: { commands(cwd: string): string[]; maxAttempts: number; timeoutMs: number };
   /** Token count at which history must be compacted for a model (context window minus buffer). */
   contextLimit?(modelRef: string): number;
   /** `reason` explains a non-human decision (e.g. headless deny) to the model. */
@@ -106,6 +109,7 @@ export class Agent {
     const triedModels = new Set<string>();
     let contextRetry = false;
     let stopContinues = 0;
+    let verifyAttempts = 0;
     try {
       for (let step = 0; step < this.d.config.maxSteps; step++) {
         if (signal.aborted) return this.setStatus('aborted', 'user');
@@ -117,6 +121,11 @@ export class Agent {
         }
 
         if (!this.owesRequest()) {
+          // Done gate: a failed verification appends its output as a new message, which owes another request.
+          if (this.d.verify && verifyAttempts <= this.d.verify.maxAttempts) {
+            const v = await this.verifyGate(signal, ++verifyAttempts);
+            if (v === 'failed' && this.owesRequest()) continue;
+          }
           const stopText = await this.d.hooks?.stop?.({ sessionId: this.id, cwd: this.cwd(), lastText: this.lastAssistantText() });
           if (stopText && stopContinues++ < 3) {
             this.emit({ type: 'user/message', text: stopText, source: 'hook' });
@@ -224,61 +233,101 @@ export class Agent {
   private async executeTools(calls: ToolCall[], signal: AbortSignal): Promise<void> {
     const tools = new Map(this.d.tools().map((t) => [t.name, t]));
     const cwd = this.cwd();
-    for (const call of calls) {
-      if (signal.aborted) return;
-      const started = Date.now();
-      const result = (output: string, isError: boolean) =>
-        this.emit({ type: 'tool/result', callId: call.id, name: call.name, output, isError, durationMs: Date.now() - started });
-
+    type Prepared = { call: ToolCall; tool?: Tool; args?: Record<string, unknown>; error?: string; parallel: boolean };
+    const prepared: Prepared[] = calls.map((call) => {
       const tool = tools.get(call.name);
-      if (!tool) {
-        result(`Unknown tool "${call.name}". Available: ${[...tools.keys()].join(', ')}`, true);
-        continue;
-      }
-      let args: Record<string, unknown>;
+      if (!tool) return { call, error: `Unknown tool "${call.name}". Available: ${[...tools.keys()].join(', ')}`, parallel: true };
       try {
-        args = call.arguments?.trim() ? JSON.parse(call.arguments) : {};
+        const args = call.arguments?.trim() ? JSON.parse(call.arguments) : {};
+        // Read-only calls that need no human decision can run concurrently.
+        const parallel = tool.risk === 'read' && !needsApproval(tool, args, this.d.approvalMode(), cwd);
+        return { call, tool, args, parallel };
       } catch {
-        result(`Invalid JSON arguments: ${call.arguments.slice(0, 300)}. Retry with valid JSON.`, true);
-        continue;
+        return { call, error: `Invalid JSON arguments: ${call.arguments.slice(0, 300)}. Retry with valid JSON.`, parallel: true };
       }
+    });
 
+    const runOne = async (p: Prepared): Promise<{ output: string; isError: boolean; ms: number } | 'aborted'> => {
+      const started = Date.now();
+      if (p.error) return { output: p.error, isError: true, ms: 0 };
+      const { call, tool, args } = p as Required<Pick<Prepared, 'call' | 'tool' | 'args'>>;
       const pre = await this.d.hooks?.preToolUse?.({ sessionId: this.id, tool: call.name, args, cwd });
-      if (pre && pre.block) {
-        result(`Blocked by hook: ${pre.block}`, true);
-        continue;
-      }
-
-      if (needsApproval(tool, args, this.d.approvalMode(), cwd) && !this.alwaysAllowed().has(tool.name)) {
+      if (pre && pre.block) return { output: `Blocked by hook: ${pre.block}`, isError: true, ms: Date.now() - started };
+      if (!p.parallel && needsApproval(tool, args, this.d.approvalMode(), cwd) && !this.alwaysAllowed().has(tool.name)) {
         const already = this.d.log.all().some((e) => e.type === 'approval/request' && e.callId === call.id);
         if (!already) this.emit({ type: 'approval/request', callId: call.id, name: call.name, arguments: call.arguments, risk: tool.risk });
         this.setStatus('awaiting_approval', undefined, call.name);
-        const { decision, reason } = await this.d.requestApproval(
-          { sessionId: this.id, callId: call.id, name: call.name, arguments: call.arguments, risk: tool.risk },
-          signal,
-        );
-        if (signal.aborted) return;
+        const { decision, reason } = await this.d.requestApproval({ sessionId: this.id, callId: call.id, name: call.name, arguments: call.arguments, risk: tool.risk }, signal);
+        if (signal.aborted) return 'aborted';
         this.emit({ type: 'approval/decision', callId: call.id, decision, ...(reason ? { reason } : {}) });
         this.setStatus('running');
-        if (decision === 'deny') {
-          result(reason ?? 'The user denied this tool call. Do not retry it; ask or choose another approach.', true);
-          continue;
-        }
+        if (decision === 'deny') return { output: reason ?? 'The user denied this tool call. Do not retry it; ask or choose another approach.', isError: true, ms: Date.now() - started };
       }
-
       try {
         let output = await tool.execute(args, { cwd, sessionId: this.id, signal, services: this.d.services });
         const extra = await this.d.hooks?.postToolUse?.({ sessionId: this.id, tool: call.name, args, output, cwd });
         if (extra) output += `\n\n[hook] ${extra}`;
-        result(truncate(output), false);
+        return { output: truncate(output), isError: false, ms: Date.now() - started };
       } catch (e) {
-        if (signal.aborted) {
-          result('[Aborted by user]', true);
-          return;
-        }
-        result(`Error: ${(e as Error).message}`, true);
+        if (signal.aborted) return { output: '[Aborted by user]', isError: true, ms: Date.now() - started };
+        return { output: `Error: ${(e as Error).message}`, isError: true, ms: Date.now() - started };
+      }
+    };
+
+    const record = (p: Prepared, r: { output: string; isError: boolean; ms: number }) =>
+      this.emit({ type: 'tool/result', callId: p.call.id, name: p.call.name, output: r.output, isError: r.isError, durationMs: r.ms });
+
+    let i = 0;
+    while (i < prepared.length) {
+      if (signal.aborted) return;
+      if (prepared[i].parallel) {
+        let j = i;
+        while (j < prepared.length && prepared[j].parallel) j++;
+        const batch = prepared.slice(i, j);
+        const results = await Promise.all(batch.map(runOne));
+        // Log in the model's order so the transcript is deterministic.
+        batch.forEach((p, k) => results[k] !== 'aborted' && record(p, results[k] as { output: string; isError: boolean; ms: number }));
+        if (signal.aborted) return;
+        i = j;
+      } else {
+        const r = await runOne(prepared[i]);
+        if (r === 'aborted') return;
+        record(prepared[i], r);
+        if (signal.aborted && r.output === '[Aborted by user]') return;
+        i++;
       }
     }
+  }
+
+  /** Files were edited since the last automatic verification in this session. */
+  private editedSinceVerify(): boolean {
+    const ev = this.d.log.all();
+    for (let k = ev.length - 1; k >= 0; k--) {
+      if (ev[k].type === 'verify/result') return false;
+      if (ev[k].type === 'checkpoint') return true;
+    }
+    return false;
+  }
+
+  /** Done gate: run the project's verify commands; on failure, hand the output back to the model. */
+  private async verifyGate(signal: AbortSignal, attempt: number): Promise<'passed' | 'failed' | 'skipped'> {
+    const v = this.d.verify;
+    if (!v || !this.editedSinceVerify()) return 'skipped';
+    const commands = v.commands(this.cwd());
+    if (!commands.length) return 'skipped';
+    this.d.onLive?.({ kind: 'delta', sessionId: this.id, reasoning: `\n[verifying: ${commands.join(' && ')}]\n` });
+    const out = await runVerify(this.cwd(), commands, v.timeoutMs, signal);
+    if (signal.aborted) return 'skipped';
+    this.emit({ type: 'verify/result', passed: out.passed, results: out.results });
+    if (out.passed) return 'passed';
+    if (attempt > v.maxAttempts) return 'failed';
+    const failed = out.results[out.results.length - 1];
+    this.emit({
+      type: 'user/message',
+      source: 'verify',
+      text: `[Automatic verification failed — attempt ${attempt} of ${v.maxAttempts}]\n$ ${failed.command}\n${failed.output}\nFix the cause (do not weaken or delete tests), then finish.`,
+    });
+    return 'failed';
   }
 
   /** Summarize older history into a context/compaction event when the context is too large (or forced). */

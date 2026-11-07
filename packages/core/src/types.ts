@@ -16,6 +16,8 @@ export type ChatMessage =
 export interface Usage {
   inputTokens: number;
   outputTokens: number;
+  /** Prompt tokens served from the provider's prompt cache (subset of inputTokens). */
+  cachedTokens?: number;
 }
 
 export interface JsonSchema {
@@ -59,7 +61,7 @@ export type SessionEventBody =
       approval?: 'suggest' | 'auto-edit' | 'full-auto';
     }
   | { type: 'session/title'; title: string }
-  | { type: 'user/message'; text: string; source?: 'user' | 'hook' | 'schedule' | 'system' | 'job' }
+  | { type: 'user/message'; text: string; source?: 'user' | 'hook' | 'schedule' | 'system' | 'job' | 'verify' }
   | { type: 'request/header'; model: string; systemPrompt: string; tools: string[] }
   | {
       type: 'assistant/message';
@@ -78,6 +80,9 @@ export type SessionEventBody =
   | { type: 'context/compaction'; summary: string; upToSeq: number; /** Summarizer model when it differs from the session model. */ model?: string }
   | { type: 'todo/update'; items: TodoItem[] }
   | { type: 'worktree/closed'; action: 'merged' | 'discarded'; detail?: string }
+  | { type: 'checkpoint'; id: string; files: string[] }
+  | { type: 'verify/result'; passed: boolean; results: { command: string; code: number | null; output: string }[] }
+  | { type: 'checkpoint/undo'; id: string; restored: string[] }
   | { type: 'job/started'; jobId: string; name: string; command: string }
   | { type: 'job/finished'; jobId: string; name: string; state: 'done' | 'failed' | 'killed' | 'lost'; exitCode?: number };
 

@@ -11,6 +11,8 @@
 | `maxSteps` | `60` | model requests per run before pausing |
 | `autoResume` | `{enabled: true, intervalMinutes: 15}` | retry paused sessions (desktop) |
 | `compaction` | `{thresholdTokens: 200000, keepRecent: 12, buffer: "25%"}` | compact when history exceeds `min(thresholdTokens, contextWindow − buffer)` |
+| `verify` | `{enabled: true, maxAttempts: 2, timeoutMs: 300000}` | done gate: run project checks when the agent finishes after editing ([Coding](coding.md)) |
+| `repoMap` | `{enabled: true, budget: 6000, minFiles: 8}` | repository outline in Coding/Plan prompts (characters, minimum source files) |
 | `rules` | `{globalMaxChars: 12000, projectMaxChars: 40000}` | separate prompt budgets for global and project rules |
 | `providers.<id>` | presets | `{type: openai|anthropic, baseUrl, apiKeyEnv, apiKey?, models[], headers?, echoReasoning?, noKey?, contextWindow?, modelContext?}` |
 | `skills` | `{extraDirs: [], compat: true}` | extra skill folders; read Claude/agents locations |

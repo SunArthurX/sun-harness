@@ -1,6 +1,6 @@
 import type { ChatMessage, ToolCall } from '../types.js';
 import { readSse } from './sse.js';
-import { classifyHttpError, toProviderError, type ModelRequest, type ModelResponse, type Provider } from './types.js';
+import { classifyHttpError, toProviderError, wireArguments, type ModelRequest, type ModelResponse, type Provider } from './types.js';
 
 export interface AnthropicOptions {
   id: string;
@@ -30,12 +30,7 @@ export class AnthropicProvider implements Provider {
       else {
         if (m.content) push('assistant', { type: 'text', text: m.content });
         for (const c of m.toolCalls ?? []) {
-          let input: unknown = {};
-          try {
-            input = JSON.parse(c.arguments || '{}');
-          } catch {
-            input = {};
-          }
+          const input: unknown = JSON.parse(wireArguments(c.arguments));
           push('assistant', { type: 'tool_use', id: c.id, name: c.name, input });
         }
         if (!m.content && !m.toolCalls?.length) push('assistant', { type: 'text', text: ' ' });
@@ -48,11 +43,19 @@ export class AnthropicProvider implements Provider {
     const body: Record<string, unknown> = {
       model: req.model,
       max_tokens: req.maxTokens ?? 8192,
-      system: req.system,
+      // Prompt caching: system and tools are stable across steps; the last message marks the growing prefix.
+      system: [{ type: 'text', text: req.system, cache_control: { type: 'ephemeral' } }],
       messages: this.toWire(req.messages),
       stream: true,
     };
-    if (req.tools.length) body.tools = req.tools.map((t) => ({ name: t.name, description: t.description, input_schema: t.parameters }));
+    if (req.tools.length) {
+      const tools: Record<string, unknown>[] = req.tools.map((t) => ({ name: t.name, description: t.description, input_schema: t.parameters }));
+      tools[tools.length - 1].cache_control = { type: 'ephemeral' };
+      body.tools = tools;
+    }
+    const msgs = body.messages as { content: Record<string, unknown>[] }[];
+    const lastBlock = msgs.at(-1)?.content.at(-1);
+    if (lastBlock) lastBlock.cache_control = { type: 'ephemeral' };
     if (req.temperature !== undefined) body.temperature = req.temperature;
 
     let res: Response;
@@ -78,7 +81,7 @@ export class AnthropicProvider implements Provider {
     let text = '';
     let reasoning = '';
     let finishReason: string | undefined;
-    const usage = { inputTokens: 0, outputTokens: 0 };
+    const usage = { inputTokens: 0, outputTokens: 0, cachedTokens: 0 };
     const blocks = new Map<number, { kind: string; call?: ToolCall }>();
     try {
       for await (const { data } of readSse(res.body)) {
@@ -90,7 +93,12 @@ export class AnthropicProvider implements Provider {
         }
         switch (ev.type) {
           case 'message_start':
-            usage.inputTokens = ev.message?.usage?.input_tokens ?? 0;
+            {
+              const u = ev.message?.usage ?? {};
+              // Anthropic counts cached reads/writes separately from input_tokens.
+              usage.cachedTokens = u.cache_read_input_tokens ?? 0;
+              usage.inputTokens = (u.input_tokens ?? 0) + (u.cache_read_input_tokens ?? 0) + (u.cache_creation_input_tokens ?? 0);
+            }
             break;
           case 'content_block_start': {
             const b = ev.content_block;

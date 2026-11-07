@@ -1,6 +1,6 @@
 import type { ChatMessage, ToolCall } from '../types.js';
 import { readSse } from './sse.js';
-import { classifyHttpError, ProviderError, toProviderError, type ModelRequest, type ModelResponse, type Provider } from './types.js';
+import { classifyHttpError, ProviderError, toProviderError, wireArguments, type ModelRequest, type ModelResponse, type Provider } from './types.js';
 
 export interface OpenAICompatOptions {
   id: string;
@@ -25,7 +25,7 @@ export class OpenAICompatProvider implements Provider {
       if (m.role === 'assistant') {
         const msg: Record<string, unknown> = { role: 'assistant', content: m.content || (m.toolCalls?.length ? null : '') };
         if (m.toolCalls?.length) {
-          msg.tool_calls = m.toolCalls.map((c) => ({ id: c.id, type: 'function', function: { name: c.name, arguments: c.arguments || '{}' } }));
+          msg.tool_calls = m.toolCalls.map((c) => ({ id: c.id, type: 'function', function: { name: c.name, arguments: wireArguments(c.arguments) } }));
         }
         if (this.opts.echoReasoning && m.reasoning) msg.reasoning_content = m.reasoning;
         out.push(msg);
@@ -86,7 +86,11 @@ export class OpenAICompatProvider implements Provider {
           continue;
         }
         if (chunk.error) throw classifyHttpError(Number(chunk.error.code) || 400, JSON.stringify(chunk.error));
-        if (chunk.usage) usage = { inputTokens: chunk.usage.prompt_tokens ?? 0, outputTokens: chunk.usage.completion_tokens ?? 0 };
+        if (chunk.usage) {
+          // DeepSeek reports prompt_cache_hit_tokens; OpenAI/DashScope report prompt_tokens_details.cached_tokens.
+          const cached = chunk.usage.prompt_cache_hit_tokens ?? chunk.usage.prompt_tokens_details?.cached_tokens ?? 0;
+          usage = { inputTokens: chunk.usage.prompt_tokens ?? 0, outputTokens: chunk.usage.completion_tokens ?? 0, cachedTokens: cached };
+        }
         const choice = chunk.choices?.[0];
         if (!choice) continue;
         const d = choice.delta ?? {};

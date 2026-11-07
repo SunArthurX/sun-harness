@@ -12,6 +12,8 @@ export interface PromptParts {
   memory?: string;
   knowledgeProviders?: { id: string; name: string }[];
   extraSections?: { title: string; text: string }[];
+  /** Coding mode: outline of the repository (computed once per session to keep the prompt prefix cacheable). */
+  repoMap?: string;
   now?: Date;
 }
 
@@ -47,6 +49,9 @@ export function buildSystemPrompt(p: PromptParts): string {
       '# Specs (source of truth for behavior; read before changing related code)\n' +
         p.project.specs.map((s) => `- ${s.path}: ${s.title}`).join('\n'),
     );
+  }
+  if (p.repoMap?.trim()) {
+    out.push('# Repository map\nMost-referenced definitions (file: line: signature). Snapshot from the start of the session; use repo_map for a fresh or filtered view.\n' + p.repoMap.trim());
   }
   if (p.skills?.length) {
     out.push(

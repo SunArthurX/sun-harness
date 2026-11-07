@@ -5,6 +5,7 @@ import { join, resolve } from 'node:path';
 import type { HarnessHost } from './host.js';
 import { SessionLog } from './log.js';
 import { ensureDir, homePath } from './paths.js';
+import { runBestOfN } from './bestofn.js';
 import { sessionMetrics, type SessionMetrics } from './telemetry.js';
 
 export interface EvalTask {
@@ -48,6 +49,8 @@ export interface EvalSummary {
   editFailureRate: number;
   totalInputTokens: number;
   totalOutputTokens: number;
+  /** Share of input tokens served from the prompt cache. */
+  cacheHitRate: number;
   avgDurationMs: number;
   byCategory: Record<string, { tasks: number; passed: number }>;
 }
@@ -117,6 +120,7 @@ export function summarize(results: EvalResult[]): EvalSummary {
     editFailureRate: edits ? sum((r) => r.editFailures) / edits : 0,
     totalInputTokens: sum((r) => r.inputTokens),
     totalOutputTokens: sum((r) => r.outputTokens),
+    cacheHitRate: sum((r) => r.inputTokens) ? sum((r) => r.cachedTokens ?? 0) / sum((r) => r.inputTokens) : 0,
     avgDurationMs: sum((r) => r.durationMs) / n,
     byCategory,
   };
@@ -133,11 +137,35 @@ export interface RunEvalOptions {
   /** Per-task wall clock limit. */
   timeoutMs?: number;
   onResult?: (r: EvalResult) => void;
+  /** Best-of-N per task: N worktree candidates judged by the visible tests; cost metrics sum all candidates. */
+  bestOf?: number;
 }
 
 async function runTask(o: RunEvalOptions, task: EvalTask): Promise<EvalResult> {
   const { host } = o;
   const { dir, base } = prepareWorkspace(task);
+  if ((o.bestOf ?? 1) > 1) {
+    const timeoutMs = o.timeoutMs ?? 10 * 60_000;
+    const r = await runBestOfN(host, { cwd: dir, prompt: task.prompt, n: o.bestOf!, models: o.model ? [o.model] : undefined, apply: true, timeoutMs });
+    const metrics = r.candidates.map((c) => sessionMetrics(SessionLog.open(c.sessionId).all()));
+    const total = metrics.reduce((acc, m) => {
+      for (const k of Object.keys(m) as (keyof typeof m)[]) if (typeof m[k] === 'number') (acc as any)[k] = ((acc as any)[k] ?? 0) + (m[k] as number);
+      return acc;
+    }, sessionMetrics([]));
+    const check = runCheck(task, dir, base);
+    return {
+      id: task.id,
+      category: task.category,
+      passed: check.passed,
+      status: r.winner?.status ?? 'no-candidate',
+      reason: r.winner ? `best of ${o.bestOf}: ${r.candidates.map((c) => (c.verified === null ? '?' : c.verified ? '✓' : '✗')).join('')}` : 'no candidate changed anything',
+      sessionId: r.winner?.sessionId ?? r.candidates[0]?.sessionId ?? '',
+      workspace: dir,
+      checkOutput: check.output,
+      ...total,
+      durationMs: Math.max(...metrics.map((m) => m.durationMs)),
+    };
+  }
   const s = host.createSession({ cwd: dir, mode: 'coding', model: o.model, approval: 'full-auto', title: `[eval] ${task.id}` });
   await host.send(s.id, task.prompt);
   const deadline = Date.now() + (o.timeoutMs ?? 10 * 60_000);
@@ -220,7 +248,7 @@ export function formatEvalReport(run: EvalRun): string {
   const lines = [
     `# Eval ${run.label} (${run.model})`,
     '',
-    `Pass rate **${pct(s.passRate)}** (${s.passed}/${s.tasks}) · avg steps ${s.avgSteps.toFixed(1)} · avg tool calls ${s.avgToolCalls.toFixed(1)} · tool error rate ${pct(s.toolErrorRate)} · edit failure rate ${pct(s.editFailureRate)} · tokens ${s.totalInputTokens} in / ${s.totalOutputTokens} out · avg ${(s.avgDurationMs / 1000).toFixed(1)} s`,
+    `Pass rate **${pct(s.passRate)}** (${s.passed}/${s.tasks}) · avg steps ${s.avgSteps.toFixed(1)} · avg tool calls ${s.avgToolCalls.toFixed(1)} · tool error rate ${pct(s.toolErrorRate)} · edit failure rate ${pct(s.editFailureRate)} · tokens ${s.totalInputTokens} in (${pct(s.cacheHitRate ?? 0)} cached) / ${s.totalOutputTokens} out · avg ${(s.avgDurationMs / 1000).toFixed(1)} s`,
     '',
     '| Task | Category | Result | Steps | Tool errors | Edit failures | Status |',
     '|---|---|---|---|---|---|---|',
@@ -253,6 +281,7 @@ export function compareEvalRuns(a: EvalRun, b: EvalRun): string {
     `| Tool error rate | ${pct(sa.toolErrorRate)} | ${pct(sb.toolErrorRate)} | ${d(sa.toolErrorRate, sb.toolErrorRate, true)} |`,
     `| Edit failure rate | ${pct(sa.editFailureRate)} | ${pct(sb.editFailureRate)} | ${d(sa.editFailureRate, sb.editFailureRate, true)} |`,
     `| Input tokens | ${sa.totalInputTokens} | ${sb.totalInputTokens} | ${d(sa.totalInputTokens, sb.totalInputTokens)} |`,
+    `| Cache hit rate | ${pct(sa.cacheHitRate ?? 0)} | ${pct(sb.cacheHitRate ?? 0)} | ${d(sa.cacheHitRate ?? 0, sb.cacheHitRate ?? 0, true)} |`,
     '',
     `| Task | ${a.label} | ${b.label} | Change |`,
     '|---|---|---|---|',

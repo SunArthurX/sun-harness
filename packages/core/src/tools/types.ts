@@ -1,6 +1,10 @@
 import type { JsonSchema, TodoItem, ToolRisk, ToolSchema } from '../types.js';
 
 export interface ToolServices {
+  /** Read-before-edit bookkeeping for this session. */
+  fileState?: import('./edit.js').FileState;
+  /** Snapshot files (absolute paths) before they are modified, for undo. */
+  checkpoint?(paths: string[]): void;
   /** Durable todo update (logged as todo/update). */
   setTodos?(items: TodoItem[]): void;
   kbSearch?(query: string, k?: number, provider?: string): Promise<string>;
@@ -13,6 +17,8 @@ export interface ToolServices {
   startJob?(command: string, cwd: string): string;
   jobStatus?(id?: string): string;
   killJob?(id: string): string;
+  /** Plan mode: record the approved plan and switch the session to coding mode. */
+  exitPlanMode?(plan: string): string;
 }
 
 export interface ToolContext {
@@ -33,7 +39,14 @@ export interface Tool {
   modes?: string[];
   /** For write tools: which argument holds the target path (used by the path guard). */
   pathArg?: string;
+  /** For write tools touching several files (apply_patch): all target paths. */
+  paths?(args: any): string[];
   execute(args: any, ctx: ToolContext): Promise<string>;
+  /**
+   * Capability gating: tools that depend on something external report whether it works right now.
+   * Unavailable tools are not offered to the model (a dead tool invites endless retries).
+   */
+  available?(): Promise<boolean>;
 }
 
 export function toSchema(t: Tool): ToolSchema {

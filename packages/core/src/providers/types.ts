@@ -82,3 +82,18 @@ export function toProviderError(err: unknown, signal?: AbortSignal): ProviderErr
   if (signal?.aborted || (err as Error)?.name === 'AbortError') return new ProviderError('aborted', 'Request aborted');
   return new ProviderError('network', (err as Error)?.message ?? String(err));
 }
+
+/**
+ * Tool-call arguments as sent back to a provider. A model can emit malformed JSON; the log keeps it verbatim
+ * (model-visible means logged), but strict providers reject a request whose history contains it (HTTP 400),
+ * which would poison the session forever. Malformed arguments are wrapped into valid JSON instead.
+ */
+export function wireArguments(raw: string | undefined): string {
+  const s = raw?.trim() ? raw : '{}';
+  try {
+    const v = JSON.parse(s);
+    return v && typeof v === 'object' && !Array.isArray(v) ? s : JSON.stringify({ value: v });
+  } catch {
+    return JSON.stringify({ _invalid_json: s.slice(0, 2000) });
+  }
+}

@@ -42,3 +42,8 @@ export * from './bots/feishu.js';
 export * from './bots/wechat.js';
 export * from './telemetry.js';
 export * from './eval.js';
+export * from './tools/edit.js';
+export * from './verify.js';
+export * from './repomap.js';
+export * from './diagnostics.js';
+export * from './bestofn.js';

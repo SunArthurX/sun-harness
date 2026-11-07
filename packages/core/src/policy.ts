@@ -25,10 +25,11 @@ export function needsApproval(tool: Tool, args: Record<string, unknown>, mode: A
   if (tool.risk === 'read') return false;
   if (mode === 'suggest') return true;
   if (tool.risk === 'write') {
-    const p = tool.pathArg ? args[tool.pathArg] : undefined;
-    if (typeof p !== 'string') return false;
-    const abs = resolveIn(cwd, p);
-    return !(isInside(cwd, abs) || isInside(sunHome(), abs));
+    const targets = tool.paths ? tool.paths(args) : tool.pathArg && typeof args[tool.pathArg] === 'string' ? [args[tool.pathArg] as string] : [];
+    return targets.some((p) => {
+      const abs = resolveIn(cwd, p);
+      return !(isInside(cwd, abs) || isInside(sunHome(), abs));
+    });
   }
   return true;
 }

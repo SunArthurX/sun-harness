@@ -48,6 +48,7 @@ import {
   type ApprovalDecision,
   type LiveEvent,
   type PendingApproval,
+  runBestOfN,
 } from '@sun/core';
 
 const c = {
@@ -62,8 +63,10 @@ const c = {
 const HELP = `sun — personal agent harness
 
 Usage:
-  sun [chat] [--mode coding|agent|assistant] [--model provider/model] [--cwd dir] [--worktree]   Interactive session
+  sun [chat] [--mode coding|plan|agent|assistant] [--model provider/model] [--cwd dir] [--worktree]   Interactive session
   sun run "<prompt>" [--mode ..] [--model ..] [--approval suggest|auto-edit|full-auto] [--worktree] [--json]
+  sun run "<prompt>" --best-of N [--model a,b] [--apply]   N parallel worktree attempts judged by the project's tests
+  sun undo <sessionId> [--steps n]   Revert the session's last file edits (checkpoints)
   sun resume <sessionId> [--model provider/model] [--chat]
   sun sessions | sun show <sessionId>
   sun models | sun modes
@@ -78,13 +81,13 @@ Usage:
   sun gateway status | url | install [--tls --host ..] | uninstall   Gateway as a login service (launchd)
   sun gateway token create <device> | list | revoke <id|name>      Per-device tokens for remote clients and bots
   sun remote add <name> <url> --token <t> [--fingerprint <sha256>] | list | use <name> | off | remove <name>
-  sun eval validate | run [--label x] [--model ..] [--only a,b] [--concurrency 4] | list | report [run] | compare <a> <b>
+  sun eval validate | run [--label x] [--model ..] [--only a,b] [--concurrency 4] [--best-of N] | list | report [run] | compare <a> <b>
   sun doctor
   sun desktop                      Launch the desktop app (from a source checkout)
 
 Session commands (chat, run, resume, sessions) use --remote <name>, else the default remote, else a local gateway; --local runs in-process.
 
-Chat commands: /model <ref>  /mode <id>  /resume  /abort  /reflect  /sessions  /help  /exit
+Chat commands: /model <ref>  /mode <id> (coding|plan|agent|assistant)  /undo [n]  /resume  /abort  /reflect  /sessions  /help  /exit
 Home: ${sunHome()}`;
 
 function printEvent(e: LiveEvent, sessionId: string, state: { streamed: boolean; reasoning: boolean }): void {
@@ -236,6 +239,7 @@ async function chat(host: SessionHost, sessionId: string): Promise<void> {
         await host.resume(sessionId, { model: arg || undefined });
         await host.wait(sessionId);
       } else if (cmd === 'abort') await host.abort(sessionId);
+      else if (cmd === 'undo') printUndo(await host.undo(sessionId, { steps: Number(arg) || 1 }));
       else if (cmd === 'sessions') await listSessions(host);
       else if (cmd === 'reflect') {
         const props = await host.reflect(sessionId);
@@ -251,6 +255,33 @@ async function chat(host: SessionHost, sessionId: string): Promise<void> {
   }
   await host.wait(sessionId);
   rl.close();
+}
+
+function printUndo(r: { undone: string[]; restored: string[] }): void {
+  if (!r.undone.length) return void console.log(c.dim('Nothing to undo.'));
+  console.log(`Undid ${r.undone.length} edit step${r.undone.length > 1 ? 's' : ''}; restored ${r.restored.length} file${r.restored.length === 1 ? '' : 's'}:`);
+  for (const f of r.restored) console.log(c.dim(`  ${f}`));
+}
+
+async function bestOfCommand(host: HarnessHost, prompt: string, values: { 'best-of'?: string; model?: string; apply?: boolean; json?: boolean }, cwd: string, approval: ApprovalMode | undefined): Promise<void> {
+  const n = Number(values['best-of']);
+  console.log(c.dim(`Running ${n} attempts in separate worktrees…`));
+  const r = await runBestOfN(host, {
+    cwd,
+    prompt,
+    n,
+    models: values.model?.split(','),
+    approval: approval ?? 'full-auto',
+    apply: values.apply,
+    onCandidate: (k) => console.log(`${k.verified === true ? c.green('verified') : k.verified === false ? c.red('failing ') : c.dim('no tests')} ${k.sessionId}  ${c.dim(`${k.model} · ${k.status} · ${k.changedLines} changed lines · ${k.tokens} tokens`)}`),
+  });
+  if (values.json) console.log(JSON.stringify(r, null, 2));
+  else if (!r.winner) console.log(c.yellow('No attempt changed anything.'));
+  else {
+    console.log(`\nWinner: ${c.bold(r.winner.sessionId)} (${r.winner.verified === true ? 'tests pass' : r.winner.verified === false ? 'tests fail' : 'no tests detected'})`);
+    console.log(r.applied ? c.green('Merged into the checkout (staged, squash). Other attempts discarded.') : c.dim(`Review: sun worktree diff ${r.winner.sessionId}   Keep: sun worktree merge ${r.winner.sessionId}`));
+  }
+  process.exitCode = r.winner ? 0 : 1;
 }
 
 async function listSessions(host: SessionHost): Promise<void> {
@@ -381,7 +412,7 @@ function defaultSuite(): string {
   return resolve(fileURLToPath(import.meta.url), '..', '..', '..', '..', 'evals', 'coding');
 }
 
-async function evalCommand(sub: string, rest: string[], values: { suite?: string; only?: string; label?: string; concurrency?: string; model?: string }): Promise<void> {
+async function evalCommand(sub: string, rest: string[], values: { suite?: string; only?: string; label?: string; concurrency?: string; model?: string; 'best-of'?: string }): Promise<void> {
   const suiteDir = resolve(values.suite ?? defaultSuite());
   if (sub === 'validate') {
     const results = validateSuite(suiteDir);
@@ -401,6 +432,7 @@ async function evalCommand(sub: string, rest: string[], values: { suite?: string
       model: values.model,
       only: values.only?.split(','),
       concurrency: Number(values.concurrency) || 4,
+      bestOf: Number(values['best-of']) || undefined,
       onResult: (r) => console.log(`${r.passed ? c.green('pass') : c.red('FAIL')} ${r.id.padEnd(28)} ${c.dim(`${r.steps} steps · ${r.toolErrors} tool errors · ${(r.durationMs / 1000).toFixed(0)}s · ${r.status}`)}`),
     });
     console.log(`\n${formatEvalReport(run)}\n\n${c.dim(`saved ~/.sun/evals/${run.id}.json`)}`);
@@ -491,7 +523,7 @@ async function sessionCommands(
   host: SessionHost,
   cmd: string,
   args: string[],
-  values: { mode?: string; model?: string; json?: boolean; chat?: boolean; worktree?: boolean },
+  values: { mode?: string; model?: string; json?: boolean; chat?: boolean; worktree?: boolean; steps?: string },
   sessionCwd: string | undefined,
   approval: ApprovalMode | undefined,
 ): Promise<void> {
@@ -543,6 +575,11 @@ async function sessionCommands(
     case 'sessions':
       await listSessions(host);
       break;
+    case 'undo': {
+      if (!args[0]) throw new Error('Usage: sun undo <sessionId> [--steps n]');
+      printUndo(await host.undo(args[0], { steps: Number(values.steps) || 1 }));
+      break;
+    }
   }
   await host.dispose();
 }
@@ -573,6 +610,9 @@ async function main(): Promise<void> {
       label: { type: 'string' },
       concurrency: { type: 'string' },
       token: { type: 'string' },
+      'best-of': { type: 'string' },
+      apply: { type: 'boolean' },
+      steps: { type: 'string' },
       fingerprint: { type: 'string' },
       help: { type: 'boolean', short: 'h' },
     },
@@ -581,7 +621,7 @@ async function main(): Promise<void> {
   const [cmd = 'chat', ...args] = positionals;
   const cwd = resolve(values.cwd ?? process.cwd());
   // Coding works in the current folder; agent/assistant use ~/.sun/workspace unless --cwd is given (specs/007).
-  const sessionCwd = values.cwd || !values.mode || values.mode === 'coding' ? cwd : undefined;
+  const sessionCwd = values.cwd || !values.mode || values.mode === 'coding' || values.mode === 'plan' ? cwd : undefined;
   const approval = values.approval as ApprovalMode | undefined;
   if (cmd === 'serve') return serve(values);
   if (cmd === 'gateway') return gatewayCommand(args[0] ?? 'status', args.slice(1), values);
@@ -589,7 +629,9 @@ async function main(): Promise<void> {
   if (cmd === 'eval') return evalCommand(args[0] ?? 'list', args.slice(1), values);
 
   // Session commands: --local > --remote <name> > default remote > local gateway > in-process.
-  if (['chat', 'run', 'resume', 'sessions'].includes(cmd) && !values.local) {
+  // Best-of-N runs in-process: its worktrees and test judging need the local disk.
+  const bestOf = cmd === 'run' && Number(values['best-of']) > 1;
+  if (['chat', 'run', 'resume', 'sessions', 'undo'].includes(cmd) && !values.local && !bestOf) {
     const remote = getRemote(values.remote);
     if (values.remote && !remote) throw new Error(`No remote named ${values.remote} (sun remote list).`);
     if (remote) return sessionCommands(new RemoteHost(remote), cmd, args, values, values.cwd ? cwd : undefined, approval);
@@ -600,7 +642,14 @@ async function main(): Promise<void> {
   const needsMcp = ['chat', 'run', 'resume', 'mcp'].includes(cmd);
   const host = new HarnessHost({ connectMcp: needsMcp });
   await host.init();
-  if (['chat', 'run', 'resume', 'sessions'].includes(cmd)) {
+  if (bestOf) {
+    const prompt = args.join(' ') || (!process.stdin.isTTY ? readFileSync(0, 'utf8') : '');
+    if (!prompt) throw new Error('Usage: sun run "<prompt>" --best-of N');
+    await bestOfCommand(host, prompt, values, cwd, approval);
+    await host.dispose();
+    return;
+  }
+  if (['chat', 'run', 'resume', 'sessions', 'undo'].includes(cmd)) {
     await sessionCommands(host, cmd, args, values, sessionCwd, approval);
     await host.dispose();
     return;

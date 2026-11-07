@@ -5,6 +5,7 @@ import { dirname, join, relative } from 'node:path';
 import { resolveIn } from '../policy.js';
 import type { TodoItem } from '../types.js';
 import { truncate, type Tool } from './types.js';
+import { applyPatchTool, editFileTool, writeFileTool } from './edit.js';
 
 const IGNORED = new Set(['node_modules', '.git', 'dist', 'out', '.next', 'coverage', '.venv', '__pycache__']);
 
@@ -24,64 +25,15 @@ const readFile: Tool = {
   source: 'builtin',
   async execute(args, ctx) {
     const p = resolveIn(ctx.cwd, args.path);
-    const lines = readFileSync(p, 'utf8').split('\n');
+    const full = readFileSync(p, 'utf8');
+    ctx.services.fileState?.note(p, full);
+    const lines = full.split('\n');
     const start = Math.max(1, Number(args.offset) || 1);
     const limit = Math.max(1, Number(args.limit) || 2000);
     const slice = lines.slice(start - 1, start - 1 + limit);
     const body = slice.map((l, i) => `${String(start + i).padStart(6)}|${l}`).join('\n');
     const more = start - 1 + limit < lines.length ? `\n[${lines.length - (start - 1 + limit)} more lines]` : '';
     return truncate(body + more) || '(empty file)';
-  },
-};
-
-const writeFile: Tool = {
-  name: 'write_file',
-  description: 'Create or overwrite a file with the given content. Parent directories are created.',
-  parameters: {
-    type: 'object',
-    properties: { path: { type: 'string' }, content: { type: 'string' } },
-    required: ['path', 'content'],
-  },
-  risk: 'write',
-  pathArg: 'path',
-  source: 'builtin',
-  async execute(args, ctx) {
-    const p = resolveIn(ctx.cwd, args.path);
-    mkdirSync(dirname(p), { recursive: true });
-    const existed = existsSync(p);
-    writeFileSync(p, String(args.content ?? ''));
-    return `${existed ? 'Overwrote' : 'Created'} ${relative(ctx.cwd, p) || p} (${String(args.content ?? '').split('\n').length} lines)`;
-  },
-};
-
-const editFile: Tool = {
-  name: 'edit_file',
-  description:
-    'Replace an exact string in a file. old_string must match exactly once unless replace_all is true. Read the file first to get the exact text.',
-  parameters: {
-    type: 'object',
-    properties: {
-      path: { type: 'string' },
-      old_string: { type: 'string' },
-      new_string: { type: 'string' },
-      replace_all: { type: 'boolean' },
-    },
-    required: ['path', 'old_string', 'new_string'],
-  },
-  risk: 'write',
-  pathArg: 'path',
-  source: 'builtin',
-  async execute(args, ctx) {
-    const p = resolveIn(ctx.cwd, args.path);
-    const text = readFileSync(p, 'utf8');
-    const oldS = String(args.old_string);
-    if (!oldS) throw new Error('old_string must not be empty; use write_file to create files.');
-    const count = text.split(oldS).length - 1;
-    if (count === 0) throw new Error('old_string not found in file. Re-read the file and copy the exact text.');
-    if (count > 1 && !args.replace_all) throw new Error(`old_string matches ${count} times; add more context or set replace_all.`);
-    const next = args.replace_all ? text.split(oldS).join(String(args.new_string)) : text.replace(oldS, () => String(args.new_string));
-    writeFileSync(p, next);
-    return `Edited ${relative(ctx.cwd, p) || p} (${args.replace_all ? count : 1} replacement${count > 1 && args.replace_all ? 's' : ''})`;
   },
 };
 
@@ -244,8 +196,22 @@ const webFetch: Tool = {
   },
 };
 
+let searchProbe: { ok: boolean; at: number } | undefined;
+
 const webSearch: Tool = {
   name: 'web_search',
+  async available() {
+    if (searchProbe && Date.now() - searchProbe.at < 10 * 60_000) return searchProbe.ok;
+    let ok = false;
+    try {
+      const r = await fetch('https://html.duckduckgo.com/html/?q=test', { signal: AbortSignal.timeout(4000), headers: { 'user-agent': 'Mozilla/5.0 sun-harness/0.1' } });
+      ok = r.ok;
+    } catch {
+      ok = false;
+    }
+    searchProbe = { ok, at: Date.now() };
+    return ok;
+  },
   description: 'Search the web (DuckDuckGo). Returns titles, URLs and snippets. Follow up with web_fetch.',
   parameters: { type: 'object', properties: { query: { type: 'string' } }, required: ['query'] },
   risk: 'network',
@@ -300,4 +266,4 @@ const todoWrite: Tool = {
   },
 };
 
-export const BUILTIN_TOOLS: Tool[] = [readFile, writeFile, editFile, listDir, globTool, grep, bash, webFetch, webSearch, todoWrite];
+export const BUILTIN_TOOLS: Tool[] = [readFile, writeFileTool, editFileTool, applyPatchTool, listDir, globTool, grep, bash, webFetch, webSearch, todoWrite];

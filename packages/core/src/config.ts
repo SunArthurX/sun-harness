@@ -61,6 +61,10 @@ export interface SunConfig {
   evolution: { autoReflect: boolean };
   /** Tool calls (MCP) still running after promoteAfterMs move to the background (0 disables). */
   jobs: { promoteAfterMs: number; killOnExit: boolean };
+  /** Done gate for coding runs that edited files: project verify commands (`.sun/project.json` or detected). */
+  verify: { enabled: boolean; maxAttempts: number; timeoutMs: number };
+  /** Repository map in the coding prompt (projects with at least minFiles source files). */
+  repoMap: { enabled: boolean; budget: number; minFiles: number };
   /** Chat bots run inside the gateway (sun serve). Allowlists are platform user ids; empty = nobody. */
   bots: BotsConfig;
 }
@@ -151,6 +155,8 @@ export function defaultConfig(): SunConfig {
     intel: { sources: DEFAULT_INTEL_SOURCES, hour: 9, minute: 0 },
     evolution: { autoReflect: false },
     jobs: { promoteAfterMs: 30000, killOnExit: false },
+    verify: { enabled: true, maxAttempts: 2, timeoutMs: 300000 },
+    repoMap: { enabled: true, budget: 6000, minFiles: 8 },
     bots: {
       defaultMode: 'assistant',
       approvals: 'chat',

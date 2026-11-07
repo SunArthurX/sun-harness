@@ -1,7 +1,10 @@
 import { localDate } from './util/date.js';
-import { existsSync, mkdirSync, realpathSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
-import { join, relative } from 'node:path';
+import { dirname, join, relative } from 'node:path';
+import { FileState } from './tools/edit.js';
+import { detectVerifyCommands } from './verify.js';
+import { buildRepoMap } from './repomap.js';
 import { JobManager, restorableJobIds, type JobResult } from './jobs.js';
 import { createWorktree, mergeWorktree, removeWorktree, worktreeDiff, worktreeStatus, type WorktreeInfo, type WorktreeStatus } from './worktree.js';
 import { Agent, type AgentHooks, type ApprovalRequest, type RunResult } from './agent.js';
@@ -15,7 +18,7 @@ import { SessionLog } from './log.js';
 import { McpManager, type McpServerState } from './mcp.js';
 import { readMemory, saveMemoryFact } from './memory.js';
 import { BUILTIN_MODES, type ModeDef } from './modes.js';
-import { ensureHome, homePath } from './paths.js';
+import { ensureDir, ensureHome, homePath } from './paths.js';
 import { loadPlugins, type PluginState } from './plugins.js';
 import { buildSystemPrompt } from './prompt.js';
 import { findProjectRoot, loadProjectContext } from './rules.js';
@@ -24,7 +27,7 @@ import { discoverSkills, loadSkillBody, skillDirs, type Skill } from './skills.j
 import { BUILTIN_TOOLS } from './tools/builtin.js';
 import { SERVICE_TOOLS } from './tools/services.js';
 import type { Tool, ToolServices } from './tools/types.js';
-import type { ApprovalDecision, LiveEvent, PendingApproval, SessionEvent, SessionSummary } from './types.js';
+import type { ApprovalDecision, LiveEvent, PendingApproval, SessionEvent, SessionSummary, TodoItem } from './types.js';
 import { analyzeIntelDay, listIntelReports, loadIntelState, runIntel, type IntelRunResult } from './intel.js';
 import { reflectSession, type Proposal } from './evolution.js';
 
@@ -52,6 +55,16 @@ export interface CreateSessionInput {
 
 const AUTO_RESUME_REASONS = new Set(['quota', 'rate_limit', 'network']);
 
+/** Turn the numbered or bulleted steps of a plan into todo items. */
+export function planTodos(plan: string): TodoItem[] {
+  const steps = plan
+    .split('\n')
+    .map((l) => /^\s*(?:\d+[.)]|[-*]\s+\[[ x]\]|[-*])\s+(.+)$/.exec(l)?.[1]?.trim())
+    .filter((x): x is string => !!x && x.length > 3)
+    .slice(0, 20);
+  return steps.map((content, i) => ({ id: String(i + 1), content, status: i === 0 ? 'in_progress' : 'pending' }));
+}
+
 export class HarnessHost {
   config: SunConfig;
   private factory: ProviderFactory;
@@ -63,7 +76,7 @@ export class HarnessHost {
   private pluginListeners: ((sessionId: string, e: SessionEvent) => void)[] = [];
   private listeners = new Set<(e: LiveEvent) => void>();
   private runs = new Map<string, { controller: AbortController; promise: Promise<RunResult> }>();
-  private queued = new Map<string, { text: string; source: 'user' | 'schedule' | 'system' | 'job' }[]>();
+  private queued = new Map<string, { text: string; source: 'user' | 'schedule' | 'system' | 'job' | 'verify' }[]>();
   private approvals = new Map<string, { pending: PendingApproval; resolve: (d: ApprovalDecision) => void }>();
   private mcp = new Map<string, McpManager>();
   private personalKb: LocalMarkdownKB;
@@ -193,7 +206,7 @@ export class HarnessHost {
   }
 
   defaultCwd(mode: string): string {
-    if (mode === 'coding' && process.cwd() !== '/') return process.cwd();
+    if ((mode === 'coding' || mode === 'plan') && process.cwd() !== '/') return process.cwd();
     const dir = homePath('workspace');
     mkdirSync(dir, { recursive: true });
     return dir;
@@ -234,7 +247,7 @@ export class HarnessHost {
   }
 
   /** Send a user message. If a run is active, the message is queued and delivered when it ends. */
-  async send(id: string, text: string, source: 'user' | 'schedule' | 'system' | 'job' = 'user'): Promise<void> {
+  async send(id: string, text: string, source: 'user' | 'schedule' | 'system' | 'job' | 'verify' = 'user'): Promise<void> {
     if (this.runs.has(id)) {
       this.queued.set(id, [...(this.queued.get(id) ?? []), { text, source }]);
       return;
@@ -305,6 +318,10 @@ export class HarnessHost {
         systemPrompt: (modelRef) => this.systemPrompt(log, modelRef),
         approvalMode: () => log.meta()?.approval ?? this.config.approval,
         contextLimit: (ref) => compactionLimit(this.config, ref),
+        verify:
+          this.config.verify?.enabled
+            ? { commands: (dir) => (log.currentMode() === 'coding' ? detectVerifyCommands(dir) : []), maxAttempts: this.config.verify.maxAttempts, timeoutMs: this.config.verify.timeoutMs }
+            : undefined,
         requestApproval: (req, signal) => this.requestApproval(req, log.meta()?.parent ?? id, signal),
         services: this.services(log, controller.signal),
         hooks,
@@ -345,7 +362,28 @@ export class HarnessHost {
       execute: (args: unknown, ctx: Parameters<Tool['execute']>[1]) => this.jobs.promoteIfSlow(ctx.sessionId, t.name, args, () => t.execute(args, ctx), promote),
     }));
     for (const t of [...BUILTIN_TOOLS, ...SERVICE_TOOLS, ...this.pluginTools, ...slowSafe]) byName.set(t.name, t);
-    return [...byName.values()];
+    // Capability gating: drop tools whose backend is unreachable right now.
+    const all = [...byName.values()];
+    const ok = await Promise.all(all.map((t) => (t.available ? t.available().catch(() => false) : Promise.resolve(true))));
+    return all.filter((_, i) => ok[i]);
+  }
+
+  private repoMaps = new Map<string, string>();
+
+  /** One repository map per session: stable for the whole session so the provider's prompt cache keeps hitting. */
+  private repoMapFor(log: SessionLog): string | undefined {
+    if (!this.config.repoMap?.enabled || !['coding', 'plan'].includes(log.currentMode())) return undefined;
+    let m = this.repoMaps.get(log.id);
+    if (m === undefined) {
+      try {
+        const r = buildRepoMap(log.meta()!.cwd, { budget: this.config.repoMap.budget });
+        m = r.totalFiles >= this.config.repoMap.minFiles ? r.text : '';
+      } catch {
+        m = '';
+      }
+      this.repoMaps.set(log.id, m);
+    }
+    return m || undefined;
   }
 
   systemPrompt(log: SessionLog, modelRef: string): string {
@@ -358,6 +396,7 @@ export class HarnessHost {
       project: loadProjectContext(meta.cwd, this.config.rules),
       skills: this.listSkills(meta.cwd).map((s) => ({ name: s.name, description: s.description })),
       memory: readMemory(),
+      repoMap: this.repoMapFor(log),
       knowledgeProviders: this.knowledgeProviders().map((k) => ({ id: k.id, name: k.name })),
       extraSections: this.promptSections.map((s) => ({ title: s.title, text: s.text() })),
     });
@@ -434,6 +473,65 @@ export class HarnessHost {
   }
 
   private approvers = new Set<(sessionId: string) => boolean>();
+  private fileStates = new Map<string, FileState>();
+
+  private fileStateOf(sessionId: string): FileState {
+    let f = this.fileStates.get(sessionId);
+    if (!f) this.fileStates.set(sessionId, (f = new FileState()));
+    return f;
+  }
+
+  // ---------- checkpoints ----------
+
+  /** Snapshot files before an edit (content, or null if the file does not exist yet). */
+  private checkpoint(log: SessionLog, paths: string[]): void {
+    const id = `cp-${String(log.all().filter((e) => e.type === 'checkpoint').length + 1).padStart(4, '0')}`;
+    const files = [...new Set(paths)].map((p) => ({ path: p, before: existsSync(p) ? readFileSync(p, 'utf8') : null }));
+    const dir = ensureDir(homePath('checkpoints', log.id));
+    writeFileSync(join(dir, `${id}.json`), JSON.stringify({ id, ts: new Date().toISOString(), files }));
+    this.append(log, { type: 'checkpoint', id, files: files.map((f) => f.path) });
+  }
+
+  listCheckpoints(sessionId: string): { id: string; files: string[]; undone: boolean; ts: string }[] {
+    const log = SessionLog.open(sessionId);
+    const undone = new Set(log.all().filter((e) => e.type === 'checkpoint/undo').map((e) => (e as Extract<SessionEvent, { type: 'checkpoint/undo' }>).id));
+    return log
+      .all()
+      .filter((e): e is Extract<SessionEvent, { type: 'checkpoint' }> => e.type === 'checkpoint')
+      .map((e) => ({ id: e.id, files: e.files, undone: undone.has(e.id), ts: e.ts }));
+  }
+
+  /** Revert the last `steps` not-yet-undone checkpoints (newest first), or everything back to and including `to`. */
+  undo(sessionId: string, opts: { steps?: number; to?: string } = {}): { undone: string[]; restored: string[] } {
+    if (this.runs.has(sessionId)) throw new Error('Stop the run before undoing.');
+    const log = SessionLog.open(sessionId);
+    const open = this.listCheckpoints(sessionId).filter((c) => !c.undone).reverse();
+    const take = opts.to ? open.slice(0, open.findIndex((c) => c.id === opts.to) + 1) : open.slice(0, opts.steps ?? 1);
+    if (opts.to && !take.length) throw new Error(`No undoable checkpoint ${opts.to}`);
+    const restored = new Set<string>();
+    for (const c of take) {
+      const snap = JSON.parse(readFileSync(homePath('checkpoints', sessionId, `${c.id}.json`), 'utf8')) as { files: { path: string; before: string | null }[] };
+      for (const f of snap.files) {
+        if (f.before === null) rmSync(f.path, { force: true });
+        else {
+          mkdirSync(dirname(f.path), { recursive: true });
+          writeFileSync(f.path, f.before);
+        }
+        restored.add(f.path);
+      }
+      this.append(log, { type: 'checkpoint/undo', id: c.id, restored: snap.files.map((f) => f.path) });
+    }
+    if (take.length) {
+      this.append(log, {
+        type: 'user/message',
+        source: 'system',
+        text: `[The user undid your last ${take.length} change${take.length > 1 ? 's' : ''}: ${[...restored].map((p) => relative(log.meta()!.cwd, p) || p).join(', ')} restored. Re-read files before editing them again.]`,
+      });
+    }
+    return { undone: take.map((c) => c.id), restored: [...restored] };
+  }
+
+
 
   /**
    * A UI that can answer approvals (desktop window, interactive terminal, chat bot). `scope` limits it to the sessions
@@ -488,6 +586,8 @@ export class HarnessHost {
   private services(log: SessionLog, signal: AbortSignal): ToolServices {
     const cwd = log.meta()!.cwd;
     return {
+      fileState: this.fileStateOf(log.id),
+      checkpoint: (paths) => this.checkpoint(log, paths),
       setTodos: (items) => this.append(log, { type: 'todo/update', items }),
       kbSearch: (q, k, provider) => this.kbSearchText(q, k ?? 6, provider),
       kbAdd: async (title, text) => `Saved note: ${await this.personalKb.add(title, text)}`,
@@ -510,6 +610,15 @@ export class HarnessHost {
         const j = this.jobs.get(jobId);
         if (!j) return `No job ${jobId}.`;
         return `${j.id} ${j.state}${j.exitCode !== undefined ? ` (exit ${j.exitCode})` : ''}\n${this.jobs.tail(jobId, 4000) || '(no output yet)'}`;
+      },
+      exitPlanMode: (plan) => {
+        if (log.currentMode() !== 'plan') throw new Error('exit_plan_mode is only available in plan mode.');
+        if (!plan.trim()) throw new Error('Provide the plan as Markdown.');
+        this.append(log, { type: 'todo/update', items: planTodos(plan) });
+        // Same log instance as the running agent, so the next step already sees coding mode and its tools.
+        this.append(log, { type: 'mode/switch', from: 'plan', to: 'coding' });
+        this.broadcastSessions();
+        return 'Plan approved. The session is now in coding mode with full tools: implement the plan step by step, keep the todo list current, and verify at the end.';
       },
       killJob: (jobId) => (this.jobs.kill(jobId) ? `Stopped ${jobId}.` : `${jobId} is not running.`),
       scheduleTask: async (spec) => {

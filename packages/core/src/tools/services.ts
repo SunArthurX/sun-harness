@@ -1,4 +1,5 @@
 import type { Tool, ToolContext, ToolServices } from './types.js';
+import { buildRepoMap } from '../repomap.js';
 
 function need<K extends keyof ToolServices>(ctx: ToolContext, k: K): NonNullable<ToolServices[K]> {
   const fn = ctx.services[k];
@@ -65,6 +66,31 @@ export const SERVICE_TOOLS: Tool[] = [
     risk: 'read',
     source: 'builtin',
     execute: (a, ctx) => need(ctx, 'runSubagent')(String(a.prompt), { mode: a.mode }),
+  },
+  {
+    name: 'exit_plan_mode',
+    description:
+      'Plan mode only: submit your implementation plan (Markdown) for the user to approve. On approval the session switches to coding mode and you implement the plan.',
+    parameters: { type: 'object', properties: { plan: { type: 'string' } }, required: ['plan'] },
+    // exec risk: the plan passes the approval policy, so a human reviews it unless approval is full-auto.
+    risk: 'exec',
+    source: 'builtin',
+    async execute(a, ctx) {
+      if (!ctx.services.exitPlanMode) throw new Error('Plan mode is not available here.');
+      return ctx.services.exitPlanMode(String(a.plan ?? ''));
+    },
+  },
+  {
+    name: 'repo_map',
+    description:
+      'Outline of the repository: the most referenced definitions per file (functions, classes, types) with line numbers. Filter with `query` (symbol or file name) or `path` (sub-folder). Use it to find where things live before reading files.',
+    parameters: { type: 'object', properties: { query: { type: 'string' }, path: { type: 'string' } } },
+    risk: 'read',
+    source: 'builtin',
+    async execute(a, ctx) {
+      const { text, totalFiles } = buildRepoMap(ctx.cwd, { query: a.query, focus: a.path, budget: 12_000 });
+      return text ? `${text}\n(${totalFiles} source files scanned)` : 'No definitions found.';
+    },
   },
   {
     name: 'job_status',

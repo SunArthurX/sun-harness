@@ -31,7 +31,7 @@ describe('git worktree sessions', () => {
     const main = repo();
     const { host, providers } = await mockHost({
       'mock/a': [
-        { text: '', toolCalls: [call('write_file', { path: 'feature.txt', content: 'new feature\n' }), call('edit_file', { path: 'README.md', old_string: '# demo', new_string: '# demo v2' })] },
+        { text: '', toolCalls: [call('read_file', { path: 'README.md' }), call('write_file', { path: 'feature.txt', content: 'new feature\n' }), call('edit_file', { path: 'README.md', old_string: '# demo', new_string: '# demo v2' })] },
         { text: 'done', toolCalls: [] },
       ],
     });
@@ -91,8 +91,8 @@ describe('git worktree sessions', () => {
     const main = repo();
     const { host } = await mockHost({
       'mock/a': [
-        { text: '', toolCalls: [call('write_file', { path: 'README.md', content: 'one\n' })] },
-        { text: '', toolCalls: [call('write_file', { path: 'README.md', content: 'two\n' })] },
+        { text: '', toolCalls: [call('read_file', { path: 'README.md' }), call('write_file', { path: 'README.md', content: 'one\n' })] },
+        { text: '', toolCalls: [call('read_file', { path: 'README.md' }), call('write_file', { path: 'README.md', content: 'two\n' })] },
         { text: 'ok', toolCalls: [] },
         { text: 'ok', toolCalls: [] },
       ],

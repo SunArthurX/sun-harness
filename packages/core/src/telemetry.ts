@@ -11,6 +11,8 @@ export interface SessionMetrics {
   editFailures: number;
   inputTokens: number;
   outputTokens: number;
+  /** Input tokens served from the provider's prompt cache. */
+  cachedTokens: number;
   compactions: number;
   approvals: number;
   userMessages: number;
@@ -29,6 +31,7 @@ export function sessionMetrics(events: readonly SessionEvent[]): SessionMetrics 
     editFailures: 0,
     inputTokens: 0,
     outputTokens: 0,
+    cachedTokens: 0,
     compactions: 0,
     approvals: 0,
     userMessages: 0,
@@ -40,6 +43,7 @@ export function sessionMetrics(events: readonly SessionEvent[]): SessionMetrics 
       m.steps++;
       m.inputTokens += e.usage?.inputTokens ?? 0;
       m.outputTokens += e.usage?.outputTokens ?? 0;
+      m.cachedTokens += e.usage?.cachedTokens ?? 0;
     } else if (e.type === 'tool/result') {
       m.toolCalls++;
       const t = (m.byTool[e.name] ??= { calls: 0, errors: 0 });

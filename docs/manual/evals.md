@@ -7,6 +7,7 @@ sun eval validate                         # every task fails untouched and passe
 sun eval run --label baseline             # all tasks on your default model
 sun eval run --label flash --model qwen/qwen-flash --concurrency 6
 sun eval run --only js-off-by-one,h-py-semver
+sun eval run --label bon3 --best-of 3     # 3 worktree attempts per task, judged by the visible tests
 sun eval list                             # past runs with pass rates
 sun eval report <run-id|label>            # table: pass/fail, steps, tool errors, edit failures, status
 sun eval compare baseline after-change    # metric deltas and per-task fixed / regressed
@@ -19,7 +20,8 @@ Each task runs in a fresh git repository in a temp folder with approvals off (`f
 - **Pass rate** — the headline. Run twice: models are random; differences of one task are noise.
 - **Edit failure rate** — share of edit/write calls that failed (e.g. text not found). High values mean the agent wastes steps fighting its tools.
 - **Tool error rate** — all failing tool calls.
-- **Tokens** — cost. Lower with equal pass rate is a real improvement.
+- **Tokens** — cost. Lower with equal pass rate is a real improvement. The report also shows the share of input tokens served from the provider's prompt cache.
+- **Best-of-N runs** — token and tool counts add up all attempts (the real cost); duration is the slowest attempt. The status column notes each attempt's visible-test verdict (✓ ✗ ?).
 - **Status** — `paused (max_steps)` means it ran out of steps; `timeout` means 10 minutes passed.
 
 Use a weaker model (e.g. `qwen/qwen-flash`) to see harness effects: strong models solve most tasks regardless of the harness.

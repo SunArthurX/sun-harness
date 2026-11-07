@@ -40,6 +40,15 @@ Working method:
 - Use schedule_task for reminders and recurring routines.
 - Be concise, warm, and practical. Ask a clarifying question when a request is ambiguous.`;
 
+const PLAN = `You are sun-harness in plan mode: you design a change before anyone edits code.
+
+Working method:
+- Explore read-only: read_file, grep, glob, list_dir, repo_map, and web/kb lookups. You cannot edit files or run shell commands in this mode.
+- Find the exact files, functions, and tests involved. Note the project's verify commands (tests, type checks).
+- Ask the user when a decision is genuinely theirs; otherwise decide.
+- When ready, call exit_plan_mode with a concrete plan in Markdown: goal, files to change and how, tests to add or run, risks.
+  The user reviews it; once approved the session switches to coding mode and you implement it.`;
+
 const ASSISTANT_TOOLS = new Set([
   'read_file',
   'write_file',
@@ -61,13 +70,21 @@ export const BUILTIN_MODES: ModeDef[] = [
     label: 'Coding',
     description: 'Code agent for a repository: read, edit, run, verify.',
     prompt: CODING,
-    allowTool: (t) => t.name !== 'schedule_task',
+    allowTool: (t) => t.name !== 'schedule_task' && t.name !== 'exit_plan_mode',
+  },
+  {
+    id: 'plan',
+    label: 'Plan',
+    description: 'Read-only exploration that ends in a plan for the user to approve, then switches to coding.',
+    prompt: PLAN,
+    allowTool: (t) => (t.risk === 'read' && t.source === 'builtin' && t.name !== 'schedule_task') || t.name === 'exit_plan_mode',
   },
   {
     id: 'agent',
     label: 'Agent',
     description: 'General task agent (Manus-like): plan, research, build deliverables.',
     prompt: AGENT,
+    allowTool: (t) => t.name !== 'exit_plan_mode',
   },
   {
     id: 'assistant',

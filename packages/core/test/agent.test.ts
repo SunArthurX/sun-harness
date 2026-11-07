@@ -267,7 +267,7 @@ describe('agent loop', () => {
     writeFileSync(join(ws, 'a.txt'), 'foo foo bar');
     const { host } = await mockHost({
       'mock/a': [
-        { text: '', toolCalls: [call('edit_file', { path: 'a.txt', old_string: 'foo', new_string: 'baz' })] },
+        { text: '', toolCalls: [call('read_file', { path: 'a.txt' }), call('edit_file', { path: 'a.txt', old_string: 'foo', new_string: 'baz' })] },
         { text: '', toolCalls: [call('edit_file', { path: 'a.txt', old_string: 'bar', new_string: 'qux' })] },
         { text: 'ok', toolCalls: [] },
       ],
@@ -276,7 +276,8 @@ describe('agent loop', () => {
     await host.send(s.id, 'edit');
     await host.wait(s.id);
     const results = host.getEvents(s.id).filter((e) => e.type === 'tool/result') as any[];
-    expect(results[0].isError).toBe(true);
+    expect(results[1].isError).toBe(true);
+    expect(results[1].output).toContain('matches 2 times');
     expect(readFileSync(join(ws, 'a.txt'), 'utf8')).toBe('foo foo qux');
   });
 

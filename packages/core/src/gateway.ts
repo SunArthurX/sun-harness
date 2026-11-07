@@ -36,6 +36,8 @@ export function hostMethods(host: HarnessHost, info: { mode: 'local' | 'gateway'
     resume: (id: string, model?: string) => host.resume(id, { model }),
     abort: (id: string) => host.abort(id),
     isRunning: (id: string) => host.isRunning(id),
+    listCheckpoints: (id: string) => host.listCheckpoints(id),
+    undo: (id: string, steps?: number) => host.undo(id, { steps }),
     approve: (callId: string, decision: ApprovalDecision, promptId?: string) => {
       if (!host.approve(callId, decision, promptId)) throw new Error(`No pending approval for ${callId} with this prompt (already answered, expired, or re-issued).`);
       return true;
@@ -400,6 +402,7 @@ export interface SessionHost {
   readyModels(): string[] | Promise<string[]>;
   listJobs(sessionId?: string): { state: string }[] | Promise<{ state: string }[]>;
   reflect(id: string): Promise<{ id: string; type: string; title: string }[]>;
+  undo(id: string, opts?: { steps?: number }): { undone: string[]; restored: string[] } | Promise<{ undone: string[]; restored: string[] }>;
   /** Resolves when every live subscription is connected (remote hosts); send only after this. */
   ready?(): Promise<void>;
   dispose(): Promise<void>;
@@ -428,6 +431,9 @@ export class RemoteHost implements SessionHost {
   }
   switchModel(id: string, model: string) {
     return this.client.call<void>('switchModel', id, model);
+  }
+  undo(id: string, opts: { steps?: number } = {}) {
+    return this.client.call<{ undone: string[]; restored: string[] }>('undo', id, opts.steps);
   }
   switchMode(id: string, mode: string) {
     return this.client.call<void>('switchMode', id, mode);
