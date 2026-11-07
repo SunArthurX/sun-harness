@@ -16,7 +16,7 @@ import { fingerprintOf, matchDevice } from './remote.js';
 import type { RouteHandler } from './bots/adapters.js';
 import type { ApprovalDecision, LiveEvent, RunStatus, SessionEvent, SessionSummary } from './types.js';
 
-export const VERSION = '0.2.0';
+export const VERSION = '0.3.0';
 
 type Method = (...args: any[]) => unknown;
 

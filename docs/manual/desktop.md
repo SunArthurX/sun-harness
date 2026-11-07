@@ -12,7 +12,7 @@ Choose a mode card, pick a workspace (required for Coding; Agent and Assistant d
 - **Transcript**: your messages on the right; assistant text in Markdown; collapsible **Reasoning** for thinking models; one **tool card** per call — click to see arguments and output. MCP tools show as `server › tool`.
 - **Worktree**: sessions on a worktree show ⑂ in the sidebar and a branch chip in the header; the chip opens the Changes panel (files, diff, Merge (squash), Merge commit, Discard). See [Worktree sessions](worktrees.md).
 - **Plan**: when the agent uses `todo_write`, a sticky plan with a progress bar appears at the top.
-- **Approval card**: Allow / Always allow `<tool>` (for this session) / Deny. Subagent approvals appear in the parent session.
+- **Approval card**: Allow / Always allow `<tool>` (for this session) / Deny. The buttons arm after a moment ("read first…") so a click or Enter aimed at something else can't approve. Subagent approvals appear in the parent session.
 - **Paused banner**: shown for quota, auth, rate limit, network, step limit, or interruption. **Resume** retries the same model; pick another model and **Switch & resume** to continue elsewhere. Nothing is lost.
 - **Composer**: Enter sends, Shift+Enter adds a line. While running, messages are queued and sent when the run ends. **Stop** aborts the run (including a running shell command).
 - **Subagent sessions** are nested under their parent in the sidebar; "← back to parent session" returns.

@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" /><meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>14 · Approval guard — sun-harness</title>
+<link rel="stylesheet" href="teach.css" />
+<script type="module">import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs'; mermaid.initialize({ startOnLoad: true, theme: 'neutral' });</script>
+</head>
+<body>
+<header class="top"><div class="wrap"><a class="brand" href="index.html">sun<em>harness</em> · teach</a><nav><a href="index.html">All pages</a></nav></div></header>
+<main class="wrap">
+<p class="muted">Iteration 9 · spec <code>specs/016-approval-race-guard.md</code></p>
+<h1>14 · The approval <em>guard</em></h1>
+<p class="lede">An approval is only meaningful if the human saw what they approved. Claude Code 2.1.318 fixed prompts that could be answered by keystrokes typed before the prompt appeared. sun-harness had the same race in three places.</p>
+
+<h2>Three races, three fixes</h2>
+<table>
+<tr><th>Race</th><th>Where</th><th>Fix</th></tr>
+<tr><td>You are typing a chat message; the prompt appears; your Enter answers it</td><td>CLI chat</td><td>clear the half-typed line when the prompt appears</td></tr>
+<tr><td>Keys typed during a run sit in the terminal buffer and answer the prompt the instant it is created</td><td>CLI <code>run</code></td><td>discard answers that arrive within 400 ms of the prompt; ask again</td></tr>
+<tr><td>A card pops up under your cursor and the next click lands on <strong>Allow</strong></td><td>desktop, web</td><td>buttons arm after 700 ms ("read first…"), focus leaves the composer</td></tr>
+<tr><td>An old window answers a prompt that was re-issued after a restart</td><td>any client</td><td>a fresh <code>promptId</code> per showing; answers must quote it</td></tr>
+</table>
+
+<div class="mermaid">
+sequenceDiagram
+  participant U as User keyboard
+  participant T as Terminal buffer
+  participant C as CLI prompt
+  participant H as Host
+  U->>T: "y⏎" (typed while the agent was still working)
+  H->>C: approval needed (promptId p1)
+  C->>T: read line
+  T-->>C: "y" after 3 ms
+  C->>C: under 400 ms: typed before the prompt, ignore
+  C->>U: "(ignored input typed before the prompt appeared — answer again)"
+  U->>C: "y⏎" (after reading)
+  C->>H: approve(callId, allow, p1) → true
+</div>
+
+<h2>Design questions</h2>
+<div class="qa"><p class="q">Why a time window rather than flushing stdin?</p><p class="a">Node gives no portable way to drop bytes already buffered by the TTY before a readline interface reads them. A minimum reaction time works whatever the buffering: nobody reads a command and answers in under 400 ms, so any faster answer was typed before the prompt.</p></div>
+<div class="qa"><p class="q">What does the prompt id add, if call ids are already unique?</p><p class="a">The same call can be asked twice: the app restarts, the run resumes, the approval is re-requested with the same <code>callId</code>. A UI still showing the first prompt must not be able to answer the second. Each showing gets a new <code>promptId</code>; <code>approve()</code> returns false (an error over HTTP) for stale ids, unknown calls, and second answers.</p></div>
+<div class="qa"><p class="q">Was it tested in a real terminal?</p><p class="a">Yes, in tmux: <code>y⏎</code> was sent half a second after starting <code>sun run</code>, before the approval appeared. The prompt showed the ignore message and asked again; only the later <code>y</code> ran the command. The desktop end-to-end test clicks <strong>Allow</strong> programmatically the moment the card appears and asserts the approval is still pending.</p></div>
+<p class="lesson">Consent needs proof of attention. Bind each answer to the exact prompt, and refuse answers that arrived faster than a person could have read it.</p>
+
+<div class="nav"><a href="13-durable-jobs.html">← 13 · Durable jobs</a><a href="15-remote-gateway.html">15 · Remote gateway →</a></div>
+</main>
+</body>
+</html>

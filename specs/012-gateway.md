@@ -14,7 +14,7 @@ Each surface used to run its own `HarnessHost`. Two hosts on one `SUN_HOME` can 
   - `GET /api/events` → Server-Sent Events of every `LiveEvent`; the first event is `{kind: "notice", text: "connected"}` and clients wait for it before sending, so no early output is missed. `?approver=1` registers the connection as an approver until it closes.
   - `GET /api/health` → `{ok, home, version, pid}`.
   - Any other path serves the built web UI (`apps/desktop/out/renderer`, or `~/.sun/web`), with path traversal blocked.
-- Security: binds `127.0.0.1` by default; every API request needs the bearer token (header, or `?token=` for EventSource). The gateway writes `~/.sun/gateway.json` (`url`, `token`, `pid`, mode 0600) and removes it on clean shutdown.
+- Security: binds `127.0.0.1` by default (non-loopback requires TLS, see `specs/017-remote-gateway.md`); every API request needs the bearer token (header, or `?token=` for EventSource). The gateway writes `~/.sun/gateway.json` (`url`, `token`, `pid`, mode 0600) and removes it on clean shutdown.
 - Discovery: `findGateway()` reads `gateway.json` and requires a healthy response **for the same `SUN_HOME`**; stale files are ignored. `SUN_NO_GATEWAY=1` disables attaching.
 
 ## Clients

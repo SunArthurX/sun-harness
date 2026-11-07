@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.3.0 — 2026-11-07
+
+### Iteration 8 — Durable background jobs
+- Process jobs run detached with on-disk record, log and exit status; the next host re-attaches and delivers results after a restart or crash; `jobs.killOnExit` opt-in.
+
+### Iteration 9 — Approval race guard
+- Per-showing `promptId`; stale/unknown/duplicate answers rejected (HTTP error via gateway).
+- CLI: clears half-typed input and ignores answers typed before the prompt; explicit answers only.
+- Desktop/web: approval buttons arm after 700 ms; scoped approvers (`registerApprover(scope)`).
+
+### Iteration 10 — Remote gateway
+- `sun serve --tls` with a self-signed certificate; non-loopback without TLS refused.
+- Device tokens (`sun gateway token create|list|revoke`), hashed at rest; `sun remote add|list|use|off|remove` with certificate fingerprint pinning; `--remote` for session commands.
+
+### Iteration 11 — Chat bots
+- Telegram (long polling), DingTalk outgoing robot (signed callbacks, sessionWebhook replies), generic webhook (`?wait=1`), running inside the gateway with allowlists, per-chat sessions, commands and approvals in chat.
+
 ## 0.2.0 — 2026-11-07
 
 ### Iteration 2 — Context budgets

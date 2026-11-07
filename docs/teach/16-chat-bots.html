@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" /><meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>16 · Chat bots — sun-harness</title>
+<link rel="stylesheet" href="teach.css" />
+<script type="module">import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs'; mermaid.initialize({ startOnLoad: true, theme: 'neutral' });</script>
+</head>
+<body>
+<header class="top"><div class="wrap"><a class="brand" href="index.html">sun<em>harness</em> · teach</a><nav><a href="index.html">All pages</a></nav></div></header>
+<main class="wrap">
+<p class="muted">Iteration 11 · spec <code>specs/018-chat-bots.md</code></p>
+<h1>16 · Chat <em>bots</em></h1>
+<p class="lede">An assistant you can only reach at your desk is half an assistant. Hermes treats chat apps as one more surface of the gateway. sun-harness does the same: one platform-neutral bridge, and thin adapters for Telegram, DingTalk and plain webhooks.</p>
+
+<h2>Shape</h2>
+<div class="mermaid">
+flowchart LR
+  TG[Telegram<br/>long poll] --> BR
+  DT[DingTalk<br/>signed callback] --> BR
+  WH[Webhook<br/>device token] --> BR
+  BR[BotBridge<br/>allowlist · chat→session · commands · approvals] --> H[HarnessHost in the gateway]
+  H -->|assistant text, pauses, approvals| BR
+  BR -->|sendMessage / sessionWebhook / replyUrl or ?wait=1| TG & DT & WH
+</div>
+
+<h2>Design questions</h2>
+<div class="qa"><p class="q">Who can talk to the bot?</p><p class="a">Only allowlisted platform user ids, and an empty list means nobody. A stranger gets one reply containing their own id (so the owner can add them) and nothing else: no session is created and no model is called.</p></div>
+<div class="qa"><p class="q">How do approvals work in a chat?</p><p class="a">The bot posts "⚠️ Approval needed" and waits for <code>/approve</code>, <code>/approve always</code> or <code>/deny</code>, answered with the current prompt id (page 14). There was a trap here. Registering the bot as an approver the old way, globally, would have made <em>every</em> session's approvals wait, including CLI runs nobody was watching, which breaks the fail-closed rule from page 06. Approvers are now <strong>scoped</strong>: the bot can only approve its own chats' sessions, and everything else is still denied when no human is present. A test pins exactly this.</p></div>
+<div class="qa"><p class="q">Why long polling for Telegram but callbacks for DingTalk?</p><p class="a">Each uses what needs the least infrastructure. Telegram's <code>getUpdates</code> works from behind NAT with no public URL. DingTalk's outgoing robot only pushes to a URL, so the gateway exposes <code>/bots/dingtalk</code>, verifies DingTalk's HMAC signature and timestamp, and replies through the per-message <code>sessionWebhook</code>.</p></div>
+<div class="qa"><p class="q">How can a script use it synchronously?</p><p class="a"><code>POST /bots/webhook?wait=1</code> holds the response until the run ends, or until it stops on an approval, and returns <code>{sessionId, replies}</code>. That makes the bot a one-line <code>curl</code> API for shortcuts, cron jobs and other agents.</p></div>
+<div class="qa"><p class="q">What was verified?</p><p class="a">Telegram against a local fake of the Bot API (allowlist, an approval answered in the chat, replies); DingTalk signature rejection and acceptance with replies to a fake session webhook; and live, the webhook bot on a real gateway with DeepSeek: a stranger refused, a question answered, a shell command held for approval, then <code>/approve</code> ran it and the output came back. The real Telegram API is unreachable from this network, so live Telegram is left to the owner's token.</p></div>
+<p class="lesson">Put the policy in the bridge, not the adapters. Allowlists, sessions and approvals are written once; a new platform is a hundred lines of translation.</p>
+
+<div class="nav"><a href="15-remote-gateway.html">← 15 · Remote gateway</a><a href="index.html">All pages →</a></div>
+</main>
+</body>
+</html>

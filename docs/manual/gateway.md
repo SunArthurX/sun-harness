@@ -30,7 +30,33 @@ Without a gateway, the CLI and the desktop work on their own as before. Avoid ru
 
 ## Security
 
-The gateway listens on `127.0.0.1` only, and every API call needs the token in `~/.sun/gateway.json` (file mode 0600). Don't expose it on other interfaces: `--host 0.0.0.0` has no TLS.
+By default the gateway listens on `127.0.0.1` only, and every API call needs a token: the owner token in `~/.sun/gateway.json` (file mode 0600) or a device token.
+
+## Remote access (other devices)
+
+```sh
+sun gateway install --tls --host 0.0.0.0      # HTTPS on your LAN; self-signed certificate in ~/.sun/tls
+sun gateway token create laptop               # prints a device token once, plus ready-to-paste commands
+```
+
+On the other machine (with sun-harness installed):
+
+```sh
+sun remote add home https://192.168.1.20:4471 --token sund_… --fingerprint BC:03:55:…
+sun remote list                               # * marks the default remote
+sun run "Summarize today's intel report"       # runs on the home gateway
+sun remote use home | sun remote off          # choose the default, or go back to local
+sun run --remote home "…"                     # one-off
+```
+
+- The gateway refuses to listen on a non-loopback address without TLS (`--insecure` overrides; don't).
+- Clients pin the certificate: `remote add` refuses a certificate whose fingerprint differs from `--fingerprint`, and later connections fail if it changes.
+- Each device has its own token; `sun gateway token list` shows last use, `sun gateway token revoke laptop` cuts it off immediately. Only token hashes are stored.
+- Browser: open `https://<host>:4471/#token=<device token>`, check the certificate warning shows the same fingerprint, and accept it.
+
+## Chat bots
+
+Telegram, DingTalk and webhook bots run inside the gateway; see [Chat bots](bots.md).
 
 ## Per-session approval
 

@@ -13,12 +13,15 @@ sun evolve reflect <sessionId> | list [pending|accepted|rejected] | accept <id> 
 sun worktree list | status <id> | diff <id> | merge <id> [--strategy squash|merge] | discard <id>
 sun skills | sun mcp | sun plugins | sun schedules
 sun serve [--port 4471] [--host 127.0.0.1]
-sun gateway status | url | install | uninstall
+sun serve --tls [--host 0.0.0.0] [--insecure]
+sun gateway status | url | install [--tls --host ..] | uninstall
+sun gateway token create <device> | list | revoke <id|name>
+sun remote add <name> <url> --token <t> [--fingerprint <sha256>] | list | use <name> | off | remove <name>
 sun doctor
 sun desktop
 ```
 
-Session commands (`chat`, `run`, `resume`, `sessions`) attach to a running gateway; `--local` runs them in-process. See [Gateway](gateway.md).
+Session commands (`chat`, `run`, `resume`, `sessions`) use `--remote <name>`, else the default remote, else a running local gateway; `--local` runs them in-process. See [Gateway](gateway.md).
 
 ## Exit codes (`run`, `resume`)
 
@@ -32,7 +35,7 @@ Session commands (`chat`, `run`, `resume`, `sessions`) attach to a running gatew
 
 ## Approvals in the terminal
 
-In an interactive terminal, approvals prompt `[y]es / [n]o / [a]lways`. When stdin is not a TTY (pipes, cron, launchd), there is no approver: approvals are **denied with a reason** and the agent continues (see `specs/008-approval-policy.md`). Use `--approval full-auto` for trusted unattended runs.
+In an interactive terminal, approvals prompt `[y]es / [n]o / [a]lways`. Anything typed before the prompt appeared is discarded (you are asked again), so a half-written message or a stray Enter can never approve a command. When stdin is not a TTY (pipes, cron, launchd), there is no approver: approvals are **denied with a reason** and the agent continues (see `specs/008-approval-policy.md`). Use `--approval full-auto` for trusted unattended runs.
 
 ## Chat slash commands
 

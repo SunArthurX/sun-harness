@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" /><meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>13 · Durable jobs — sun-harness</title>
+<link rel="stylesheet" href="teach.css" />
+<script type="module">import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs'; mermaid.initialize({ startOnLoad: true, theme: 'neutral' });</script>
+</head>
+<body>
+<header class="top"><div class="wrap"><a class="brand" href="index.html">sun<em>harness</em> · teach</a><nav><a href="index.html">All pages</a></nav></div></header>
+<main class="wrap">
+<p class="muted">Iteration 8 · spec <code>specs/015-durable-jobs.md</code></p>
+<h1>13 · Jobs that <em>survive</em></h1>
+<p class="lede">Page 09 made long commands asynchronous, but they still died with the process that started them. With a gateway that restarts on upgrades and crashes, "durable before clever" has to cover jobs too.</p>
+
+<h2>Move the job's state out of memory</h2>
+<p>A job used to be a child process whose output came through pipes and whose exit was an in-memory event. Both disappear when the parent dies. The fix moves all three onto disk:</p>
+<pre><code>bash -c "$SUN_JOB_CMD" >>"$SUN_JOB_LOG" 2>&1; echo $? >"$SUN_JOB_EXIT.tmp" && mv "$SUN_JOB_EXIT.tmp" "$SUN_JOB_EXIT"</code></pre>
+<ul>
+<li><strong>Output</strong> goes straight to <code>&lt;id&gt;.log</code> from the shell, with no pipe to a parent.</li>
+<li><strong>Exit status</strong> is written by the wrapper itself, atomically (temp file and rename), so a half-written file can't be misread.</li>
+<li><strong>Identity</strong> lives in <code>&lt;id&gt;.json</code>: session, command, pid, file paths.</li>
+<li>The wrapper runs <strong>detached</strong> in its own process group, so it is not killed with the parent, and <code>job_kill</code> can stop the whole group.</li>
+</ul>
+
+<h2>Restore</h2>
+<div class="mermaid">
+flowchart TB
+  S[host.init] --> C[clean up sessions interrupted mid-run]
+  C --> R[jobs.restore: read ~/.sun/jobs/*.json]
+  R --> E{exit file?}
+  E -->|yes| D[finish done/failed + deliver → may start a run]
+  E -->|no| A{wrapper alive?<br/>pid + marker in command line}
+  A -->|yes| W[watch every 500 ms, deliver at the end]
+  A -->|no| L[lost → deliver, agent can restart it]
+</div>
+
+<h2>Design questions</h2>
+<div class="qa"><p class="q">Why check the process's command line, not just whether the pid exists?</p><p class="a">Pids are reused. After a reboot, pid 75128 may be some unrelated program, and <code>kill(pid, 0)</code> would report it alive forever. The wrapper's command line contains the literal marker <code>SUN_JOB_EXIT</code>, so the job is only considered alive if <code>ps</code> shows our wrapper.</p></div>
+<div class="qa"><p class="q">Why restore after cleaning up interrupted sessions, not before?</p><p class="a">Restoring can deliver a finished job immediately, and delivery starts a run, which sets the session to <em>running</em>. The cleanup step marks sessions that are <em>running</em> at start-up as "interrupted". In the other order, a freshly started, healthy run would be labelled interrupted. The order is part of the design and is commented in <code>init()</code>.</p></div>
+<div class="qa"><p class="q">How was it verified?</p><p class="a">Unit tests restart hosts mid-job (delivered by the second host), after a job finished with no host running (delivered on start), after the wrapper was killed from outside (lost), and with <code>killOnExit</code>. Live: through the real launchd gateway, a job ran <code>sleep 12</code>, the gateway was <code>kill -9</code>'d, launchd started a new one, it re-attached, saw exit 0, and the agent reported the output.</p></div>
+<p class="lesson">If something must outlive a process, its state can't live in that process. Put output, identity and completion on disk, and any successor can pick the work up.</p>
+
+<div class="nav"><a href="12-packaging.html">← 12 · Packaging</a><a href="14-approval-guard.html">14 · Approval guard →</a></div>
+</main>
+</body>
+</html>

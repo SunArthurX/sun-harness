@@ -14,8 +14,8 @@ A tool call that takes minutes should not block the loop. Split "invoked" from "
 - Events: `job/started {jobId, name, command}`, `job/finished {jobId, name, state: done|failed|killed|lost, exitCode?}`.
 - Delivery: when a job ends (not killed), the host appends `user/message {source: "job"}` with the state, exit code and the last ~6 000 chars of output, then starts a run (or queues the message if one is running). Model-visible means logged: the delivered text is in the log.
 - `job_status(id?)` lists the session's jobs, or shows one job's state and output tail. `job_kill(id)` stops a job (SIGTERM, then SIGKILL after 3 s); killed jobs are not delivered.
-- On host start, jobs logged as started but never finished are marked `lost` (their processes did not survive the app).
-- On host dispose, running process jobs are killed. Aborting a session's run does not kill its jobs.
+- Process jobs survive restarts and are re-attached by the next host (see `specs/015-durable-jobs.md`); only jobs without an on-disk record (promoted tool calls) are marked `lost` at start-up.
+- On host dispose, jobs are detached, not killed (`jobs.killOnExit: true` kills them). Aborting a session's run does not kill its jobs.
 - `sun run` waits for the session's running jobs and their delivery turns before exiting.
 
 ## Surfaces

@@ -20,8 +20,10 @@ Each job shows as a line in the transcript, pulsing while it runs, with a **Stop
 ## Logs and limits
 
 - Full output: `~/.sun/jobs/<job-id>.log`.
-- Jobs do not survive quitting the app or CLI; after a restart they are marked `lost` in the session.
-- Stopping a session's run does not stop its jobs. Use **Stop** or `job_kill`.
+- Jobs survive quitting the app, the CLI, or a gateway restart: the next sun-harness process re-attaches and delivers the result when the job ends (or right away if it already ended). Only a machine reboot (or killing the job from outside) loses it; the session then shows `lost`.
+- Slow MCP calls that were moved to the background cannot survive a restart.
+- Stopping a session's run does not stop its jobs. Use **Stop** or `job_kill` (kills the whole process group).
+- To kill jobs when sun-harness exits, set `"jobs": { "killOnExit": true }`.
 
 ```json
 { "jobs": { "promoteAfterMs": 60000 } }   // or 0 to keep MCP calls in the foreground

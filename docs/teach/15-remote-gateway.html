@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" /><meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>15 · Remote gateway — sun-harness</title>
+<link rel="stylesheet" href="teach.css" />
+<script type="module">import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs'; mermaid.initialize({ startOnLoad: true, theme: 'neutral' });</script>
+</head>
+<body>
+<header class="top"><div class="wrap"><a class="brand" href="index.html">sun<em>harness</em> · teach</a><nav><a href="index.html">All pages</a></nav></div></header>
+<main class="wrap">
+<p class="muted">Iteration 10 · spec <code>specs/017-remote-gateway.md</code> · ADR <code>0006</code></p>
+<h1>15 · The <em>remote</em> gateway</h1>
+<p class="lede">Your laptop, a second Mac, or a bot server should be able to use the harness at home. That means leaving localhost, which requires encryption, a trust decision, and credentials you can revoke per device.</p>
+
+<h2>Trust without a certificate authority</h2>
+<div class="mermaid">
+sequenceDiagram
+  participant O as Owner (home Mac)
+  participant G as Gateway --tls
+  participant L as Laptop
+  O->>G: sun serve --tls --host 0.0.0.0 (openssl: EC P-256 cert, SAN = LAN IPs)
+  O->>O: sun gateway token create laptop → sund_… + fingerprint BC:03:…
+  O-->>L: token + fingerprint (out of band)
+  L->>G: TLS handshake, certificate not trusted yet
+  G-->>L: certificate
+  L->>L: SHA-256 == BC:03:…? yes → store cert in remotes.json
+  L->>G: later calls: ca = that cert only, fingerprint re-checked, Bearer sund_…
+  O->>G: sun gateway token revoke laptop → next call 401
+</div>
+
+<h2>Design questions</h2>
+<div class="qa"><p class="q">Why not Let's Encrypt?</p><p class="a">A personal gateway on <code>192.168.0.216</code> has no public domain to validate. Pinning the self-signed certificate is stronger here: a CA can issue a valid certificate for your name to someone else, but nobody else can produce your key's fingerprint.</p></div>
+<div class="qa"><p class="q">What stops someone from simply binding to 0.0.0.0 over HTTP?</p><p class="a">The gateway does: <code>startGateway</code> throws if the address is not loopback and TLS is off. An explicit <code>--insecure</code> exists for tunnels that already encrypt, and is documented as unsafe.</p></div>
+<div class="qa"><p class="q">A wrong fingerprint was accepted in testing. Why?</p><p class="a">Node's shared HTTPS agent pools TLS connections. A client with the correct pin opened a connection; a second client with a wrong pin then got that already-verified socket from the pool, and <code>checkServerIdentity</code> never ran. The test caught it. The fix is <code>agent: false</code> (no pooled sockets for pinned clients) plus a second fingerprint check on every response's socket. Verification code is only as good as the connection it actually runs on.</p></div>
+<div class="qa"><p class="q">Why one token per device instead of the owner token everywhere?</p><p class="a">Revocation and audit. A lost laptop costs one <code>revoke</code>, not a reset of every client. Tokens are shown once and stored only as SHA-256 hashes, compared in constant time; <code>token list</code> shows each device's last use.</p></div>
+<div class="qa"><p class="q">How was it verified live?</p><p class="a">A TLS gateway with its own home listened on <code>0.0.0.0:4490</code>. A client with a separate home ran <code>remote add</code> against the LAN address: a wrong <code>--fingerprint</code> was refused and not saved, the correct one connected, and a session ran on the server (visible in its session list, with the token's last use updated). After <code>token revoke</code>, the client got "Gateway rejected the token".</p></div>
+<p class="lesson">Make the secure path the only easy path: no TLS, no network binding; no matching fingerprint, no connection; one token per device, revocable in one command.</p>
+
+<div class="nav"><a href="14-approval-guard.html">← 14 · Approval guard</a><a href="16-chat-bots.html">16 · Chat bots →</a></div>
+</main>
+</body>
+</html>

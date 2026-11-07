@@ -22,6 +22,8 @@
 | `intel` | 14 sources, 09:00 | `{sources[], analysisModel?, hour, minute}` |
 | `evolution.autoReflect` | `false` | reserved |
 | `jobs.promoteAfterMs` | `30000` | MCP calls still running after this move to a background job (0 = never) |
+| `jobs.killOnExit` | `false` | kill background jobs when sun-harness exits (default: they keep running and are re-attached) |
+| `bots` | all disabled | `{defaultMode, approvals: chat|deny, telegram{enabled,tokenEnv,allowedUsers,apiBase?}, dingtalk{enabled,appSecretEnv,allowedUsers}, webhook{enabled,allowedUsers}}` — see [Chat bots](bots.md) |
 
 Provider presets: `deepseek`, `anthropic`, `openai`, `glm`, `qwen` (DashScope), `gemini`, `openrouter`, `ollama`. Add your own:
 
@@ -34,6 +36,10 @@ Provider presets: `deepseek`, `anthropic`, `openai`, `glm`, `qwen` (DashScope), 
 ```text
 ~/.sun/
   config.json  .env  AGENTS.md  mcp.json  hooks.json  schedules.json  gateway.json  gateway.log
+  gateway-devices.json         # device token hashes (0600)
+  remotes.json                 # client side: remotes and pinned certificates (0600)
+  bots.json                    # chat → session map
+  tls/cert.pem key.pem         # gateway certificate (key 0600)
   sessions/<id>.jsonl          # durable session logs
   memory/MEMORY.md
   kb/                          # personal notes (kb_add_note writes to kb/notes/)
@@ -42,7 +48,7 @@ Provider presets: `deepseek`, `anthropic`, `openai`, `glm`, `qwen` (DashScope), 
   plugins/<name>/
   evolution/proposals/*.json  backlog.md  journal.md
   intel/state.json  raw/<date>.json  reports/<date>.{md,html}  launchd.log
-  jobs/<job-id>.log            # background job output
+  jobs/<job-id>.log .json .exit  # background job output, record, exit status
   worktrees/<repo>-<id>/       # worktree sessions
   bin/sun.mjs                  # self-contained CLI used by launchd
   web/                         # web UI served by the gateway
