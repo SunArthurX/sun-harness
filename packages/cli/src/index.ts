@@ -298,7 +298,12 @@ async function main(): Promise<void> {
       if (!values.json) host.subscribe((e) => printEvent(e, s.id, state));
       wireApprovals(host);
       await host.send(s.id, prompt);
-      const r = await host.wait(s.id);
+      let r = await host.wait(s.id);
+      // Background jobs deliver their results as new turns; stay until they and those turns finish.
+      while (host.listJobs(s.id).some((j) => j.state === 'running') || host.isRunning(s.id)) {
+        await new Promise((res) => setTimeout(res, 300));
+        r = (await host.wait(s.id)) ?? r;
+      }
       const last = SessionLog.open(s.id).last('assistant/message');
       if (values.json) console.log(JSON.stringify({ sessionId: s.id, status: r?.status, reason: r?.reason, text: last?.text ?? '' }, null, 2));
       else console.log(c.dim(`\nsession ${s.id} · ${r?.status}${r?.reason ? ` (${r.reason})` : ''}`));

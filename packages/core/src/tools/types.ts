@@ -9,6 +9,10 @@ export interface ToolServices {
   loadSkill?(name: string): Promise<string>;
   runSubagent?(prompt: string, opts: { mode?: string }): Promise<string>;
   scheduleTask?(spec: { prompt: string; at?: string; cron?: string; title?: string }): Promise<string>;
+  /** Start a background shell job; its result is delivered to the session when it ends. */
+  startJob?(command: string, cwd: string): string;
+  jobStatus?(id?: string): string;
+  killJob?(id: string): string;
 }
 
 export interface ToolContext {

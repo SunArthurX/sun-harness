@@ -57,7 +57,7 @@ export type SessionEventBody =
       worktree?: { repo: string; path: string; branch: string; base: string };
     }
   | { type: 'session/title'; title: string }
-  | { type: 'user/message'; text: string; source?: 'user' | 'hook' | 'schedule' | 'system' }
+  | { type: 'user/message'; text: string; source?: 'user' | 'hook' | 'schedule' | 'system' | 'job' }
   | { type: 'request/header'; model: string; systemPrompt: string; tools: string[] }
   | {
       type: 'assistant/message';
@@ -75,7 +75,9 @@ export type SessionEventBody =
   | { type: 'mode/switch'; from: string; to: string }
   | { type: 'context/compaction'; summary: string; upToSeq: number; /** Summarizer model when it differs from the session model. */ model?: string }
   | { type: 'todo/update'; items: TodoItem[] }
-  | { type: 'worktree/closed'; action: 'merged' | 'discarded'; detail?: string };
+  | { type: 'worktree/closed'; action: 'merged' | 'discarded'; detail?: string }
+  | { type: 'job/started'; jobId: string; name: string; command: string }
+  | { type: 'job/finished'; jobId: string; name: string; state: 'done' | 'failed' | 'killed' | 'lost'; exitCode?: number };
 
 export type SessionEvent = EventBase & SessionEventBody;
 

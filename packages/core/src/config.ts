@@ -56,6 +56,8 @@ export interface SunConfig {
   };
   intel: { sources: IntelSource[]; analysisModel?: string; hour: number; minute: number };
   evolution: { autoReflect: boolean };
+  /** Tool calls (MCP) still running after promoteAfterMs move to the background (0 disables). */
+  jobs: { promoteAfterMs: number };
 }
 
 export const PROVIDER_PRESETS: Record<string, ProviderConfig> = {
@@ -143,6 +145,7 @@ export function defaultConfig(): SunConfig {
     kb: { roots: [homePath('kb')], company: { enabled: false, baseUrl: '', tokenEnv: 'COMPANY_KB_TOKEN', name: 'Company KB' } },
     intel: { sources: DEFAULT_INTEL_SOURCES, hour: 9, minute: 0 },
     evolution: { autoReflect: false },
+    jobs: { promoteAfterMs: 30000 },
   };
 }
 

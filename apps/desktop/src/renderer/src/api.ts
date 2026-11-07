@@ -13,6 +13,7 @@ import type {
   SunConfig,
   KnowledgeHit,
   WorktreeStatus,
+  Job,
 } from '@sun/core';
 
 declare global {
@@ -31,6 +32,9 @@ export const api = {
   listSessions: () => call<SessionSummary[]>('listSessions'),
   getEvents: (id: string) => call<SessionEvent[]>('getEvents', id),
   createSession: (input: { cwd?: string; mode?: string; model?: string; worktree?: boolean }) => call<SessionSummary>('createSession', input),
+  listJobs: (sessionId?: string) => call<Job[]>('listJobs', sessionId),
+  jobOutput: (jobId: string) => call<string>('jobOutput', jobId),
+  killJob: (jobId: string) => call<boolean>('killJob', jobId),
   worktreeStatus: (id: string) => call<WorktreeStatus>('worktreeStatus', id),
   worktreeDiff: (id: string) => call<string>('worktreeDiff', id),
   mergeWorktree: (id: string, strategy?: 'squash' | 'merge') => call<{ strategy: string; output: string }>('mergeWorktree', id, strategy),

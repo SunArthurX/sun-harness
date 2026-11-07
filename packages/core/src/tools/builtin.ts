@@ -172,15 +172,16 @@ const grep: Tool = {
 const bash: Tool = {
   name: 'bash',
   description:
-    'Run a shell command in the workspace (bash -c). Returns combined stdout/stderr and exit code. Avoid interactive commands. Default timeout 120s.',
+    'Run a shell command in the workspace (bash -c). Returns combined stdout/stderr and exit code. Avoid interactive commands. Default timeout 120s. Set background: true for long tasks (test suites, builds, dev servers): it returns a job id immediately and the result is delivered to you when the job ends.',
   parameters: {
     type: 'object',
-    properties: { command: { type: 'string' }, timeout_ms: { type: 'number' } },
+    properties: { command: { type: 'string' }, timeout_ms: { type: 'number' }, background: { type: 'boolean' } },
     required: ['command'],
   },
   risk: 'exec',
   source: 'builtin',
   execute(args, ctx) {
+    if (args.background && ctx.services.startJob) return Promise.resolve(ctx.services.startJob(String(args.command), ctx.cwd));
     return new Promise((resolvePromise) => {
       const child = spawn('bash', ['-c', String(args.command)], { cwd: ctx.cwd, env: { ...process.env, PAGER: 'cat' } });
       let out = '';

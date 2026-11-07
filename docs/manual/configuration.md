@@ -20,6 +20,7 @@
 | `kb.company` | disabled | `{enabled, name, baseUrl, tokenEnv}` |
 | `intel` | 14 sources, 09:00 | `{sources[], analysisModel?, hour, minute}` |
 | `evolution.autoReflect` | `false` | reserved |
+| `jobs.promoteAfterMs` | `30000` | MCP calls still running after this move to a background job (0 = never) |
 
 Provider presets: `deepseek`, `anthropic`, `openai`, `glm`, `qwen` (DashScope), `gemini`, `openrouter`, `ollama`. Add your own:
 
@@ -39,6 +40,8 @@ Provider presets: `deepseek`, `anthropic`, `openai`, `glm`, `qwen` (DashScope), 
   plugins/<name>/
   evolution/proposals/*.json  backlog.md  journal.md
   intel/state.json  raw/<date>.json  reports/<date>.{md,html}  launchd.log
+  jobs/<job-id>.log            # background job output
+  worktrees/<repo>-<id>/       # worktree sessions
   bin/sun.mjs                  # self-contained CLI used by launchd
   workspace/                   # default folder for agent/assistant sessions
 ```

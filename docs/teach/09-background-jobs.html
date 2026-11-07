@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" /><meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>09 · Background jobs — sun-harness</title>
+<link rel="stylesheet" href="teach.css" />
+<script type="module">import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs'; mermaid.initialize({ startOnLoad: true, theme: 'neutral' });</script>
+</head>
+<body>
+<header class="top"><div class="wrap"><a class="brand" href="index.html">sun<em>harness</em> · teach</a><nav><a href="index.html">All pages</a></nav></div></header>
+<main class="wrap">
+<p class="muted">Iteration 4 · spec <code>specs/011-background-jobs.md</code></p>
+<h1>09 · Background <em>jobs</em></h1>
+<p class="lede">The loop in page 02 is synchronous: call a tool, wait, continue. That is wrong for a ten-minute test suite or a dev server. This iteration splits <em>invoked</em> from <em>finished</em>, so the result can re-enter the session later, as a logged event.</p>
+
+<h2>The finding and the principle</h2>
+<p>Claude Code 2.1.319 moves long-running MCP tool calls to the background right away and tells the model the result when it is done. The intel report named the mechanism: <em>async tool results as eventual delivery</em>. It works because the loop is already event-driven: a completion is just another input.</p>
+
+<h2>Sequence</h2>
+<div class="mermaid">
+sequenceDiagram
+  participant M as Model
+  participant A as Agent loop
+  participant J as JobManager
+  participant L as Session log
+  M->>A: bash {command: "pnpm test", background: true}
+  A->>J: startProcess
+  J-->>L: job/started
+  A-->>M: "Started job-ab12; result will be delivered"
+  M->>A: continues other work, then ends the turn
+  Note over A: run idle
+  J-->>L: job/finished (exit 0)
+  J->>A: deliver: user/message {source: job} + output tail
+  A->>M: new turn with the result
+  M-->>A: "Tests passed (412)…"
+</div>
+
+<h2>Promotion of slow tool calls</h2>
+<div class="mermaid">
+flowchart LR
+  C[MCP tool call] --> R{finished within<br/>promoteAfterMs?}
+  R -->|yes| N[normal tool result]
+  R -->|no| P[return notice: moved to job-id]
+  P --> K[call keeps running]
+  K --> D[job/finished + delivery]
+</div>
+
+<h2>Design questions</h2>
+<div class="qa"><p class="q">Why deliver the result as a user message instead of rewriting the old tool result?</p><p class="a">The log is append-only, and the model already saw the "moved to background" result. Rewriting it would make the transcript disagree with what the model actually saw, which breaks <em>model-visible means logged</em>. A new <code>user/message</code> with <code>source: job</code> is honest about time: the result arrived later.</p></div>
+<div class="qa"><p class="q">What if the agent is in the middle of a run when the job ends?</p><p class="a">The delivery goes through the same queue as user follow-ups and arrives when the run ends. The queue had to learn to keep each message's source: in the first version a queued job result was replayed as a <em>user</em> message.</p></div>
+<div class="qa"><p class="q">Do jobs survive a restart?</p><p class="a">Not yet. Child processes die with the app, so on start-up any job without a <code>job/finished</code> event is marked <code>lost</code> and the session shows it. A long-lived owner process (the gateway, page 10) is the place to make jobs outlive a window.</p></div>
+<div class="qa"><p class="q">Why doesn't Stop on a session kill its jobs?</p><p class="a">Jobs are often things you want to keep, such as a dev server you are clicking through. Stopping the agent's thinking and stopping its processes are separate decisions, so jobs have their own Stop button and the <code>job_kill</code> tool.</p></div>
+<p class="lesson">If the loop is a pure function of the log, asynchrony is cheap: anything that finishes later becomes one more event, and the loop takes it from there.</p>
+
+<div class="nav"><a href="08-worktrees.html">← 08 · Worktrees</a><a href="10-gateway.html">10 · The gateway →</a></div>
+</main>
+</body>
+</html>

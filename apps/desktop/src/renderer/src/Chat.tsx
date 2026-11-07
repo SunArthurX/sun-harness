@@ -282,6 +282,7 @@ export function Chat({
   }, [events]);
   const todos = useMemo(() => [...events].reverse().find((e) => e.type === 'todo/update') as Extract<SessionEvent, { type: 'todo/update' }> | undefined, [events]);
 
+  const finishedJobs = useMemo(() => new Set(events.filter((e) => e.type === 'job/finished').map((e) => (e as Extract<SessionEvent, { type: 'job/finished' }>).jobId)), [events]);
   const running = summary.status === 'running' || summary.status === 'awaiting_approval';
   const mine = approvals.filter((a) => a.displaySessionId === summary.id);
   const usage = events.reduce((acc, e) => (e.type === 'assistant/message' && e.usage ? acc + e.usage.inputTokens + e.usage.outputTokens : acc), 0);
@@ -352,6 +353,15 @@ export function Chat({
         {events.map((e) => {
           switch (e.type) {
             case 'user/message':
+              if (e.source === 'job')
+                return (
+                  <details key={e.seq} className="job-result">
+                    <summary>
+                      <span className="tool-glyph">⏵</span> {e.text.split('\n')[0].replace(/^\[|\]$/g, '')}
+                    </summary>
+                    <pre>{e.text.split('\n').slice(1).join('\n')}</pre>
+                  </details>
+                );
               return e.source === 'hook' ? (
                 <div key={e.seq} className="divider">
                   hook context
@@ -387,6 +397,26 @@ export function Chat({
               return (
                 <div key={e.seq} className="divider">
                   mode {e.from} → {e.to}
+                </div>
+              );
+            case 'job/started':
+              return (
+                <div key={e.seq} className="job-line">
+                  <span className={`dot ${finishedJobs.has(e.jobId) ? 'dot-off' : 'dot-running'}`} />
+                  <span className="mono small">{e.jobId}</span>
+                  <span className="mono small muted job-cmd">{e.command}</span>
+                  {!finishedJobs.has(e.jobId) && (
+                    <button className="btn-ghost small" onClick={() => api.killJob(e.jobId)}>
+                      Stop
+                    </button>
+                  )}
+                </div>
+              );
+            case 'job/finished':
+              return (
+                <div key={e.seq} className="divider">
+                  {e.jobId} {e.state}
+                  {e.exitCode !== undefined ? ` · exit ${e.exitCode}` : ''}
                 </div>
               );
             case 'context/compaction':

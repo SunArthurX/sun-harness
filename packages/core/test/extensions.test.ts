@@ -282,7 +282,7 @@ describe('mcp', () => {
     );
     const m = new McpManager();
     await m.connectAll(ws);
-    expect(m.servers.get('echo')).toMatchObject({ status: 'ready', tools: ['echo'] });
+    expect(m.servers.get('echo')).toMatchObject({ status: 'ready', tools: ['echo', 'slow'] });
     expect(m.servers.get('off')?.status).toBe('disabled');
     const tool = m.listTools().find((t) => t.name === 'mcp__echo__echo')!;
     expect(tool.risk).toBe('exec');

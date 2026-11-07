@@ -31,3 +31,4 @@ export { markdownToHtml, htmlPage } from './util/markdown.js';
 export { extractJson } from './util/json.js';
 export * from './env.js';
 export * from './worktree.js';
+export * from './jobs.js';

@@ -67,6 +67,22 @@ export const SERVICE_TOOLS: Tool[] = [
     execute: (a, ctx) => need(ctx, 'runSubagent')(String(a.prompt), { mode: a.mode }),
   },
   {
+    name: 'job_status',
+    description: 'Show background jobs of this session (no id) or the state and latest output of one job.',
+    parameters: { type: 'object', properties: { id: { type: 'string' } } },
+    risk: 'read',
+    source: 'builtin',
+    execute: async (a, ctx) => need(ctx, 'jobStatus')(a.id),
+  },
+  {
+    name: 'job_kill',
+    description: 'Stop a running background job.',
+    parameters: { type: 'object', properties: { id: { type: 'string' } }, required: ['id'] },
+    risk: 'exec',
+    source: 'builtin',
+    execute: async (a, ctx) => need(ctx, 'killJob')(String(a.id)),
+  },
+  {
     name: 'schedule_task',
     description:
       'Schedule a prompt to run later as a new session: once at an ISO time ("at") or repeatedly with a 5-field cron ("cron", local time). Runs while the desktop app is open.',

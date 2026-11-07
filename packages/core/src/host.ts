@@ -2,6 +2,7 @@ import { localDate } from './util/date.js';
 import { existsSync, mkdirSync, realpathSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import { join, relative } from 'node:path';
+import { JobManager, type JobResult } from './jobs.js';
 import { createWorktree, mergeWorktree, removeWorktree, worktreeDiff, worktreeStatus, type WorktreeInfo, type WorktreeStatus } from './worktree.js';
 import { Agent, type AgentHooks, type ApprovalRequest, type RunResult } from './agent.js';
 import { availableModels, compactionLimit, contextWindowOf, createProviderFactory, isProviderReady, loadConfig, saveConfig, type ProviderFactory, type SunConfig } from './config.js';
@@ -57,10 +58,14 @@ export class HarnessHost {
   private pluginListeners: ((sessionId: string, e: SessionEvent) => void)[] = [];
   private listeners = new Set<(e: LiveEvent) => void>();
   private runs = new Map<string, { controller: AbortController; promise: Promise<RunResult> }>();
-  private queued = new Map<string, string[]>();
+  private queued = new Map<string, { text: string; source: 'user' | 'schedule' | 'system' | 'job' }[]>();
   private approvals = new Map<string, { pending: PendingApproval; resolve: (d: ApprovalDecision) => void }>();
   private mcp = new Map<string, McpManager>();
   private personalKb: LocalMarkdownKB;
+  readonly jobs = new JobManager(
+    (job) => this.append(SessionLog.open(job.sessionId), { type: 'job/started', jobId: job.id, name: job.name, command: job.command }),
+    (r) => this.deliverJob(r),
+  );
   private timer?: NodeJS.Timeout;
   pluginStates: PluginState[] = [];
 
@@ -77,6 +82,13 @@ export class HarnessHost {
       if (s.status === 'running' || s.status === 'awaiting_approval') {
         SessionLog.open(s.id).append({ type: 'run/status', status: 'paused', reason: 'interrupted', detail: 'The app stopped during a run.' });
       }
+      const log = SessionLog.open(s.id);
+      const open = new Map<string, string>();
+      for (const e of log.all()) {
+        if (e.type === 'job/started') open.set(e.jobId, e.name);
+        else if (e.type === 'job/finished') open.delete(e.jobId);
+      }
+      for (const [jobId, name] of open) log.append({ type: 'job/finished', jobId, name, state: 'lost' });
     }
     if (this.opts.loadPlugins !== false) await this.reloadPlugins();
   }
@@ -198,9 +210,9 @@ export class HarnessHost {
   }
 
   /** Send a user message. If a run is active, the message is queued and delivered when it ends. */
-  async send(id: string, text: string, source: 'user' | 'schedule' | 'system' = 'user'): Promise<void> {
+  async send(id: string, text: string, source: 'user' | 'schedule' | 'system' | 'job' = 'user'): Promise<void> {
     if (this.runs.has(id)) {
-      this.queued.set(id, [...(this.queued.get(id) ?? []), text]);
+      this.queued.set(id, [...(this.queued.get(id) ?? []), { text, source }]);
       return;
     }
     const log = SessionLog.open(id);
@@ -286,7 +298,7 @@ export class HarnessHost {
         if (q?.length) {
           this.queued.delete(id);
           const log = SessionLog.open(id);
-          for (const t of q) this.append(log, { type: 'user/message', text: t, source: 'user' });
+          for (const t of q) this.append(log, { type: 'user/message', text: t.text, source: t.source });
           this.startRun(id);
         } else this.broadcastSessions();
       });
@@ -303,7 +315,12 @@ export class HarnessHost {
     const cwd = log.meta()!.cwd;
     const mcpTools = this.opts.connectMcp === false || !this.config.mcp.enabled ? [] : (await this.mcpFor(cwd)).listTools();
     const byName = new Map<string, Tool>();
-    for (const t of [...BUILTIN_TOOLS, ...SERVICE_TOOLS, ...this.pluginTools, ...mcpTools]) byName.set(t.name, t);
+    const promote = this.config.jobs?.promoteAfterMs ?? 0;
+    const slowSafe = mcpTools.map((t) => ({
+      ...t,
+      execute: (args: unknown, ctx: Parameters<Tool['execute']>[1]) => this.jobs.promoteIfSlow(ctx.sessionId, t.name, args, () => t.execute(args, ctx), promote),
+    }));
+    for (const t of [...BUILTIN_TOOLS, ...SERVICE_TOOLS, ...this.pluginTools, ...slowSafe]) byName.set(t.name, t);
     return [...byName.values()];
   }
 
@@ -320,6 +337,31 @@ export class HarnessHost {
       knowledgeProviders: this.knowledgeProviders().map((k) => ({ id: k.id, name: k.name })),
       extraSections: this.promptSections.map((s) => ({ title: s.title, text: s.text() })),
     });
+  }
+
+  // ---------- background jobs ----------
+
+  /** Log the end of a job and deliver its result to the session (starting or queueing a run). */
+  private deliverJob({ job, tail }: JobResult): void {
+    if (!SessionLog.exists(job.sessionId)) return;
+    const log = SessionLog.open(job.sessionId);
+    const state = job.state === 'running' ? 'done' : job.state;
+    this.append(log, { type: 'job/finished', jobId: job.id, name: job.name, state, exitCode: job.exitCode });
+    if (state === 'killed' || log.last('worktree/closed')) return;
+    const text = `[Background job ${job.id} ${state}${job.exitCode !== undefined ? ` (exit ${job.exitCode})` : ''}: ${job.command.slice(0, 200)}]\n${tail.trim() || '(no output)'}`;
+    this.send(job.sessionId, text, 'job').catch(() => undefined);
+  }
+
+  listJobs(sessionId?: string) {
+    return this.jobs.list(sessionId);
+  }
+
+  jobOutput(jobId: string): string {
+    return this.jobs.tail(jobId, 50_000);
+  }
+
+  killJob(jobId: string): boolean {
+    return this.jobs.kill(jobId);
   }
 
   // ---------- worktrees ----------
@@ -418,6 +460,20 @@ export class HarnessHost {
         return loadSkillBody(s);
       },
       runSubagent: (prompt, o) => this.runSubagent(log, prompt, o.mode, signal),
+      startJob: (command, jobCwd) => {
+        const job = this.jobs.startProcess(log.id, command, jobCwd);
+        return `Started background job ${job.id}. Its output is logged to ${job.logFile}; you will receive the result in this session when it ends. Use job_status to check progress or job_kill to stop it.`;
+      },
+      jobStatus: (jobId) => {
+        if (!jobId) {
+          const list = this.jobs.list(log.id);
+          return list.map((j) => `${j.id}  ${j.state}${j.exitCode !== undefined ? ` (exit ${j.exitCode})` : ''}  ${j.command.slice(0, 120)}`).join('\n') || 'No background jobs in this session.';
+        }
+        const j = this.jobs.get(jobId);
+        if (!j) return `No job ${jobId}.`;
+        return `${j.id} ${j.state}${j.exitCode !== undefined ? ` (exit ${j.exitCode})` : ''}\n${this.jobs.tail(jobId, 4000) || '(no output yet)'}`;
+      },
+      killJob: (jobId) => (this.jobs.kill(jobId) ? `Stopped ${jobId}.` : `${jobId} is not running.`),
       scheduleTask: async (spec) => {
         const t = addSchedule({ title: spec.title ?? spec.prompt.slice(0, 50), prompt: spec.prompt, at: spec.at, cron: spec.cron, mode: 'assistant', cwd });
         return `Scheduled ${t.id} (${t.cron ? `cron ${t.cron}` : `at ${t.at}`}). It runs while the sun-harness desktop app is open.`;
@@ -614,6 +670,7 @@ export class HarnessHost {
 
   async dispose(): Promise<void> {
     this.stopBackground();
+    this.jobs.killAll();
     for (const id of this.runs.keys()) this.abort(id);
     await Promise.all([...this.mcp.values()].map((m) => m.closeAll()));
   }

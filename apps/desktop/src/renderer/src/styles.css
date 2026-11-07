@@ -1180,3 +1180,39 @@ pre.diff {
   flex: none;
   max-width: 260px;
 }
+
+/* background jobs */
+.job-line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px dashed var(--line-2);
+  border-radius: 9px;
+  padding: 6px 11px;
+}
+.job-cmd {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.job-result {
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--info);
+  border-radius: 9px;
+  background: var(--bg-2);
+  padding: 7px 11px;
+  font-size: 12.5px;
+}
+.job-result summary {
+  cursor: pointer;
+  font-family: var(--mono);
+  color: var(--text-2);
+}
+.job-result pre {
+  font: 12px/1.5 var(--mono);
+  white-space: pre-wrap;
+  max-height: 320px;
+  overflow: auto;
+  color: var(--text-2);
+}
