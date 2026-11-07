@@ -36,15 +36,31 @@ export const SERVICE_TOOLS: Tool[] = [
   {
     name: 'memory_save',
     description:
-      'Remember a durable fact about the user or their preferences/projects (e.g. "prefers pnpm"). Keep it short. Memory is shown in future sessions.',
+      'Remember a durable fact about the user, their preferences, people, projects, or a lesson (one short fact per call). Long-term memories are recalled automatically when relevant. Set core: true only for identity-level facts needed in every conversation (name, language, time zone); those are always shown.',
     parameters: {
       type: 'object',
-      properties: { fact: { type: 'string' }, section: { type: 'string', description: 'e.g. Profile, Preferences, Projects, Lessons' } },
+      properties: {
+        fact: { type: 'string' },
+        kind: { type: 'string', enum: ['fact', 'preference', 'person', 'project', 'lesson'] },
+        core: { type: 'boolean' },
+        section: { type: 'string', description: 'core memory section, e.g. Profile, Preferences' },
+      },
       required: ['fact'],
     },
     risk: 'read',
     source: 'builtin',
-    execute: (a, ctx) => need(ctx, 'memorySave')(String(a.fact), a.section),
+    execute: (a, ctx) =>
+      a.core || a.section || !ctx.services.memoryRemember
+        ? need(ctx, 'memorySave')(String(a.fact), a.section ?? (a.core ? 'Profile' : undefined))
+        : ctx.services.memoryRemember(String(a.fact), a.kind),
+  },
+  {
+    name: 'memory_search',
+    description: 'Search long-term memory (facts, preferences, people, projects, lessons, past conversations) by keywords.',
+    parameters: { type: 'object', properties: { query: { type: 'string' } }, required: ['query'] },
+    risk: 'read',
+    source: 'builtin',
+    execute: (a, ctx) => need(ctx, 'memorySearch')(String(a.query)),
   },
   {
     name: 'load_skill',

@@ -2,6 +2,11 @@ import { DEFAULT_SANDBOX, type SandboxConfig } from './sandbox.js';
 import { DEFAULT_BROWSER, type BrowserConfig } from './browser/browser.js';
 import { DEFAULT_SEARCH, type SearchConfig } from './research/search.js';
 import { DEFAULT_TAINT, type TaintConfig } from './research/taint.js';
+import { DEFAULT_MEMORY, type MemoryConfig } from './assistant/memstore.js';
+import { DEFAULT_ROUTER, type RouterConfig } from './assistant/router.js';
+import { DEFAULT_BRIEFING, type BriefingConfig } from './assistant/briefing.js';
+import type { TriggerDef } from './assistant/triggers.js';
+import { DEFAULT_VOICE, type VoiceConfig } from './assistant/voice.js';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { ensureDir, homePath, sunHome } from './paths.js';
 import { AnthropicProvider } from './providers/anthropic.js';
@@ -81,6 +86,14 @@ export interface SunConfig {
   taint: TaintConfig;
   /** Tool calls run concurrently in one step (read-only tools, subagents). */
   maxParallelTools: number;
+  /** Layered memory: recall and automatic extraction (specs/024). */
+  memory: MemoryConfig;
+  /** Model routing: background model and "auto" sessions (specs/024). */
+  router: RouterConfig;
+  briefing: BriefingConfig;
+  /** Event triggers: file watches and webhooks that start sessions. */
+  triggers: TriggerDef[];
+  voice: VoiceConfig;
   /** Chat bots run inside the gateway (sun serve). Allowlists are platform user ids; empty = nobody. */
   bots: BotsConfig;
 }
@@ -179,6 +192,11 @@ export function defaultConfig(): SunConfig {
     search: structuredClone(DEFAULT_SEARCH),
     taint: structuredClone(DEFAULT_TAINT),
     maxParallelTools: 6,
+    memory: structuredClone(DEFAULT_MEMORY),
+    router: structuredClone(DEFAULT_ROUTER),
+    briefing: structuredClone(DEFAULT_BRIEFING),
+    triggers: [],
+    voice: structuredClone(DEFAULT_VOICE),
     bots: {
       defaultMode: 'assistant',
       approvals: 'chat',

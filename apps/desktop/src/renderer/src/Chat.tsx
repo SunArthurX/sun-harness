@@ -288,6 +288,67 @@ function FilesPanel({ sessionId, version, onClose }: { sessionId: string; versio
   );
 }
 
+/** Read a reply with the OS voices (Markdown stripped, long replies cut). */
+function speakText(md: string): void {
+  const text = md
+    .replace(/```[\s\S]*?```/g, ' (code) ')
+    .replace(/[#*_`>|\[\]()-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .slice(0, 1500);
+  const u = new SpeechSynthesisUtterance(text);
+  if (/[\u4e00-\u9fff]/.test(text)) u.lang = 'zh-CN';
+  speechSynthesis.cancel();
+  speechSynthesis.speak(u);
+}
+
+/** Hold-free voice input: click to record, click again to transcribe into the composer. */
+function VoiceButton({ onText }: { onText: (t: string) => void }) {
+  const [state, setState] = useState<'idle' | 'recording' | 'transcribing'>('idle');
+  const [err, setErr] = useState('');
+  const rec = useRef<MediaRecorder | null>(null);
+  const start = async () => {
+    setErr('');
+    try {
+      await api.askMicrophone().catch(() => true);
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const chunks: Blob[] = [];
+      const r = new MediaRecorder(stream);
+      r.ondataavailable = (e) => e.data.size && chunks.push(e.data);
+      r.onstop = async () => {
+        stream.getTracks().forEach((t) => t.stop());
+        setState('transcribing');
+        const blob = new Blob(chunks, { type: r.mimeType || 'audio/webm' });
+        const b64 = btoa(Array.from(new Uint8Array(await blob.arrayBuffer()), (b) => String.fromCharCode(b)).join(''));
+        try {
+          const text = await api.transcribe(b64, blob.type);
+          if (text) onText(text);
+        } catch (e) {
+          setErr(String((e as Error).message ?? e).replace(/^Error invoking remote method 'sun:call': (Error: )?/, ''));
+        }
+        setState('idle');
+      };
+      rec.current = r;
+      r.start();
+      setState('recording');
+    } catch (e) {
+      setErr(String((e as Error).message ?? e));
+    }
+  };
+  return (
+    <>
+      {err && <span className="small err-text" title={err}>voice: {err.slice(0, 60)}</span>}
+      <button
+        className={`btn-ghost small ${state === 'recording' ? 'recording' : ''}`}
+        title={state === 'recording' ? 'Stop and transcribe' : 'Voice input'}
+        disabled={state === 'transcribing'}
+        onClick={() => (state === 'recording' ? rec.current?.stop() : start())}
+      >
+        {state === 'recording' ? '● Stop' : state === 'transcribing' ? '…' : '🎙'}
+      </button>
+    </>
+  );
+}
+
 export function Chat({
   summary,
   approvals,
@@ -308,6 +369,9 @@ export function Chat({
   const [showChanges, setShowChanges] = useState(false);
   const [showBrowser, setShowBrowser] = useState(false);
   const [showFiles, setShowFiles] = useState(false);
+  const [speak, setSpeak] = useState(() => localStorage.getItem('sun.speak') === '1');
+  const speakRef = useRef(speak);
+  speakRef.current = speak;
   const scroller = useRef<HTMLDivElement>(null);
   const stick = useRef(true);
 
@@ -329,6 +393,7 @@ export function Chat({
         if (live.kind === 'event' && live.sessionId === summary.id) {
           setEvents((ev) => (ev.some((e) => e.seq === live.event.seq) ? ev : [...ev, live.event]));
           if (live.event.type === 'assistant/message') {
+            if (speakRef.current && live.event.text && !live.event.toolCalls.length) speakText(live.event.text);
             setDraft('');
             setThinking('');
           }
@@ -598,6 +663,18 @@ export function Chat({
           rows={Math.min(8, Math.max(2, input.split('\n').length))}
         />
         <div className="composer-actions">
+          <VoiceButton onText={(t) => setInput((v) => (v ? `${v} ${t}` : t))} />
+          <button
+            className={`btn-ghost small ${speak ? 'on' : ''}`}
+            title={speak ? 'Stop reading replies aloud' : 'Read replies aloud'}
+            onClick={() => {
+              localStorage.setItem('sun.speak', speak ? '0' : '1');
+              if (speak) speechSynthesis.cancel();
+              setSpeak(!speak);
+            }}
+          >
+            {speak ? '🔊' : '🔈'}
+          </button>
           {running ? (
             <button className="btn-danger" onClick={() => api.abort(summary.id)}>
               ■ Stop

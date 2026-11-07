@@ -54,7 +54,10 @@
         "dir"
       ],
       "identity": null,
-      "icon": "build/icon.png"
+      "icon": "build/icon.png",
+      "extendInfo": {
+        "NSMicrophoneUsageDescription": "sun-harness uses the microphone only while you hold the voice button, to transcribe what you say."
+      }
     }
   }
 }

@@ -9,6 +9,7 @@
 | [CLI](cli.md) | `sun` commands and chat slash commands |
 | [Modes](modes.md) | Coding, Plan, Agent, Assistant; subagents; schedules |
 | [Coding](coding.md) | Edits, verification (done gate), undo, plan mode, repo map, best-of-N, prompt cache |
+| [Assistant](assistant.md) | Layered memory, DingTalk and email/calendar connectors, model routing, daily briefing, event triggers, voice, efficiency metrics |
 | [Research](research.md) | Search providers, readable pages and PDFs, Python kernel, parallel subagents, deliverables, prompt-injection guard |
 | [Browser](browser.md) | Real browser for the agent (local Chrome or sandboxed Chromium), live view, takeover, login profiles |
 | [Shell sandbox](sandbox.md) | Seatbelt / bubblewrap / Docker isolation, network allowlist, hidden credentials |

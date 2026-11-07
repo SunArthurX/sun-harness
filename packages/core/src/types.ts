@@ -63,7 +63,7 @@ export type SessionEventBody =
       sandbox?: 'off' | 'auto' | 'seatbelt' | 'bwrap' | 'docker';
     }
   | { type: 'session/title'; title: string }
-  | { type: 'user/message'; text: string; source?: 'user' | 'hook' | 'schedule' | 'system' | 'job' | 'verify' }
+  | { type: 'user/message'; text: string; source?: 'user' | 'hook' | 'schedule' | 'system' | 'job' | 'verify' | 'memory' | 'trigger' }
   | { type: 'request/header'; model: string; systemPrompt: string; tools: string[] }
   | {
       type: 'assistant/message';
@@ -88,6 +88,8 @@ export type SessionEventBody =
   | { type: 'browser/takeover'; on: boolean }
   /** External content entered the context (first time per session, and whenever injection signals are found). */
   | { type: 'context/taint'; tool: string; findings: string[] }
+  /** Long-term memories extracted from this session by a background model call. */
+  | { type: 'memory/extract'; added: { id: string; text: string; kind: string }[]; episode?: string; model: string }
   | { type: 'job/started'; jobId: string; name: string; command: string }
   | { type: 'job/finished'; jobId: string; name: string; state: 'done' | 'failed' | 'killed' | 'lost'; exitCode?: number };
 
@@ -140,5 +142,6 @@ export type LiveEvent =
   | { kind: 'sessions'; sessions: SessionSummary[] }
   | { kind: 'approvals'; approvals: PendingApproval[] }
   | { kind: 'notice'; level: 'info' | 'warn' | 'error'; text: string }
+  | { kind: 'briefing'; date: string; path: string; text: string }
   /** Live view of a session's browser tab (JPEG frames, only while a client watches). */
   | { kind: 'browser'; sessionId: string; frame?: string; width?: number; height?: number; url?: string; title?: string; takeover: boolean };

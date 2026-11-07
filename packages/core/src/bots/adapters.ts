@@ -227,6 +227,7 @@ export function startBots(host: HarnessHost, cfg: BotsConfig, env: NodeJS.Proces
   const skipped: string[] = [];
   const stops: (() => void)[] = [];
   const routes: Record<string, RouteHandler> = {};
+  const bridges: Record<string, BotBridge> = {};
   if (cfg.telegram?.enabled) {
     const token = env[cfg.telegram.tokenEnv];
     if (!token) skipped.push(`telegram (set ${cfg.telegram.tokenEnv})`);
@@ -235,6 +236,7 @@ export function startBots(host: HarnessHost, cfg: BotsConfig, env: NodeJS.Proces
       t.start();
       stops.push(() => t.stop());
       started.push('telegram');
+      bridges.telegram = t.bridge;
     }
   }
   if (cfg.dingtalk?.enabled) {
@@ -246,6 +248,7 @@ export function startBots(host: HarnessHost, cfg: BotsConfig, env: NodeJS.Proces
       routes['/bots/dingtalk'] = d.route;
       stops.push(() => d.stop());
       started.push('dingtalk');
+      bridges.dingtalk = d.bridge;
     }
   }
   if (cfg.webhook?.enabled) {
@@ -254,6 +257,7 @@ export function startBots(host: HarnessHost, cfg: BotsConfig, env: NodeJS.Proces
     routes['/bots/webhook'] = w.route;
     stops.push(() => w.stop());
     started.push('webhook');
+    bridges.webhook = w.bridge;
   }
   const need = (platform: string, names: string[]) => {
     const missing = names.filter((n) => !env[n]);
@@ -272,6 +276,7 @@ export function startBots(host: HarnessHost, cfg: BotsConfig, env: NodeJS.Proces
       routes['/bots/feishu'] = b.route;
       stops.push(() => b.stop());
       started.push('feishu');
+      bridges.feishu = b.bridge;
     }
   }
   if (cfg.wechat?.enabled) {
@@ -286,6 +291,7 @@ export function startBots(host: HarnessHost, cfg: BotsConfig, env: NodeJS.Proces
       routes['/bots/wechat'] = b.route;
       stops.push(() => b.stop());
       started.push('wechat');
+      bridges.wechat = b.bridge;
     }
   }
   if (cfg.wecom?.enabled) {
@@ -301,7 +307,18 @@ export function startBots(host: HarnessHost, cfg: BotsConfig, env: NodeJS.Proces
       routes['/bots/wecom'] = b.route;
       stops.push(() => b.stop());
       started.push('wecom');
+      bridges.wecom = b.bridge;
     }
   }
+  // Daily briefings go to the chats listed in briefing.chats ("platform:chatId").
+  stops.push(
+    host.subscribe((e) => {
+      if (e.kind !== 'briefing') return;
+      for (const target of host.config.briefing?.chats ?? []) {
+        const [platform, ...id] = target.split(':');
+        void bridges[platform]?.say(id.join(':'), `Briefing ${e.date}\n\n${e.text}`).catch(() => undefined);
+      }
+    }),
+  );
   return { started, skipped, routes, stop: () => stops.forEach((s) => s()) };
 }

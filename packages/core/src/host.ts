@@ -9,6 +9,14 @@ import { BrowserManager, type BrowserInput } from './browser/browser.js';
 import { createBrowserTools } from './browser/tools.js';
 import { PythonKernel } from './research/python.js';
 import { createResearchTools } from './research/tools.js';
+import { scanInjection, wrapUntrusted } from './research/taint.js';
+import { EXTRACT_SYSTEM, MemoryStore, formatRecall, parseExtraction, type MemoryKind } from './assistant/memstore.js';
+import { routeTier } from './assistant/router.js';
+import { dingtalkTools } from './assistant/connectors.js';
+import { briefingFile, briefingPrompt } from './assistant/briefing.js';
+import { TriggerWatchers, renderTrigger } from './assistant/triggers.js';
+import { transcribe } from './assistant/voice.js';
+import { conversationMetrics, type ModeMetrics } from './assistant/metrics.js';
 import { createSandbox, secretEnvNames, startAllowlistProxy, type ExecSandbox, type SandboxMode } from './sandbox.js';
 import { JobManager, restorableJobIds, type JobResult } from './jobs.js';
 import { createWorktree, mergeWorktree, removeWorktree, worktreeDiff, worktreeStatus, type WorktreeInfo, type WorktreeStatus } from './worktree.js';
@@ -83,7 +91,7 @@ export class HarnessHost {
   private pluginListeners: ((sessionId: string, e: SessionEvent) => void)[] = [];
   private listeners = new Set<(e: LiveEvent) => void>();
   private runs = new Map<string, { controller: AbortController; promise: Promise<RunResult> }>();
-  private queued = new Map<string, { text: string; source: 'user' | 'schedule' | 'system' | 'job' | 'verify' }[]>();
+  private queued = new Map<string, { text: string; source: 'user' | 'schedule' | 'system' | 'job' | 'verify' | 'trigger' }[]>();
   private approvals = new Map<string, { pending: PendingApproval; resolve: (d: ApprovalDecision) => void }>();
   private mcp = new Map<string, McpManager>();
   private personalKb: LocalMarkdownKB;
@@ -259,7 +267,7 @@ export class HarnessHost {
   }
 
   /** Send a user message. If a run is active, the message is queued and delivered when it ends. */
-  async send(id: string, text: string, source: 'user' | 'schedule' | 'system' | 'job' | 'verify' = 'user'): Promise<void> {
+  async send(id: string, text: string, source: 'user' | 'schedule' | 'system' | 'job' | 'verify' | 'trigger' = 'user'): Promise<void> {
     if (this.runs.has(id)) {
       this.queued.set(id, [...(this.queued.get(id) ?? []), { text, source }]);
       return;
@@ -272,6 +280,7 @@ export class HarnessHost {
       const ctx = await createShellHooks(log.meta()!.cwd).sessionStart(id);
       if (ctx) this.append(log, { type: 'user/message', text: `[sessionStart hook context]\n${ctx}`, source: 'hook' });
     }
+    if (source === 'user') this.recallMemories(log, text);
     this.append(log, { type: 'user/message', text, source });
     if (log.meta()!.title === 'New session' && !log.last('session/title')) {
       const t = text.replace(/\s+/g, ' ').trim();
@@ -330,6 +339,7 @@ export class HarnessHost {
         tools: () => tools.filter((t) => this.modeAllows(log.currentMode(), t, !!log.meta()?.parent)),
         systemPrompt: (modelRef) => this.systemPrompt(log, modelRef),
         approvalMode: () => log.meta()?.approval ?? this.config.approval,
+        routeModel: (ref) => (ref === 'auto' ? this.routeAuto(log) : ref),
         policy: () => {
           const taints = log.all().filter((e): e is Extract<SessionEvent, { type: 'context/taint' }> => e.type === 'context/taint');
           return {
@@ -353,6 +363,9 @@ export class HarnessHost {
     this.runs.set(id, { controller, promise });
     this.broadcastSessions();
     promise
+      .then((r) => {
+        if (r?.status === 'idle') this.extractMemories(id).catch(() => undefined);
+      })
       .catch(() => undefined)
       .finally(() => {
         this.runs.delete(id);
@@ -382,7 +395,7 @@ export class HarnessHost {
       ...t,
       execute: (args: unknown, ctx: Parameters<Tool['execute']>[1]) => this.jobs.promoteIfSlow(ctx.sessionId, t.name, args, () => t.execute(args, ctx), promote),
     }));
-    for (const t of [...BUILTIN_TOOLS, ...this.researchTools, ...SERVICE_TOOLS, ...this.browserTools, ...this.pluginTools, ...slowSafe]) byName.set(t.name, t);
+    for (const t of [...BUILTIN_TOOLS, ...this.researchTools, ...SERVICE_TOOLS, ...this.browserTools, ...this.connectorTools, ...this.pluginTools, ...slowSafe]) byName.set(t.name, t);
     // Capability gating: drop tools whose backend is unreachable right now.
     const all = [...byName.values()];
     const ok = await Promise.all(all.map((t) => (t.available ? t.available().catch(() => false) : Promise.resolve(true))));
@@ -405,6 +418,149 @@ export class HarnessHost {
     },
   );
   private browserTools = createBrowserTools(this.browser);
+
+  // ---------- assistant: memory, routing, briefing, triggers, voice, metrics ----------
+
+  readonly memoryStore = new MemoryStore();
+  private connectorTools = dingtalkTools();
+  private triggerWatchers = new TriggerWatchers();
+
+  /** Attach relevant long-term memories before a user message (logged, so the model's view is reproducible). */
+  private recallMemories(log: SessionLog, text: string): void {
+    const m = this.config.memory;
+    if (!m || !m.recallModes.includes(log.currentMode())) return;
+    const already = new Set(
+      log
+        .all()
+        .filter((e) => e.type === 'user/message' && e.source === 'memory')
+        .flatMap((e) => [...(e as { text: string }).text.matchAll(/\(id (m_[\w]+)\)/g)].map((x) => x[1])),
+    );
+    const hits = this.memoryStore.search(text, m.recallK).filter((h) => !already.has(h.item.id));
+    if (!hits.length) return;
+    this.memoryStore.touch(hits.map((h) => h.item.id));
+    this.append(log, { type: 'user/message', source: 'memory', text: `${formatRecall(hits)}\n${hits.map((h) => `(id ${h.item.id})`).join(' ')}` });
+  }
+
+  /** The model for harness-internal calls: router.background when it is ready, else the given model. */
+  backgroundModel(fallback: string): string {
+    const bg = this.config.router?.background;
+    return bg && this.readyModels().includes(bg) ? bg : fallback;
+  }
+
+  /** "auto" sessions: fast model for light turns, strong model for hard ones (both must be configured and ready). */
+  private routeAuto(log: SessionLog): string {
+    const r = this.config.router ?? {};
+    const ready = this.readyModels();
+    const fast = r.fast && ready.includes(r.fast) ? r.fast : undefined;
+    const strong = r.strong && ready.includes(r.strong) ? r.strong : undefined;
+    const fallback = this.config.defaultModel === 'auto' ? ready[0] : this.config.defaultModel;
+    if (!fast && !strong) return fallback;
+    const ev = log.all();
+    const lastUser = [...ev].reverse().find((e) => e.type === 'user/message' && (!e.source || e.source === 'user')) as { text: string; seq: number } | undefined;
+    const since = ev.filter((e) => e.seq > (lastUser?.seq ?? -1));
+    const tier = routeTier({
+      text: lastUser?.text ?? '',
+      recentToolErrors: since.filter((e) => e.type === 'tool/result' && e.isError).length,
+      steps: since.filter((e) => e.type === 'assistant/message').length,
+    });
+    return (tier === 'strong' ? (strong ?? fast) : (fast ?? strong)) ?? fallback;
+  }
+
+  /** Mine a finished run for durable memories with a background model call; logs memory/extract. */
+  async extractMemories(sessionId: string): Promise<{ added: number }> {
+    const m = this.config.memory;
+    const log = SessionLog.open(sessionId);
+    if (!m?.autoExtract || !m.extractModes.includes(log.currentMode()) || log.meta()?.parent) return { added: 0 };
+    const ev = log.all();
+    const lastExtract = [...ev].reverse().find((e) => e.type === 'memory/extract')?.seq ?? -1;
+    const fresh = ev.filter((e) => e.seq > lastExtract);
+    if (!fresh.some((e) => e.type === 'user/message' && (!e.source || e.source === 'user'))) return { added: 0 };
+    const transcript = fresh
+      .filter((e) => (e.type === 'user/message' && e.source !== 'memory') || (e.type === 'assistant/message' && e.text))
+      .map((e) => (e.type === 'user/message' ? `User: ${e.text}` : `Assistant: ${(e as { text: string }).text}`))
+      .join('\n\n')
+      .slice(-8000);
+    const known = this.memoryStore.search(transcript, 12, 0.1).map((h) => `- ${h.item.text}`);
+    const model = this.backgroundModel(log.currentModel() === 'auto' ? this.routeAuto(log) : log.currentModel());
+    const text = await this.complete(EXTRACT_SYSTEM, `Known:\n${[readMemory().slice(0, 3000), ...known].join('\n') || '(nothing yet)'}\n\nConversation:\n${transcript}`, model);
+    const parsed = parseExtraction(text);
+    const added: { id: string; text: string; kind: string }[] = [];
+    for (const x of parsed.memories.slice(0, 8)) {
+      if (x.core) {
+        if (saveMemoryFact(x.text, 'Profile') !== 'Already remembered.') added.push({ id: 'core', text: x.text, kind: 'core' });
+        continue;
+      }
+      const r = this.memoryStore.add(x.text, x.kind, sessionId);
+      if (!r.duplicate) added.push({ id: r.item.id, text: r.item.text, kind: r.item.kind });
+    }
+    if (parsed.episode) this.memoryStore.add(`${localDate(new Date())}: ${parsed.episode}`, 'episode', sessionId);
+    this.append(log, { type: 'memory/extract', added, ...(parsed.episode ? { episode: parsed.episode } : {}), model });
+    return { added: added.length };
+  }
+
+  /** Run today's briefing in a new assistant session, save it, and announce it (desktop notice, bot chats). */
+  async runBriefing(now = new Date()): Promise<{ date: string; path: string; sessionId: string; text: string }> {
+    const date = localDate(now);
+    const intel = listIntelReports().find((r) => r.date === date && !r.pending);
+    const s = this.createSession({ mode: 'assistant', title: `[briefing] ${date}` });
+    const dingtalk = await this.connectorTools[0].available!().catch(() => false);
+    await this.send(s.id, briefingPrompt(date, { dingtalk, intelDate: intel?.date, extra: this.config.briefing?.extra }), 'schedule');
+    await this.wait(s.id);
+    const text = SessionLog.open(s.id).last('assistant/message')?.text?.trim() || '(The briefing run produced no text.)';
+    const path = briefingFile(date);
+    ensureDir(dirname(path));
+    writeFileSync(path, `# Briefing ${date}\n\n${text}\n`);
+    this.broadcast({ kind: 'briefing', date, path, text });
+    this.broadcast({ kind: 'notice', level: 'info', text: `Daily briefing for ${date} is ready.` });
+    return { date, path, sessionId: s.id, text };
+  }
+
+  private briefingRunning?: Promise<unknown>;
+
+  private async briefingCatchUp(now: Date): Promise<void> {
+    const b = this.config.briefing;
+    if (!b?.enabled || this.briefingRunning) return;
+    if (now.getHours() * 60 + now.getMinutes() < b.hour * 60 + b.minute) return;
+    if (existsSync(briefingFile(localDate(now)))) return;
+    this.briefingRunning = this.runBriefing(now).finally(() => (this.briefingRunning = undefined));
+  }
+
+  /** Start a session for a trigger; webhook payloads are external content (wrapped, scanned, logged as taint). */
+  async fireTrigger(id: string, vars: { files?: string[]; payload?: string }): Promise<string> {
+    const t = this.config.triggers.find((x) => x.id === id && x.enabled !== false);
+    if (!t) throw new Error(`No enabled trigger ${id}`);
+    const s = this.createSession({ mode: t.mode ?? 'assistant', cwd: t.cwd ?? (t.kind === 'watch' ? t.path : undefined), title: `[trigger] ${t.id}` });
+    const log = SessionLog.open(s.id);
+    let payload = vars.payload;
+    if (payload !== undefined) {
+      const findings = scanInjection(payload);
+      this.append(log, { type: 'context/taint', tool: `trigger:${t.id}`, findings });
+      payload = wrapUntrusted(`trigger:${t.id}`, payload.slice(0, 50_000), findings);
+    }
+    await this.send(s.id, renderTrigger(t, { files: vars.files, payload }), 'trigger');
+    return s.id;
+  }
+
+  startTriggers(): void {
+    this.triggerWatchers.start(this.config.triggers ?? [], (t, files) => void this.fireTrigger(t.id, { files }).catch(() => undefined));
+  }
+
+  /** Speech to text with config.voice.stt (a provider/model ref). */
+  async transcribe(audioBase64: string, mime: string): Promise<string> {
+    const ref = this.config.voice?.stt ?? 'qwen/qwen3-asr-flash';
+    const [pid, ...rest] = ref.split('/');
+    const p = this.config.providers[pid];
+    if (!p) throw new Error(`Unknown provider in voice.stt: ${ref}`);
+    return transcribe(Buffer.from(audioBase64, 'base64'), mime, { baseUrl: p.baseUrl, apiKey: providerKey(p), model: rest.join('/') });
+  }
+
+  metrics(days = 7): ModeMetrics[] {
+    const since = Date.now() - days * 86_400_000;
+    const sessions = this.listSessions()
+      .filter((s) => Date.parse(s.updatedAt) >= since && !s.title.startsWith('[eval]'))
+      .map((s) => ({ mode: s.mode, events: SessionLog.open(s.id).all() }));
+    return conversationMetrics(sessions);
+  }
 
   // ---------- research ----------
 
@@ -739,6 +895,15 @@ export class HarnessHost {
       kbSearch: (q, k, provider) => this.kbSearchText(q, k ?? 6, provider),
       kbAdd: async (title, text) => `Saved note: ${await this.personalKb.add(title, text)}`,
       memorySave: async (fact, section) => saveMemoryFact(fact, section),
+      memoryRemember: async (fact, kind) => {
+        const { item, duplicate } = this.memoryStore.add(fact, (kind as MemoryKind) ?? 'fact', log.id);
+        return duplicate ? `Already remembered: ${item.text}` : `Remembered (${item.kind}).`;
+      },
+      memorySearch: async (q) => {
+        const hits = this.memoryStore.search(q, 8, 0.1);
+        if (hits.length) this.memoryStore.touch(hits.map((h) => h.item.id));
+        return hits.map((h) => `- [${h.item.id}] (${h.item.kind}, ${h.item.created.slice(0, 10)}) ${h.item.text}`).join('\n') || 'No matching memories.';
+      },
       loadSkill: async (name) => {
         const s = this.listSkills(cwd).find((x) => x.name === name);
         if (!s) throw new Error(`No skill named "${name}". Available: ${this.listSkills(cwd).map((x) => x.name).join(', ')}`);
@@ -933,18 +1098,21 @@ export class HarnessHost {
   startBackground(intervalMs = 60_000, opts: { intel?: boolean } = {}): void {
     this.stopBackground();
     this.backgroundIntel = opts.intel ?? true;
+    this.startTriggers();
     this.timer = setInterval(() => {
       this.backgroundTick().catch(() => undefined);
     }, intervalMs);
   }
 
   stopBackground(): void {
+    this.triggerWatchers.stop();
     if (this.timer) clearInterval(this.timer);
     this.timer = undefined;
   }
 
   async backgroundTick(now = new Date(), opts: { intel?: boolean } = {}): Promise<{ resumed: string[]; scheduled: string[] }> {
     if (opts.intel !== false && this.backgroundIntel) this.intelCatchUp(now).catch(() => undefined);
+    this.briefingCatchUp(now).catch(() => undefined);
     const resumed: string[] = [];
     if (this.config.autoResume.enabled) {
       const waitMs = this.config.autoResume.intervalMinutes * 60_000;

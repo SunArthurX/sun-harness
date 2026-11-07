@@ -49,6 +49,17 @@ import {
   type LiveEvent,
   type PendingApproval,
   type SandboxMode,
+  type MemoryKind,
+  MCP_PRESETS,
+  addMcpPreset,
+  formatMetrics,
+  readBriefing,
+  recordMic,
+  saveConfig,
+  loadConfig,
+  providerKey,
+  transcribe,
+  localDate,
   BrowserManager,
   findChrome,
   createSandbox,
@@ -72,6 +83,11 @@ Usage:
   sun run "<prompt>" --best-of N [--model a,b] [--apply]   N parallel worktree attempts judged by the project's tests
   sun undo <sessionId> [--steps n]   Revert the session's last file edits (checkpoints)
   sun browser status | login [url] [--profile name] | stop   Agent browser (CDP); login opens the profile visibly so you can sign in
+  sun memory list | search <query> | add <text> [--kind preference] | rm <id> | extract <sessionId>   Long-term memory
+  sun briefing run | show [date] | enable [--at 08:30] | disable    Daily briefing (runs in the gateway/desktop background)
+  sun trigger list | fire <id> [payload]    Event triggers (file watches, webhooks: POST /trigger/<id>)
+  sun metrics [--days 7]      Conversation efficiency per mode
+  sun voice transcribe <audio-file> | record [--seconds 8]   Speech to text (config.voice.stt)
   sun sandbox status | test   Shell sandbox in use (seatbelt / bwrap / docker / none) and a quick self-test
   Session flags: --sandbox off|auto|seatbelt|bwrap|docker  (per session; default from config.sandbox.mode)
   sun resume <sessionId> [--model provider/model] [--chat]
@@ -82,7 +98,7 @@ Usage:
   sun kb search <query> | add <title> <file> | index | stats
   sun evolve reflect <sessionId> | list | accept <id> | reject <id>
   sun worktree list | status <id> | diff <id> | merge <id> [--strategy squash|merge] | discard <id>
-  sun skills | sun mcp | sun plugins | sun schedules
+  sun skills | sun mcp [presets | add <preset>] | sun plugins | sun schedules
   sun serve [--port 4471] [--host 127.0.0.1]   Run the gateway (owns sessions; web UI; CLI/desktop attach)
   sun serve --tls [--host 0.0.0.0]              HTTPS with a self-signed, client-pinned certificate (required off localhost)
   sun gateway status | url | install [--tls --host ..] | uninstall   Gateway as a login service (launchd)
@@ -94,7 +110,7 @@ Usage:
 
 Session commands (chat, run, resume, sessions) use --remote <name>, else the default remote, else a local gateway; --local runs in-process.
 
-Chat commands: /model <ref>  /mode <id> (coding|plan|agent|assistant)  /undo [n]  /resume  /abort  /reflect  /sessions  /help  /exit
+Chat commands: /model <ref>  /mode <id> (coding|plan|agent|assistant)  /undo [n]  /voice [seconds]  /resume  /abort  /reflect  /sessions  /help  /exit
 Home: ${sunHome()}`;
 
 function printEvent(e: LiveEvent, sessionId: string, state: { streamed: boolean; reasoning: boolean }): void {
@@ -247,6 +263,16 @@ async function chat(host: SessionHost, sessionId: string): Promise<void> {
         await host.wait(sessionId);
       } else if (cmd === 'abort') await host.abort(sessionId);
       else if (cmd === 'undo') printUndo(await host.undo(sessionId, { steps: Number(arg) || 1 }));
+      else if (cmd === 'voice') {
+        const secs = Number(arg) || 8;
+        console.log(c.dim(`Recording ${secs} s…`));
+        const text = await localTranscribe(recordMic(secs), 'audio/mpeg');
+        console.log(`${c.bold('› ')}${text}`);
+        if (text) {
+          await host.send(sessionId, text);
+          await host.wait(sessionId);
+        }
+      }
       else if (cmd === 'sessions') await listSessions(host);
       else if (cmd === 'reflect') {
         const props = await host.reflect(sessionId);
@@ -262,6 +288,15 @@ async function chat(host: SessionHost, sessionId: string): Promise<void> {
   }
   await host.wait(sessionId);
   rl.close();
+}
+
+/** Speech to text without a host (chat may be attached to a remote gateway). */
+async function localTranscribe(audio: Buffer, mime: string): Promise<string> {
+  const cfg = loadConfig();
+  const [pid, ...rest] = cfg.voice.stt.split('/');
+  const p = cfg.providers[pid];
+  if (!p) throw new Error(`Unknown provider in voice.stt: ${cfg.voice.stt}`);
+  return transcribe(audio, mime, { baseUrl: p.baseUrl, apiKey: providerKey(p), model: rest.join('/') });
 }
 
 function printUndo(r: { undone: string[]; restored: string[] }): void {
@@ -618,6 +653,10 @@ async function main(): Promise<void> {
       concurrency: { type: 'string' },
       token: { type: 'string' },
       'best-of': { type: 'string' },
+      kind: { type: 'string' },
+      at: { type: 'string' },
+      days: { type: 'string' },
+      seconds: { type: 'string' },
       profile: { type: 'string' },
       sandbox: { type: 'string' },
       apply: { type: 'boolean' },
@@ -765,6 +804,63 @@ async function main(): Promise<void> {
       } else throw new Error(`Unknown browser command ${sub}`);
       break;
     }
+    case 'memory': {
+      const sub = args[0] ?? 'list';
+      const store = host.memoryStore;
+      if (sub === 'list') for (const m of store.list()) console.log(`${m.id}  ${c.dim(`${m.kind.padEnd(10)} ${m.created.slice(0, 10)} used ${m.uses}`)}  ${m.text}`);
+      else if (sub === 'search') for (const h of store.search(args.slice(1).join(' '), 10, 0.1)) console.log(`${h.score.toFixed(2)}  ${h.item.id}  ${c.dim(h.item.kind)}  ${h.item.text}`);
+      else if (sub === 'add') {
+        const r = store.add(args.slice(1).join(' '), (values.kind as MemoryKind) ?? 'fact');
+        console.log(r.duplicate ? `Already remembered: ${r.item.text}` : `Added ${r.item.id}`);
+      } else if (sub === 'rm') console.log(store.remove(args[1] ?? '') ? 'Removed.' : 'No such memory.');
+      else if (sub === 'extract') console.log(`Added ${(await host.extractMemories(args[1] ?? '')).added} memories.`);
+      else throw new Error(`Unknown memory command ${sub}`);
+      console.log(c.dim(`Core memory (always in the prompt): ${homePath('memory', 'MEMORY.md')}`));
+      break;
+    }
+    case 'briefing': {
+      const sub = args[0] ?? 'show';
+      if (sub === 'run') {
+        console.log(c.dim('Preparing the briefing…'));
+        const r = await host.runBriefing();
+        console.log(`${r.text}\n\n${c.dim(`saved ${r.path}`)}`);
+      } else if (sub === 'show') console.log(readBriefing(args[1] ?? localDate(new Date())) ?? c.dim('No briefing for that day yet (sun briefing run).'));
+      else if (sub === 'enable' || sub === 'disable') {
+        const [hour, minute] = (values.at ?? `${host.config.briefing.hour}:${host.config.briefing.minute}`).split(':').map(Number);
+        saveConfig({ briefing: { ...host.config.briefing, enabled: sub === 'enable', hour, minute } });
+        console.log(sub === 'enable' ? `Daily briefing at ${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')} while the gateway (sun gateway install) or desktop app runs.` : 'Daily briefing disabled.');
+      } else throw new Error(`Unknown briefing command ${sub}`);
+      break;
+    }
+    case 'trigger': {
+      const sub = args[0] ?? 'list';
+      if (sub === 'list') {
+        for (const t of host.config.triggers) console.log(`${t.id.padEnd(16)} ${t.kind.padEnd(8)} ${t.enabled === false ? c.dim('disabled') : c.green('enabled')}  ${t.kind === 'watch' ? t.path : `POST /trigger/${t.id}`}`);
+        if (!host.config.triggers.length) console.log(c.dim('No triggers. Add them to "triggers" in ~/.sun/config.json.'));
+      } else if (sub === 'fire') {
+        const id = await host.fireTrigger(args[1] ?? '', { payload: args.slice(2).join(' ') || undefined });
+        await host.wait(id);
+        const last = (await host.getEvents(id)).filter((e) => e.type === 'assistant/message').pop() as { text?: string } | undefined;
+        console.log(`${last?.text ?? ''}\n${c.dim(`session ${id}`)}`);
+      } else throw new Error(`Unknown trigger command ${sub}`);
+      break;
+    }
+    case 'metrics':
+      console.log(formatMetrics(host.metrics(Number(values.days) || 7), Number(values.days) || 7));
+      break;
+    case 'voice': {
+      const sub = args[0] ?? 'record';
+      if (sub === 'transcribe') {
+        const f = args[1];
+        if (!f) throw new Error('Usage: sun voice transcribe <audio-file>');
+        console.log(await host.transcribe(readFileSync(f).toString('base64'), f.endsWith('.mp3') ? 'audio/mpeg' : 'application/octet-stream'));
+      } else if (sub === 'record') {
+        const secs = Number(values.seconds) || 8;
+        console.log(c.dim(`Recording ${secs} s…`));
+        console.log(await host.transcribe(recordMic(secs).toString('base64'), 'audio/mpeg'));
+      } else throw new Error(`Unknown voice command ${sub}`);
+      break;
+    }
     case 'sandbox': {
       const sub = args[0] ?? 'status';
       const info = host.sandboxInfo();
@@ -808,6 +904,15 @@ async function main(): Promise<void> {
       for (const s of host.listSkills(cwd)) console.log(`${c.bold(s.name)} ${c.dim(`[${s.scope}]`)} ${s.description.slice(0, 100)}`);
       break;
     case 'mcp':
+      if (args[0] === 'presets') {
+        for (const [name, p] of Object.entries(MCP_PRESETS)) console.log(`${name.padEnd(16)} ${p.description}\n${''.padEnd(17)}${c.dim(p.setup)}`);
+        break;
+      }
+      if (args[0] === 'add') {
+        const setup = addMcpPreset(args[1] ?? '', (globs) => saveConfig({ taint: { ...host.config.taint, untrusted: [...new Set([...host.config.taint.untrusted, ...globs])] } }));
+        console.log(`Added ${args[1]} to ${homePath('mcp.json')} (its tools are treated as untrusted content).\nSetup: ${setup}`);
+        break;
+      }
       for (const s of await host.listMcp(cwd)) console.log(`${s.status === 'ready' ? c.green('●') : c.red('●')} ${s.name} ${c.dim(s.source)} ${s.error ?? s.tools.join(', ')}`);
       break;
     case 'plugins':

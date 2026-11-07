@@ -1291,3 +1291,13 @@ pre.diff {
 .files-panel .tag.ok { color: var(--ok); border-color: var(--ok); }
 .linklike { background: none; border: 0; padding: 0; color: var(--text); cursor: pointer; text-align: left; }
 .linklike:hover { text-decoration: underline; }
+
+/* Voice, memory, efficiency */
+.recording { color: var(--err); border-color: var(--err); animation: breathe 1.2s ease-in-out infinite; }
+.memory-list { max-height: 320px; overflow: auto; margin: 6px 0 12px; }
+.memory-row { display: grid; grid-template-columns: auto 1fr auto auto; gap: 8px; align-items: center; padding: 3px 0; border-bottom: 1px solid var(--line); }
+.memory-row .tag { font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+.memory-text { font-size: 13px; }
+table.metrics { width: 100%; border-collapse: collapse; font-size: 12px; }
+table.metrics th, table.metrics td { text-align: left; padding: 4px 6px; border-bottom: 1px solid var(--line); }
+table.metrics th { color: var(--muted); font-weight: 500; }

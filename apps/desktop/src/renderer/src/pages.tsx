@@ -107,7 +107,8 @@ export function KnowledgePage() {
             Save to personal KB
           </button>
           {saved && <p className="muted small mono">Saved {saved}</p>}
-          <h3 className="mt">Memory</h3>
+          <LongTermMemory />
+          <h3 className="mt">Core memory (always in the prompt)</h3>
           <textarea className="mono" value={memory} onChange={(e) => setMemory(e.target.value)} rows={10} placeholder="# Memory&#10;## Profile&#10;- …" />
           <button className="btn-ghost" onClick={() => api.setMemory(memory).then(() => setSaved('memory saved'))}>
             Save memory
@@ -115,6 +116,38 @@ export function KnowledgePage() {
         </section>
       </div>
     </PageShell>
+  );
+}
+
+/** Long-term memories: recalled by relevance, extracted automatically after assistant conversations. */
+function LongTermMemory() {
+  const [items, setItems] = useState<Awaited<ReturnType<typeof api.listMemories>>>([]);
+  const [q, setQ] = useState('');
+  const load = () => api.listMemories().then((l) => setItems([...l].reverse()), () => setItems([]));
+  useEffect(() => {
+    load();
+  }, []);
+  const shown = items.filter((m) => !q || m.text.toLowerCase().includes(q.toLowerCase()));
+  return (
+    <>
+      <h3 className="mt">
+        Long-term memory <span className="muted">({items.length})</span>
+      </h3>
+      <input placeholder="Filter…" value={q} onChange={(e) => setQ(e.target.value)} />
+      <div className="memory-list">
+        {shown.slice(0, 200).map((m) => (
+          <div key={m.id} className="memory-row">
+            <span className="tag">{m.kind}</span>
+            <span className="memory-text">{m.text}</span>
+            <span className="muted small">{m.created.slice(0, 10)}</span>
+            <button className="btn-ghost small" title="Forget" onClick={() => api.removeMemory(m.id).then(load)}>
+              ✕
+            </button>
+          </div>
+        ))}
+        {!shown.length && <p className="muted small">Nothing yet. The assistant saves durable facts and preferences as you talk.</p>}
+      </div>
+    </>
   );
 }
 
@@ -213,6 +246,75 @@ export function ExtensionsPage({ cwd }: { cwd?: string }) {
         </div>
       </div>
     </PageShell>
+  );
+}
+
+function BriefingNow() {
+  const [state, setState] = useState('');
+  return (
+    <div className="row">
+      <button
+        className="btn-ghost small"
+        disabled={state === 'running'}
+        onClick={() => {
+          setState('running');
+          api.runBriefing().then(
+            (r) => setState(`saved ${r.path}`),
+            (e) => setState(String(e.message ?? e)),
+          );
+        }}
+      >
+        {state === 'running' ? 'Preparing…' : 'Run briefing now'}
+      </button>
+      {state && state !== 'running' && <span className="muted small mono">{state}</span>}
+    </div>
+  );
+}
+
+/** Conversation efficiency over the last 7 days (from session logs). */
+function Efficiency() {
+  const [rows, setRows] = useState<any[]>([]);
+  useEffect(() => {
+    api.metrics(7).then(setRows, () => setRows([]));
+  }, []);
+  const pct = (x: number) => `${Math.round(x * 100)}%`;
+  return (
+    <section className="card">
+      <h3>Efficiency · last 7 days</h3>
+      {!rows.length && <p className="muted small">No sessions yet.</p>}
+      {rows.length > 0 && (
+        <table className="metrics">
+          <thead>
+            <tr>
+              <th>Mode</th>
+              <th title="user turns">Turns</th>
+              <th title="median time to the first reply">First reply</th>
+              <th title="approval prompts per turn">Asks/turn</th>
+              <th title="final answers that were questions">Clarify</th>
+              <th title="tool calls that failed">Tool err</th>
+              <th title="input served from the prompt cache">Cached</th>
+              <th title="memories recalled / extracted">Memory</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.mode}>
+                <td>{r.mode}</td>
+                <td>{r.userTurns}</td>
+                <td>{(r.medianFirstResponseMs / 1000).toFixed(1)} s</td>
+                <td>{r.approvalsPerTurn.toFixed(2)}</td>
+                <td>{pct(r.clarifyRate)}</td>
+                <td>{pct(r.toolErrorRate)}</td>
+                <td>{pct(r.cacheHitRate)}</td>
+                <td>
+                  {r.memoryRecalls} / {r.memoriesExtracted}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </section>
   );
 }
 
@@ -508,6 +610,15 @@ export function SettingsPage() {
               Company knowledge base (reserved HTTP provider)
             </label>
             <input className="mono" placeholder="https://kb.company.internal/api" defaultValue={cfg.kb.company.baseUrl} onBlur={(e) => save({ kb: { ...cfg.kb, company: { ...cfg.kb.company, baseUrl: e.target.value } } })} />
+            <h3 className="mt">Daily briefing</h3>
+            <label className="row">
+              <input type="checkbox" checked={cfg.briefing.enabled} onChange={(e) => save({ briefing: { ...cfg.briefing, enabled: e.target.checked } })} />
+              Prepare a briefing every day at
+              <input type="number" min={0} max={23} value={cfg.briefing.hour} onChange={(e) => save({ briefing: { ...cfg.briefing, hour: Number(e.target.value) } })} />
+              <span>:</span>
+              <input type="number" min={0} max={59} value={cfg.briefing.minute} onChange={(e) => save({ briefing: { ...cfg.briefing, minute: Number(e.target.value) } })} />
+            </label>
+            <BriefingNow />
             <h3 className="mt">Intel schedule</h3>
             <div className="row">
               <input type="number" min={0} max={23} value={cfg.intel.hour} onChange={(e) => save({ intel: { hour: Number(e.target.value) } } as never)} />
@@ -516,6 +627,7 @@ export function SettingsPage() {
               <span className="muted small">{cfg.intel.sources.length} sources · run `sun intel install-schedule` after changing</span>
             </div>
           </section>
+          <Efficiency />
         </div>
       </div>
     </PageShell>

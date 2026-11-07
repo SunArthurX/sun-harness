@@ -8,6 +8,12 @@ sun resume <sessionId> [--model provider/model] [--chat]
 sun undo <sessionId> [--steps n]                         revert the last edit steps (checkpoints)
 sun sandbox status | test                                which shell sandbox is used; self-test
 sun browser status | login [url] [--profile name] | stop  agent browser; sign in to a profile
+sun memory list | search <q> | add <text> [--kind k] | rm <id> | extract <session>
+sun briefing run | show [date] | enable [--at 08:30] | disable
+sun trigger list | fire <id> [payload]
+sun metrics [--days 7]
+sun voice record [--seconds 8] | transcribe <file>
+sun mcp presets | add <preset>
 sun sessions | sun show <sessionId>
 sun models | sun modes
 sun init
@@ -47,6 +53,7 @@ In an interactive terminal, approvals prompt `[y]es / [n]o / [a]lways`. Anything
 |---|---|
 | `/model [ref]` | list ready models, or switch this session |
 | `/mode <id>` | switch mode (`coding`, `plan`, `agent`, `assistant`) |
+| `/voice [seconds]` | record from the microphone, transcribe, and send |
 | `/undo [n]` | revert the last n edit steps (default 1); see [Coding](coding.md#undo) |
 | `/resume [model]` | resume a paused session, optionally on another model |
 | `/abort` | stop the current run (Ctrl+C also aborts; Ctrl+C when idle exits) |

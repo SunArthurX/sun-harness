@@ -1,3 +1,4 @@
+import { readBriefing } from './assistant/briefing.js';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { createServer as createHttpsServer, request as httpsRequest } from 'node:https';
 import { Readable } from 'node:stream';
@@ -41,6 +42,13 @@ export function hostMethods(host: HarnessHost, info: { mode: 'local' | 'gateway'
     sandboxInfo: (id?: string) => host.sandboxInfo(id),
     browserInfo: (id?: string) => host.browserInfo(id),
     deliverables: (id: string) => host.deliverables(id),
+    metrics: (days?: number) => host.metrics(days),
+    runBriefing: () => host.runBriefing(),
+    readBriefing: (date: string) => readBriefing(date),
+    listMemories: () => host.memoryStore.list(),
+    removeMemory: (id: string) => host.memoryStore.remove(id),
+    transcribe: (audioBase64: string, mime: string) => host.transcribe(audioBase64, mime),
+    fireTrigger: (id: string, payload?: string) => host.fireTrigger(id, { payload }),
     browserView: (id: string, on: boolean) => host.browserView(id, on),
     browserTakeover: (id: string, on: boolean) => host.browserTakeover(id, on),
     browserInput: (id: string, ev: Parameters<HarnessHost['browserInput']>[1]) => host.browserInput(id, ev),
@@ -194,6 +202,22 @@ export async function startGateway(host: HarnessHost, opts: GatewayOptions = {})
       let body = '';
       for await (const chunk of req) body += chunk;
       return route(req, res, { authorized: authed(req, url), body });
+    }
+    // Webhook triggers: the trigger's shared secret (X-Sun-Trigger-Secret) or a gateway/device token.
+    const trig = /^\/trigger\/([\w.-]+)$/.exec(url.pathname);
+    if (trig && req.method === 'POST') {
+      const def = host.config.triggers?.find((t) => t.id === trig[1] && t.kind === 'webhook' && t.enabled !== false);
+      if (!def) return send(res, 404, { ok: false, error: 'no such trigger' });
+      const secret = def.secretEnv ? process.env[def.secretEnv] : undefined;
+      const presented = req.headers['x-sun-trigger-secret'];
+      if (!(authed(req, url) || (secret && presented === secret))) return send(res, 401, { ok: false, error: 'unauthorized' });
+      let body = '';
+      for await (const chunk of req) if ((body += chunk).length > 200_000) break;
+      try {
+        return send(res, 202, { ok: true, sessionId: await host.fireTrigger(def.id, { payload: body }) });
+      } catch (e) {
+        return send(res, 500, { ok: false, error: (e as Error).message });
+      }
     }
     if (url.pathname.startsWith('/api/')) {
       if (!authed(req, url)) return send(res, 401, { ok: false, error: 'unauthorized' });

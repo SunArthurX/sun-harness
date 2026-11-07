@@ -33,6 +33,8 @@ export interface AgentDeps {
   approvalMode(): ApprovalMode;
   /** Done gate: verify commands for the session's cwd (empty = none), run when a coding run ends after edits. */
   verify?: { commands(cwd: string): string[]; maxAttempts: number; timeoutMs: number; sandbox?(): import('./sandbox.js').ExecSandbox | undefined };
+  /** Resolve a routing pseudo-model ("auto") to a concrete model for the next request. */
+  routeModel?(ref: string): string;
   /** Extra inputs for the approval policy (e.g. whether shell commands are sandboxed). */
   policy?(): import('./policy.js').PolicyContext;
   /** Token count at which history must be compacted for a model (context window minus buffer). */
@@ -137,7 +139,7 @@ export class Agent {
           return this.setStatus('idle');
         }
 
-        const modelRef = this.d.log.currentModel();
+        const modelRef = this.d.routeModel?.(this.d.log.currentModel()) ?? this.d.log.currentModel();
         let resp: ModelResponse;
         try {
           await this.maybeCompact(modelRef, signal, false);

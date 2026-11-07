@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, session, shell, systemPreferences } from 'electron';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { GatewayClient, HarnessHost, augmentPath, findGateway, hostMethods, importCredentialEnv, type LiveEvent } from '@sun/core';
@@ -26,6 +26,8 @@ const surface: Record<string, Handler> = {
   },
   openPath: (p: string) => shell.openPath(p),
   openExternal: (url: string) => (/^https?:\/\//.test(url) ? shell.openExternal(url) : undefined),
+  /** macOS asks the user once; elsewhere microphone access is decided by the OS. */
+  askMicrophone: async () => (process.platform === 'darwin' ? systemPreferences.askForMediaAccess('microphone') : true),
 };
 
 const forward = (e: LiveEvent) => win?.webContents.send('sun:live', e);
@@ -86,6 +88,8 @@ function createWindow(): void {
 }
 
 app.whenReady().then(async () => {
+  // The renderer may use the microphone (voice input); every other permission request is refused.
+  session.defaultSession.setPermissionRequestHandler((_wc, permission, cb, details) => cb(permission === 'media' && (details as { mediaTypes?: string[] }).mediaTypes?.every((t) => t === 'audio') !== false));
   await connect();
   createWindow();
   app.on('activate', () => BrowserWindow.getAllWindows().length === 0 && createWindow());

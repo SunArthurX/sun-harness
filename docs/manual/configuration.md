@@ -13,6 +13,11 @@
 | `compaction` | `{thresholdTokens: 200000, keepRecent: 12, buffer: "25%"}` | compact when history exceeds `min(thresholdTokens, contextWindow − buffer)` |
 | `verify` | `{enabled: true, maxAttempts: 2, timeoutMs: 300000}` | done gate: run project checks when the agent finishes after editing ([Coding](coding.md)) |
 | `repoMap` | `{enabled: true, budget: 6000, minFiles: 8}` | repository outline in Coding/Plan prompts (characters, minimum source files) |
+| `memory` | `{recallModes: ["assistant", "agent"], extractModes: ["assistant"], autoExtract: true, recallK: 4}` | long-term memory recall and extraction ([Assistant](assistant.md)) |
+| `router` | `{}` — `{background?, fast?, strong?}` | background model; `auto` session routing |
+| `briefing` | `{enabled: false, hour: 8, minute: 30, chats: [], extra?}` | daily briefing |
+| `triggers` | `[]` | file-watch and webhook triggers |
+| `voice` | `{stt: "qwen/qwen3-asr-flash"}` | speech-to-text model ref |
 | `search` | `{provider: "auto", bingBase: "https://cn.bing.com", searxngUrl?, keys: {tavily: "TAVILY_API_KEY", brave: …, serper: …, bocha: …}}` | web search ([Research](research.md)) |
 | `taint` | `{enabled: true, untrusted: []}` | prompt-injection guard; extra untrusted tool globs |
 | `maxParallelTools` | `6` | concurrent tool calls per step (read-only tools, subagents) |

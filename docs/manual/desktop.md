@@ -13,6 +13,7 @@ Choose a mode card, pick a workspace (required for Coding; Agent and Assistant d
 - **Worktree**: sessions on a worktree show ⑂ in the sidebar and a branch chip in the header; the chip opens the Changes panel (files, diff, Merge (squash), Merge commit, Discard). See [Worktree sessions](worktrees.md).
 - **Plan**: when the agent uses `todo_write`, a sticky plan with a progress bar appears at the top.
 - **Verification**: after the agent finishes editing, a "✓ verified" or "✗ verification failed" line shows the project checks that ran; click it for the output. See [Coding](coding.md#verification-the-done-gate).
+- **Voice**: 🎙 in the composer records and transcribes into the message box; 🔈/🔊 reads replies aloud.
 - **Files**: **▤ Files** lists what the session created or changed (new / changed, size); click to open.
 - **Browser**: sessions that used the browser show **◎ Browser**: a live view with **Take over** / **Hand back to agent** (and **noVNC ↗** in Docker mode). See [Browser](browser.md).
 - **Plan review**: in Plan mode the agent's plan appears as a card: **Approve and start coding** or **Keep planning**.
@@ -23,7 +24,7 @@ Choose a mode card, pick a workspace (required for Coding; Agent and Assistant d
 
 ## Knowledge
 
-Search every knowledge provider, add a note to the personal KB, and edit `MEMORY.md` directly.
+Search every knowledge provider, add a note to the personal KB, browse and forget **long-term memories** (filter, ✕), and edit the core memory (`MEMORY.md`) directly.
 
 ## Skills · MCP · Plugins
 
@@ -39,4 +40,4 @@ Dates on the left (yellow dot = analysis pending), the report on the right. **Ru
 
 ## Settings
 
-Default model, fallback chain (click to order), auto-resume interval, approval mode, deny-instead-of-prompting, max steps, providers (base URL and model list per provider), KB folders, company KB, and intel time. Changes save immediately to `~/.sun/config.json`.
+Default model, fallback chain (click to order), auto-resume interval, approval mode, deny-instead-of-prompting, max steps, providers (base URL and model list per provider), shell sandbox (mode, network, allowlist, auto-approve), KB folders, company KB, daily briefing (time, **Run briefing now**), intel time, and **Efficiency · last 7 days** (turns, first-reply time, approvals per turn, clarify rate, tool errors, cache share, memory). Changes save immediately to `~/.sun/config.json`.

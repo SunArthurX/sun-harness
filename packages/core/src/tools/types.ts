@@ -10,6 +10,9 @@ export interface ToolServices {
   kbSearch?(query: string, k?: number, provider?: string): Promise<string>;
   kbAdd?(title: string, text: string): Promise<string>;
   memorySave?(fact: string, section?: string): Promise<string>;
+  /** Long-term memory layer (recalled by relevance, not always in the prompt). */
+  memoryRemember?(fact: string, kind?: string): Promise<string>;
+  memorySearch?(query: string): Promise<string>;
   loadSkill?(name: string): Promise<string>;
   runSubagent?(prompt: string, opts: { mode?: string }): Promise<string>;
   scheduleTask?(spec: { prompt: string; at?: string; cron?: string; title?: string }): Promise<string>;
