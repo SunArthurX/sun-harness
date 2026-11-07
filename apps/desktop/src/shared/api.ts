@@ -9,6 +9,7 @@ export const API_METHODS = [
   'send',
   'resume',
   'abort',
+  'isRunning',
   'approve',
   'pendingApprovals',
   'switchModel',

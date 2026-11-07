@@ -28,7 +28,7 @@ declare global {
 const call = <T>(m: string, ...a: unknown[]) => window.sun.call(m, ...a) as Promise<T>;
 
 export const api = {
-  appInfo: () => call<{ home: string; version: string; platform: string; defaultCwd: string }>('appInfo'),
+  appInfo: () => call<{ home: string; version: string; platform: string; defaultCwd: string; mode: string; gateway?: string }>('appInfo'),
   listSessions: () => call<SessionSummary[]>('listSessions'),
   getEvents: (id: string) => call<SessionEvent[]>('getEvents', id),
   createSession: (input: { cwd?: string; mode?: string; model?: string; worktree?: boolean }) => call<SessionSummary>('createSession', input),

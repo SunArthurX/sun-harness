@@ -38,7 +38,7 @@ export class SessionLog {
     return new SessionLog(id, join(SessionLog.dir(), `${id}.jsonl`));
   }
 
-  static create(meta: { title?: string; mode: string; cwd: string; model: string; parent?: string; worktree?: { repo: string; path: string; branch: string; base: string } }): SessionLog {
+  static create(meta: { title?: string; mode: string; cwd: string; model: string; parent?: string; worktree?: { repo: string; path: string; branch: string; base: string }; approval?: 'suggest' | 'auto-edit' | 'full-auto' }): SessionLog {
     const id = `${localDate().replace(/-/g, '')}-${randomUUID().slice(0, 8)}`;
     const log = SessionLog.open(id);
     log.append({
@@ -51,6 +51,7 @@ export class SessionLog {
       createdAt: new Date().toISOString(),
       ...(meta.parent ? { parent: meta.parent } : {}),
       ...(meta.worktree ? { worktree: meta.worktree } : {}),
+      ...(meta.approval ? { approval: meta.approval } : {}),
     });
     return log;
   }

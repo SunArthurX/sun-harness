@@ -55,6 +55,8 @@ export type SessionEventBody =
       parent?: string;
       /** Set when the session runs in an isolated git worktree (specs/010). */
       worktree?: { repo: string; path: string; branch: string; base: string };
+      /** Per-session approval mode; overrides config.approval. */
+      approval?: 'suggest' | 'auto-edit' | 'full-auto';
     }
   | { type: 'session/title'; title: string }
   | { type: 'user/message'; text: string; source?: 'user' | 'hook' | 'schedule' | 'system' | 'job' }

@@ -5,7 +5,7 @@ import { join, relative } from 'node:path';
 import { JobManager, type JobResult } from './jobs.js';
 import { createWorktree, mergeWorktree, removeWorktree, worktreeDiff, worktreeStatus, type WorktreeInfo, type WorktreeStatus } from './worktree.js';
 import { Agent, type AgentHooks, type ApprovalRequest, type RunResult } from './agent.js';
-import { availableModels, compactionLimit, contextWindowOf, createProviderFactory, isProviderReady, loadConfig, saveConfig, type ProviderFactory, type SunConfig } from './config.js';
+import { availableModels, compactionLimit, contextWindowOf, createProviderFactory, isProviderReady, loadConfig, saveConfig, type ApprovalMode, type ProviderFactory, type SunConfig } from './config.js';
 import { createShellHooks } from './hooks.js';
 import { HttpKnowledgeProvider } from './kb/company.js';
 import { LocalMarkdownKB } from './kb/local.js';
@@ -43,6 +43,8 @@ export interface CreateSessionInput {
   parent?: string;
   /** Run in an isolated git worktree on a new branch (coding sessions in a git repo). */
   worktree?: boolean;
+  /** Approval mode for this session only (default: config.approval). */
+  approval?: ApprovalMode;
 }
 
 const AUTO_RESUME_REASONS = new Set(['quota', 'rate_limit', 'network']);
@@ -184,7 +186,7 @@ export class HarnessHost {
       const sub = relative(realpathSync(worktree.repo), realpathSync(cwd));
       cwd = sub && !sub.startsWith('..') ? join(worktree.path, sub) : worktree.path;
     }
-    const log = SessionLog.create({ mode, cwd, model: input.model || this.config.defaultModel, title: input.title, parent: input.parent, worktree });
+    const log = SessionLog.create({ mode, cwd, model: input.model || this.config.defaultModel, title: input.title, parent: input.parent, worktree, approval: input.approval });
     this.broadcastSessions();
     return log.summary()!;
   }
@@ -279,7 +281,7 @@ export class HarnessHost {
         resolveModel: (ref) => this.factory(ref),
         tools: () => tools.filter((t) => this.modeAllows(log.currentMode(), t, !!log.meta()?.parent)),
         systemPrompt: (modelRef) => this.systemPrompt(log, modelRef),
-        approvalMode: () => this.config.approval,
+        approvalMode: () => log.meta()?.approval ?? this.config.approval,
         contextLimit: (ref) => compactionLimit(this.config, ref),
         requestApproval: (req, signal) => this.requestApproval(req, log.meta()?.parent ?? id, signal),
         services: this.services(log, controller.signal),
@@ -489,6 +491,7 @@ export class HarnessHost {
       model: parent.currentModel(),
       parent: parent.id,
       title: `[sub] ${prompt.slice(0, 50)}`,
+      approval: meta.approval,
     });
     const log = SessionLog.open(child.id);
     this.append(log, { type: 'user/message', text: prompt, source: 'system' });

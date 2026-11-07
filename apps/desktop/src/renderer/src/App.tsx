@@ -45,12 +45,14 @@ export function App() {
   const [current, setCurrent] = useState<string | undefined>();
   const [approvals, setApprovals] = useState<PendingApproval[]>([]);
   const [newMode, setNewMode] = useState<string | null>(null);
+  const [hostMode, setHostMode] = useState<{ mode: string; gateway?: string }>();
 
   const refresh = useCallback(async () => setSessions(await api.listSessions()), []);
 
   useEffect(() => {
     refresh();
     api.pendingApprovals().then(setApprovals);
+    api.appInfo().then(setHostMode);
     return window.sun.onLive((e) => {
       if (e.kind === 'sessions') setSessions(e.sessions);
       else if (e.kind === 'approvals') setApprovals(e.approvals);
@@ -117,6 +119,11 @@ export function App() {
             ))}
             {!sessions.length && <p className="muted pad">No sessions yet.</p>}
           </div>
+          {hostMode && hostMode.mode !== 'local' && (
+            <div className="host-mode" title={hostMode.gateway ?? location.origin}>
+              <span className="dot dot-idle" /> {hostMode.mode === 'web' ? 'web · gateway' : 'via gateway'}
+            </div>
+          )}
         </aside>
       )}
 

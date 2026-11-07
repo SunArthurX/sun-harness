@@ -1,79 +1,24 @@
 import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron';
-
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import {
-  HarnessHost,
-  acceptProposal,
-  importCredentialEnv,
-  listIntelReports,
-  listProposals,
-  listSchedules,
-  readIntelReport,
-  readMemory,
-  rejectProposal,
-  removeSchedule,
-  sunHome,
-  writeMemory,
-} from '@sun/core';
-import { API_METHODS, type ApiMethod } from '../shared/api';
+import { GatewayClient, HarnessHost, findGateway, hostMethods, importCredentialEnv, type LiveEvent } from '@sun/core';
+import { API_METHODS } from '../shared/api';
 
 // GUI apps on macOS do not inherit the login shell env; pick up API keys from ~/.sun/.env and shell rc files.
 if (!process.env.SUN_SKIP_SHELL_ENV) importCredentialEnv();
 
 const here = dirname(fileURLToPath(import.meta.url));
 
-let win: BrowserWindow | null = null;
-const host = new HarnessHost();
-
 type Handler = (...args: any[]) => unknown;
 
-const handlers: Record<ApiMethod, Handler> = {
-  appInfo: () => ({ home: sunHome(), version: app.getVersion(), platform: process.platform, defaultCwd: app.getPath('home') }),
-  listSessions: () => host.listSessions(),
-  getEvents: (id: string) => host.getEvents(id),
-  createSession: (input) => host.createSession(input),
-  deleteSession: (id: string) => host.deleteSession(id),
-  renameSession: (id: string, title: string) => host.renameSession(id, title),
-  send: (id: string, text: string) => host.send(id, text),
-  resume: (id: string, model?: string) => host.resume(id, { model }),
-  abort: (id: string) => host.abort(id),
-  approve: (callId: string, decision) => host.approve(callId, decision),
-  pendingApprovals: () => host.pendingApprovals(),
-  switchModel: (id: string, model: string) => host.switchModel(id, model),
-  listJobs: (sessionId?: string) => host.listJobs(sessionId),
-  jobOutput: (jobId: string) => host.jobOutput(jobId),
-  killJob: (jobId: string) => host.killJob(jobId),
-  worktreeStatus: (id: string) => host.worktreeStatus(id),
-  worktreeDiff: (id: string) => host.worktreeDiff(id),
-  mergeWorktree: (id: string, strategy?: 'squash' | 'merge') => host.mergeWorktree(id, { strategy }),
-  discardWorktree: (id: string) => host.discardWorktree(id),
-  switchMode: (id: string, mode: string) => host.switchMode(id, mode),
-  listModels: () => host.listModels(),
-  readyModels: () => host.readyModels(),
-  listModes: () => host.listModes(),
-  getConfig: () => host.config,
-  updateConfig: (patch) => host.updateConfig(patch),
-  listSkills: (cwd: string) => host.listSkills(cwd),
-  listMcp: (cwd: string) => host.listMcp(cwd),
-  reloadMcp: (cwd: string) => host.reloadMcp(cwd),
-  listPlugins: () => host.pluginStates,
-  reloadPlugins: () => host.reloadPlugins(),
-  kbStats: () => host.kbStats(),
-  kbSearch: (q: string) => host.kbSearch(q, 10),
-  kbAdd: (title: string, text: string) => host.kbAdd(title, text),
-  getMemory: () => readMemory(),
-  setMemory: (text: string) => writeMemory(text),
-  listProposals: () => listProposals(),
-  acceptProposal: (id: string) => acceptProposal(id),
-  rejectProposal: (id: string) => rejectProposal(id),
-  reflect: (id: string) => host.reflect(id),
-  listIntelReports: () => listIntelReports(),
-  readIntelReport: (date: string) => readIntelReport(date),
-  runIntel: (force?: boolean) => host.runIntel({ force }),
-  analyzeIntel: (date: string) => host.analyzeIntel(date),
-  listSchedules: () => listSchedules(),
-  removeSchedule: (id: string) => removeSchedule(id),
+let win: BrowserWindow | null = null;
+let handlers: Record<string, Handler> = {};
+/** In-process host, or undefined when attached to a gateway that owns the sessions. */
+let host: HarnessHost | undefined;
+let releaseLive: (() => void) | undefined;
+let releaseApprover: (() => void) | undefined;
+
+const surface: Record<string, Handler> = {
   pickFolder: async () => {
     const r = await dialog.showOpenDialog(win!, { properties: ['openDirectory', 'createDirectory'] });
     return r.canceled ? undefined : r.filePaths[0];
@@ -82,9 +27,31 @@ const handlers: Record<ApiMethod, Handler> = {
   openExternal: (url: string) => (/^https?:\/\//.test(url) ? shell.openExternal(url) : undefined),
 };
 
+const forward = (e: LiveEvent) => win?.webContents.send('sun:live', e);
+
+/** Attach to a running gateway (`sun serve`) if there is one; otherwise host sessions in-process. */
+async function connect(): Promise<void> {
+  const gw = await findGateway();
+  if (gw) {
+    const client = new GatewayClient(gw);
+    handlers = Object.fromEntries(API_METHODS.map((m) => [m, (...args: unknown[]) => client.call(m, ...args)]));
+    const appInfo = handlers.appInfo;
+    handlers.appInfo = async () => ({ ...((await appInfo()) as object), mode: 'gateway', gateway: gw.url });
+    // The window is a human who can answer approvals, so the event stream registers as an approver.
+    releaseLive = client.subscribe(forward, { approver: true });
+  } else {
+    host = new HarnessHost();
+    await host.init();
+    handlers = hostMethods(host, { mode: 'local' });
+    releaseLive = host.subscribe(forward);
+    host.startBackground(60_000, { intel: true });
+  }
+  Object.assign(handlers, surface);
+}
+
 ipcMain.handle('sun:call', async (_e, method: string, args: unknown[]) => {
-  if (!(API_METHODS as readonly string[]).includes(method)) throw new Error(`Unknown method ${method}`);
-  return handlers[method as ApiMethod](...(args ?? []));
+  if (!(API_METHODS as readonly string[]).includes(method) || !handlers[method]) throw new Error(`Unknown method ${method}`);
+  return handlers[method](...(args ?? []));
 });
 
 function createWindow(): void {
@@ -110,17 +77,15 @@ function createWindow(): void {
   });
   if (process.env.ELECTRON_RENDERER_URL) win.loadURL(process.env.ELECTRON_RENDERER_URL);
   else win.loadFile(join(here, '../renderer/index.html'));
-  const releaseApprover = host.registerApprover();
+  releaseApprover = host?.registerApprover();
   win.on('closed', () => {
-    releaseApprover();
+    releaseApprover?.();
     win = null;
   });
 }
 
 app.whenReady().then(async () => {
-  await host.init();
-  host.subscribe((e) => win?.webContents.send('sun:live', e));
-  host.startBackground(60_000, { intel: true });
+  await connect();
   createWindow();
   app.on('activate', () => BrowserWindow.getAllWindows().length === 0 && createWindow());
 });
@@ -130,5 +95,6 @@ app.on('window-all-closed', () => {
 });
 
 app.on('before-quit', () => {
-  void host.dispose();
+  releaseLive?.();
+  void host?.dispose();
 });

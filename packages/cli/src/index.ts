@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { spawnSync } from 'node:child_process';
-import { copyFileSync, existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
+import { copyFileSync, cpSync, existsSync, mkdirSync, readFileSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { createInterface } from 'node:readline/promises';
@@ -8,10 +8,15 @@ import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import {
   HarnessHost,
-  SessionLog,
+  RemoteHost,
+  findGateway,
+  launchAgentPlist,
+  startGateway,
+  type ApprovalMode,
+  type SessionHost,
   acceptProposal,
+  homePath,
   importCredentialEnv,
-  launchdPlist,
   listIntelReports,
   listProposals,
   listSchedules,
@@ -47,8 +52,12 @@ Usage:
   sun evolve reflect <sessionId> | list | accept <id> | reject <id>
   sun worktree list | status <id> | diff <id> | merge <id> [--strategy squash|merge] | discard <id>
   sun skills | sun mcp | sun plugins | sun schedules
+  sun serve [--port 4471] [--host 127.0.0.1]   Run the gateway (owns sessions; web UI; CLI/desktop attach)
+  sun gateway status | url | install | uninstall   Gateway as a login service (launchd)
   sun doctor
   sun desktop                      Launch the desktop app (from a source checkout)
+
+Session commands (chat, run, resume, sessions) attach to a running gateway; pass --local to run in-process.
 
 Chat commands: /model <ref>  /mode <id>  /resume  /abort  /reflect  /sessions  /help  /exit
 Home: ${sunHome()}`;
@@ -119,7 +128,7 @@ async function askApproval(rl: ReturnType<typeof createInterface> | undefined, a
 }
 
 /** Only an interactive terminal can approve; piped/launchd runs stay headless so approvals are denied instead of hanging. */
-function wireApprovals(host: HarnessHost, rl?: ReturnType<typeof createInterface>): () => void {
+function wireApprovals(host: SessionHost, rl?: ReturnType<typeof createInterface>): () => void {
   if (!process.stdin.isTTY) return () => undefined;
   host.registerApprover();
   const asked = new Set<string>();
@@ -129,21 +138,23 @@ function wireApprovals(host: HarnessHost, rl?: ReturnType<typeof createInterface
     for (const a of e.approvals) {
       if (asked.has(a.callId)) continue;
       asked.add(a.callId);
-      chain = chain.then(async () => host.approve(a.callId, await askApproval(rl, a)));
+      chain = chain.then(async () => {
+        await host.approve(a.callId, await askApproval(rl, a));
+      });
     }
   });
 }
 
-async function chat(host: HarnessHost, sessionId: string): Promise<void> {
+async function chat(host: SessionHost, sessionId: string): Promise<void> {
   const rl = createInterface({ input: process.stdin, output: process.stdout });
   const state = { streamed: false, reasoning: false };
   host.subscribe((e) => printEvent(e, sessionId, state));
   wireApprovals(host, rl);
-  const s = SessionLog.open(sessionId).summary()!;
-  console.log(c.bold('sun-harness') + c.dim(`  session ${s.id} · ${s.mode} · ${s.model} · ${s.cwd}`));
+  const s = (await host.listSessions()).find((x) => x.id === sessionId)!;
+  console.log(c.bold('sun-harness') + c.dim(`  session ${s.id} · ${s.mode} · ${s.model} · ${s.cwd}${host instanceof RemoteHost ? ' · via gateway' : ''}`));
   console.log(c.dim('Type /help for commands. Ctrl+C aborts a run; /exit quits.'));
-  rl.on('SIGINT', () => {
-    if (host.isRunning(sessionId)) host.abort(sessionId);
+  rl.on('SIGINT', async () => {
+    if (await host.isRunning(sessionId)) await host.abort(sessionId);
     else {
       rl.close();
       process.exit(0);
@@ -168,14 +179,14 @@ async function chat(host: HarnessHost, sessionId: string): Promise<void> {
       if (cmd === 'exit' || cmd === 'quit') break;
       if (cmd === 'help') console.log(HELP);
       else if (cmd === 'model') {
-        if (!arg) console.log(host.readyModels().join('\n'));
-        else host.switchModel(sessionId, arg), console.log(`Model → ${arg}`);
-      } else if (cmd === 'mode') host.switchMode(sessionId, arg), console.log(`Mode → ${arg}`);
+        if (!arg) console.log((await host.readyModels()).join('\n'));
+        else await host.switchModel(sessionId, arg), console.log(`Model → ${arg}`);
+      } else if (cmd === 'mode') await host.switchMode(sessionId, arg), console.log(`Mode → ${arg}`);
       else if (cmd === 'resume') {
-        host.resume(sessionId, { model: arg || undefined });
+        await host.resume(sessionId, { model: arg || undefined });
         await host.wait(sessionId);
-      } else if (cmd === 'abort') host.abort(sessionId);
-      else if (cmd === 'sessions') listSessions(host);
+      } else if (cmd === 'abort') await host.abort(sessionId);
+      else if (cmd === 'sessions') await listSessions(host);
       else if (cmd === 'reflect') {
         const props = await host.reflect(sessionId);
         for (const p of props) console.log(`${p.id}  [${p.type}] ${p.title}`);
@@ -192,8 +203,8 @@ async function chat(host: HarnessHost, sessionId: string): Promise<void> {
   rl.close();
 }
 
-function listSessions(host: HarnessHost): void {
-  for (const s of host.listSessions().slice(0, 30)) {
+async function listSessions(host: SessionHost): Promise<void> {
+  for (const s of (await host.listSessions()).slice(0, 30)) {
     const st = s.status === 'paused' ? c.yellow(`paused:${s.statusReason}`) : s.status === 'error' ? c.red('error') : c.dim(s.status);
     console.log(`${s.id}  ${st.padEnd(20)} ${c.dim(s.mode.padEnd(9))} ${s.title.slice(0, 50).padEnd(50)} ${c.dim(s.model)}`);
   }
@@ -257,6 +268,140 @@ async function doctor(host: HarnessHost, cwd: string): Promise<void> {
   }
 }
 
+/** Copy the self-contained CLI bundle (and the web UI) into ~/.sun, outside TCC-protected folders, for launchd. */
+function installBundle(): string {
+  const here = fileURLToPath(import.meta.url);
+  const bundle = join(here, '..', 'sun.mjs');
+  if (!existsSync(bundle)) throw new Error(`Missing ${bundle}. Run: pnpm build:core`);
+  const cliPath = join(sunHome(), 'bin', 'sun.mjs');
+  mkdirSync(join(cliPath, '..'), { recursive: true });
+  if (resolve(bundle) !== resolve(cliPath)) copyFileSync(bundle, cliPath);
+  const web = webRootCandidates().find((p) => existsSync(join(p, 'index.html')) && resolve(p) !== resolve(homePath('web')));
+  if (web) {
+    rmSync(homePath('web'), { recursive: true, force: true });
+    cpSync(web, homePath('web'), { recursive: true });
+  }
+  return cliPath;
+}
+
+function webRootCandidates(): string[] {
+  const here = fileURLToPath(import.meta.url);
+  return [join(here, '..', '..', '..', '..', 'apps', 'desktop', 'out', 'renderer'), homePath('web')];
+}
+
+function loadAgent(label: string, xml: string): string {
+  const plist = join(homedir(), 'Library', 'LaunchAgents', `${label}.plist`);
+  mkdirSync(join(plist, '..'), { recursive: true });
+  writeFileSync(plist, xml);
+  spawnSync('launchctl', ['unload', plist]);
+  const r = spawnSync('launchctl', ['load', plist], { encoding: 'utf8' });
+  if (r.status !== 0) throw new Error(r.stderr || 'launchctl load failed');
+  return plist;
+}
+
+async function serve(values: { port?: string; host?: string }): Promise<void> {
+  const running = await findGateway();
+  if (running) throw new Error(`A gateway is already running at ${running.url} (pid ${running.pid}).`);
+  const host = new HarnessHost({ connectMcp: true });
+  await host.init();
+  // The gateway owns sessions: auto-resume, schedules, jobs and the intel catch-up run here, headless.
+  host.startBackground(60_000, { intel: true });
+  const webRoot = webRootCandidates().find((p) => existsSync(join(p, 'index.html')));
+  const gw = await startGateway(host, { port: Number(values.port) || 4471, hostname: values.host, webRoot });
+  console.log(`${c.bold('sun-harness gateway')} ${gw.url}  (pid ${process.pid}, home ${sunHome()})`);
+  console.log(webRoot ? `Web UI: ${gw.url}/#token=${gw.token}` : c.dim('Web UI not built (pnpm build).'));
+  const stop = async () => {
+    await gw.close();
+    await host.dispose();
+    process.exit(0);
+  };
+  process.on('SIGINT', stop);
+  process.on('SIGTERM', stop);
+  await new Promise(() => undefined);
+}
+
+async function gatewayCommand(sub: string): Promise<void> {
+  const label = 'com.sun-harness.gateway';
+  const plist = join(homedir(), 'Library', 'LaunchAgents', `${label}.plist`);
+  if (sub === 'status') {
+    const gw = await findGateway();
+    console.log(gw ? c.green(`running at ${gw.url} (pid ${gw.pid}, since ${gw.startedAt})`) : c.dim('not running (start with: sun serve, or install: sun gateway install)'));
+    console.log(c.dim(existsSync(plist) ? `launchd: ${plist}` : 'launchd: not installed'));
+  } else if (sub === 'url') {
+    const gw = await findGateway();
+    if (!gw) throw new Error('No gateway running.');
+    console.log(`${gw.url}/#token=${gw.token}`);
+  } else if (sub === 'install') {
+    const cliPath = installBundle();
+    loadAgent(label, launchAgentPlist({ label, nodePath: process.execPath, args: [cliPath, 'serve'], log: homePath('gateway.log'), keepAlive: true }));
+    for (let i = 0; i < 40 && !(await findGateway()); i++) await new Promise((r) => setTimeout(r, 250));
+    const gw = await findGateway();
+    console.log(gw ? c.green(`Gateway installed and running at ${gw.url}. Web UI: ${gw.url}/#token=${gw.token}`) : c.yellow(`Installed ${plist}; not reachable yet (see ${homePath('gateway.log')}).`));
+  } else if (sub === 'uninstall') {
+    spawnSync('launchctl', ['unload', plist]);
+    if (existsSync(plist)) unlinkSync(plist);
+    console.log('Gateway service removed.');
+  } else throw new Error(`Unknown gateway command ${sub}`);
+}
+
+async function sessionCommands(
+  host: SessionHost,
+  cmd: string,
+  args: string[],
+  values: { mode?: string; model?: string; json?: boolean; chat?: boolean; worktree?: boolean },
+  sessionCwd: string | undefined,
+  approval: ApprovalMode | undefined,
+): Promise<void> {
+  switch (cmd) {
+    case 'chat': {
+      const s = await host.createSession({ cwd: sessionCwd, mode: values.mode, model: values.model, worktree: values.worktree, approval });
+      await chat(host, s.id);
+      break;
+    }
+    case 'run': {
+      const prompt = args.join(' ') || (!process.stdin.isTTY ? readFileSync(0, 'utf8') : '');
+      if (!prompt) throw new Error('Usage: sun run "<prompt>"');
+      const s = await host.createSession({ cwd: sessionCwd, mode: values.mode, model: values.model, worktree: values.worktree, approval });
+      const state = { streamed: false, reasoning: false };
+      if (!values.json) host.subscribe((e) => printEvent(e, s.id, state));
+      wireApprovals(host);
+      await host.send(s.id, prompt);
+      let r = await host.wait(s.id);
+      // Background jobs deliver their results as new turns; stay until they and those turns finish.
+      while ((await host.listJobs(s.id)).some((j) => j.state === 'running') || (await host.isRunning(s.id))) {
+        await new Promise((res) => setTimeout(res, 300));
+        r = (await host.wait(s.id)) ?? r;
+      }
+      const last = [...(await host.getEvents(s.id))].reverse().find((e) => e.type === 'assistant/message') as { text: string } | undefined;
+      if (values.json) console.log(JSON.stringify({ sessionId: s.id, status: r?.status, reason: r?.reason, text: last?.text ?? '' }, null, 2));
+      else console.log(c.dim(`\nsession ${s.id} · ${r?.status}${r?.reason ? ` (${r.reason})` : ''}`));
+      process.exitCode = r?.status === 'idle' ? 0 : r?.status === 'paused' ? 3 : 1;
+      break;
+    }
+    case 'resume': {
+      const id = args[0] ?? (await host.listSessions())[0]?.id;
+      if (!id) throw new Error('No session to resume.');
+      if (values.chat) {
+        await host.resume(id, { model: values.model });
+        await chat(host, id);
+        break;
+      }
+      const state = { streamed: false, reasoning: false };
+      host.subscribe((e) => printEvent(e, id, state));
+      wireApprovals(host);
+      await host.resume(id, { model: values.model });
+      const r = await host.wait(id);
+      console.log(c.dim(`\nsession ${id} · ${r?.status}${r?.reason ? ` (${r.reason})` : ''}`));
+      process.exitCode = r?.status === 'idle' ? 0 : 3;
+      break;
+    }
+    case 'sessions':
+      await listSessions(host);
+      break;
+  }
+  await host.dispose();
+}
+
 async function main(): Promise<void> {
   importCredentialEnv();
   const { values, positionals } = parseArgs({
@@ -271,6 +416,9 @@ async function main(): Promise<void> {
       chat: { type: 'boolean' },
       worktree: { type: 'boolean' },
       strategy: { type: 'string' },
+      local: { type: 'boolean' },
+      port: { type: 'string' },
+      host: { type: 'string' },
       help: { type: 'boolean', short: 'h' },
     },
   });
@@ -279,57 +427,24 @@ async function main(): Promise<void> {
   const cwd = resolve(values.cwd ?? process.cwd());
   // Coding works in the current folder; agent/assistant use ~/.sun/workspace unless --cwd is given (specs/007).
   const sessionCwd = values.cwd || !values.mode || values.mode === 'coding' ? cwd : undefined;
+  const approval = values.approval as ApprovalMode | undefined;
+  if (cmd === 'serve') return serve(values);
+  if (cmd === 'gateway') return gatewayCommand(args[0] ?? 'status');
+
+  // Session commands attach to a running gateway (one owner for every session) unless --local.
+  const gw = ['chat', 'run', 'resume', 'sessions'].includes(cmd) && !values.local ? await findGateway() : undefined;
+  if (gw) return sessionCommands(new RemoteHost(gw), cmd, args, values, sessionCwd, approval);
+
   const needsMcp = ['chat', 'run', 'resume', 'mcp'].includes(cmd);
   const host = new HarnessHost({ connectMcp: needsMcp });
   await host.init();
-  if (values.approval) host.config.approval = values.approval as never;
+  if (['chat', 'run', 'resume', 'sessions'].includes(cmd)) {
+    await sessionCommands(host, cmd, args, values, sessionCwd, approval);
+    await host.dispose();
+    return;
+  }
 
   switch (cmd) {
-    case 'chat': {
-      const s = host.createSession({ cwd: sessionCwd, mode: values.mode, model: values.model, worktree: values.worktree });
-      await chat(host, s.id);
-      break;
-    }
-    case 'run': {
-      const prompt = args.join(' ') || (!process.stdin.isTTY ? readFileSync(0, 'utf8') : '');
-      if (!prompt) throw new Error('Usage: sun run "<prompt>"');
-      const s = host.createSession({ cwd: sessionCwd, mode: values.mode, model: values.model, worktree: values.worktree });
-      const state = { streamed: false, reasoning: false };
-      if (!values.json) host.subscribe((e) => printEvent(e, s.id, state));
-      wireApprovals(host);
-      await host.send(s.id, prompt);
-      let r = await host.wait(s.id);
-      // Background jobs deliver their results as new turns; stay until they and those turns finish.
-      while (host.listJobs(s.id).some((j) => j.state === 'running') || host.isRunning(s.id)) {
-        await new Promise((res) => setTimeout(res, 300));
-        r = (await host.wait(s.id)) ?? r;
-      }
-      const last = SessionLog.open(s.id).last('assistant/message');
-      if (values.json) console.log(JSON.stringify({ sessionId: s.id, status: r?.status, reason: r?.reason, text: last?.text ?? '' }, null, 2));
-      else console.log(c.dim(`\nsession ${s.id} · ${r?.status}${r?.reason ? ` (${r.reason})` : ''}`));
-      process.exitCode = r?.status === 'idle' ? 0 : r?.status === 'paused' ? 3 : 1;
-      break;
-    }
-    case 'resume': {
-      const id = args[0] ?? host.listSessions()[0]?.id;
-      if (!id) throw new Error('No session to resume.');
-      if (values.chat) {
-        host.resume(id, { model: values.model });
-        await chat(host, id);
-        break;
-      }
-      const state = { streamed: false, reasoning: false };
-      host.subscribe((e) => printEvent(e, id, state));
-      wireApprovals(host);
-      host.resume(id, { model: values.model });
-      const r = await host.wait(id);
-      console.log(c.dim(`\nsession ${id} · ${r?.status}${r?.reason ? ` (${r.reason})` : ''}`));
-      process.exitCode = r?.status === 'idle' ? 0 : 3;
-      break;
-    }
-    case 'sessions':
-      listSessions(host);
-      break;
     case 'show': {
       for (const e of host.getEvents(args[0])) {
         if (e.type === 'user/message') console.log(c.bold('\nUSER: ') + e.text);
@@ -365,20 +480,11 @@ async function main(): Promise<void> {
         if (!date) throw new Error('No reports yet. Run: sun intel run');
         console.log(readIntelReport(date));
       } else if (sub === 'install-schedule') {
-        // launchd runs a self-contained copy from ~/.sun/bin (outside TCC-protected folders like ~/Downloads).
-        const here = fileURLToPath(import.meta.url);
-        const bundle = join(here, '..', 'sun.mjs');
-        if (!existsSync(bundle)) throw new Error(`Missing ${bundle}. Run: pnpm build:core`);
-        const cliPath = join(sunHome(), 'bin', 'sun.mjs');
-        mkdirSync(join(cliPath, '..'), { recursive: true });
-        copyFileSync(bundle, cliPath);
-        const { label, xml } = launchdPlist({ nodePath: process.execPath, cliPath, hour: host.config.intel.hour, minute: host.config.intel.minute });
-        const plist = join(homedir(), 'Library', 'LaunchAgents', `${label}.plist`);
-        mkdirSync(join(plist, '..'), { recursive: true });
-        writeFileSync(plist, xml);
-        spawnSync('launchctl', ['unload', plist]);
-        const r = spawnSync('launchctl', ['load', plist], { encoding: 'utf8' });
-        console.log(r.status === 0 ? c.green(`Installed ${plist} (daily ${host.config.intel.hour}:${String(host.config.intel.minute).padStart(2, '0')})`) : c.red(r.stderr));
+        const cliPath = installBundle();
+        const label = 'com.sun-harness.intel';
+        const xml = launchAgentPlist({ label, nodePath: process.execPath, args: [cliPath, 'intel', 'run'], log: homePath('intel', 'launchd.log'), calendar: { hour: host.config.intel.hour, minute: host.config.intel.minute } });
+        const plist = loadAgent(label, xml);
+        console.log(c.green(`Installed ${plist} (daily ${host.config.intel.hour}:${String(host.config.intel.minute).padStart(2, '0')})`));
       } else if (sub === 'uninstall-schedule') {
         const plist = join(homedir(), 'Library', 'LaunchAgents', 'com.sun-harness.intel.plist');
         spawnSync('launchctl', ['unload', plist]);
