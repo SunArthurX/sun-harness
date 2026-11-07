@@ -117,6 +117,9 @@ export interface PendingApproval {
   name: string;
   arguments: string;
   risk: ToolRisk;
+  /** Unique per showing of the prompt; answers must quote it (stale UIs cannot answer a re-issued prompt). */
+  promptId: string;
+  requestedAt: string;
 }
 
 // ---------- Streaming deltas (live, not persisted) ----------

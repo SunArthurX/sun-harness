@@ -1229,3 +1229,10 @@ pre.diff {
 .err-text {
   color: var(--err);
 }
+
+.approval.arming .approval-actions button {
+  opacity: 0.45;
+}
+.approval.armed .approval-actions button {
+  transition: opacity 0.2s;
+}

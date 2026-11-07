@@ -68,31 +68,53 @@ function ToolCard({ call, result, pending }: { call: ToolCall; result?: ResultEv
   );
 }
 
+/** Clicks and key presses in the first moments after the card appears were aimed at something else. */
+const APPROVAL_ARM_MS = 700;
+
 function ApprovalCard({ a }: { a: PendingApproval }) {
+  const [armed, setArmed] = useState(false);
+  const [error, setError] = useState('');
+  useEffect(() => {
+    setArmed(false);
+    // Move focus off the composer so a pending Enter cannot reach the new buttons.
+    (document.activeElement as HTMLElement | null)?.blur?.();
+    const t = setTimeout(() => setArmed(true), APPROVAL_ARM_MS);
+    return () => clearTimeout(t);
+  }, [a.promptId]);
   let args = a.arguments;
   try {
     args = JSON.stringify(JSON.parse(a.arguments), null, 2);
   } catch {
     // raw
   }
+  const answer = async (d: 'allow' | 'allow_always' | 'deny') => {
+    if (!armed) return;
+    try {
+      await api.approve(a.callId, d, a.promptId);
+    } catch (e) {
+      setError(String((e as Error).message ?? e).replace(/^Error invoking remote method 'sun:call': (Error: )?/, ''));
+    }
+  };
   return (
-    <div className="approval">
+    <div className={`approval ${armed ? 'armed' : 'arming'}`} data-prompt={a.promptId}>
       <div className="approval-head">
         <span className="risk">{a.risk}</span>
         <strong>{a.name}</strong> wants to run{a.sessionId !== a.displaySessionId ? ' (from a subagent)' : ''}
       </div>
       <pre>{args.slice(0, 4000)}</pre>
       <div className="approval-actions">
-        <button className="btn-primary" onClick={() => api.approve(a.callId, 'allow')}>
+        <button className="btn-primary" disabled={!armed} onClick={() => answer('allow')}>
           Allow
         </button>
-        <button className="btn-ghost" onClick={() => api.approve(a.callId, 'allow_always')}>
+        <button className="btn-ghost" disabled={!armed} onClick={() => answer('allow_always')}>
           Always allow {a.name}
         </button>
-        <button className="btn-danger" onClick={() => api.approve(a.callId, 'deny')}>
+        <button className="btn-danger" disabled={!armed} onClick={() => answer('deny')}>
           Deny
         </button>
+        {!armed && <span className="muted small">read first…</span>}
       </div>
+      {error && <p className="small err-text">{error}</p>}
     </div>
   );
 }

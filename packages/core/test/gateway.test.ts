@@ -43,6 +43,7 @@ describe('gateway', () => {
     expect(seen.some((e) => e.kind === 'delta' && e.text === 'remote done')).toBe(true);
     expect(seen.some((e) => e.kind === 'notice')).toBe(false);
     await expect(remote.client.call('nope')).rejects.toThrow(/Unknown method/);
+    await expect(remote.approve('no-such-call', 'allow', 'p')).rejects.toThrow(/No pending approval/);
     await remote.dispose();
   });
 

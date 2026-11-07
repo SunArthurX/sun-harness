@@ -32,7 +32,10 @@ export function hostMethods(host: HarnessHost, info: { mode: 'local' | 'gateway'
     resume: (id: string, model?: string) => host.resume(id, { model }),
     abort: (id: string) => host.abort(id),
     isRunning: (id: string) => host.isRunning(id),
-    approve: (callId: string, decision: ApprovalDecision) => host.approve(callId, decision),
+    approve: (callId: string, decision: ApprovalDecision, promptId?: string) => {
+      if (!host.approve(callId, decision, promptId)) throw new Error(`No pending approval for ${callId} with this prompt (already answered, expired, or re-issued).`);
+      return true;
+    },
     pendingApprovals: () => host.pendingApprovals(),
     switchModel: (id: string, model: string) => host.switchModel(id, model),
     switchMode: (id: string, mode: string) => host.switchMode(id, mode),
@@ -298,7 +301,7 @@ export interface SessionHost {
   abort(id: string): void | Promise<void>;
   switchModel(id: string, model: string): void | Promise<void>;
   switchMode(id: string, mode: string): void | Promise<void>;
-  approve(callId: string, d: ApprovalDecision): void | Promise<void>;
+  approve(callId: string, d: ApprovalDecision, promptId?: string): unknown;
   subscribe(fn: (e: LiveEvent) => void): () => void;
   registerApprover(): () => void;
   wait(id: string): Promise<{ status: RunStatus; reason?: string; detail?: string } | undefined>;
@@ -340,8 +343,8 @@ export class RemoteHost implements SessionHost {
   switchMode(id: string, mode: string) {
     return this.client.call<void>('switchMode', id, mode);
   }
-  approve(callId: string, d: ApprovalDecision) {
-    return this.client.call<void>('approve', callId, d);
+  approve(callId: string, d: ApprovalDecision, promptId?: string) {
+    return this.client.call<boolean>('approve', callId, d, promptId);
   }
   /** Call before subscribe(): the event stream then registers this client as an approver. */
   registerApprover(): () => void {

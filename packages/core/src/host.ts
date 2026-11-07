@@ -452,7 +452,7 @@ export class HarnessHost {
       });
     }
     return new Promise((resolve) => {
-      const pending: PendingApproval = { ...req, displaySessionId };
+      const pending: PendingApproval = { ...req, displaySessionId, promptId: randomUUID(), requestedAt: new Date().toISOString() };
       const done = (d: ApprovalDecision) => {
         if (!this.approvals.has(req.callId)) return;
         this.approvals.delete(req.callId);
@@ -465,8 +465,15 @@ export class HarnessHost {
     });
   }
 
-  approve(callId: string, decision: ApprovalDecision): void {
-    this.approvals.get(callId)?.resolve(decision);
+  /**
+   * Answer a pending approval. Returns false for an unknown call (already answered, expired) or a stale prompt
+   * (promptId from an earlier showing of the same call), so a late or misdirected answer never applies.
+   */
+  approve(callId: string, decision: ApprovalDecision, promptId?: string): boolean {
+    const a = this.approvals.get(callId);
+    if (!a || (promptId && a.pending.promptId !== promptId)) return false;
+    a.resolve(decision);
+    return true;
   }
 
   // ---------- services exposed to tools ----------

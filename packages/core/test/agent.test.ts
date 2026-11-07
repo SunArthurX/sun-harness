@@ -297,3 +297,55 @@ describe('agent loop', () => {
     expect(child).toBeTruthy();
   });
 });
+
+describe('approval race guard', () => {
+  beforeEach(() => tempHome());
+
+  it('answers must match the current prompt; unknown or stale answers are rejected', async () => {
+    const { host } = await mockHost(
+      { 'mock/a': [{ text: '', toolCalls: [call('bash', { command: 'echo guarded' }, 'g1')] }, { text: 'ok', toolCalls: [] }] },
+      { approval: 'suggest' },
+    );
+    host.registerApprover();
+    const seen: string[] = [];
+    host.subscribe((e) => {
+      if (e.kind === 'approvals' && e.approvals.length) seen.push(e.approvals[0].promptId);
+    });
+    const s = host.createSession({ cwd: tempWorkspace() });
+    await host.send(s.id, 'go');
+    for (let i = 0; i < 100 && !seen.length; i++) await new Promise((r) => setTimeout(r, 10));
+    const [pending] = host.pendingApprovals();
+    expect(pending.promptId).toMatch(/[0-9a-f-]{36}/);
+    expect(Date.parse(pending.requestedAt)).toBeGreaterThan(0);
+    expect(host.approve('no-such-call', 'allow')).toBe(false);
+    expect(host.approve('g1', 'allow', 'stale-prompt')).toBe(false);
+    expect(host.pendingApprovals()).toHaveLength(1);
+    expect(host.approve('g1', 'allow', pending.promptId)).toBe(true);
+    expect(host.approve('g1', 'deny', pending.promptId)).toBe(false); // already answered
+    await host.wait(s.id);
+    expect((host.getEvents(s.id).find((e) => e.type === 'tool/result') as any).output).toContain('guarded');
+  });
+
+  it('a re-issued prompt after a restart gets a new prompt id, so an answer to the old one cannot apply', async () => {
+    const first = await mockHost({ 'mock/a': [{ text: '', toolCalls: [call('bash', { command: 'echo x' }, 'r1')] }] }, { approval: 'suggest' });
+    first.host.registerApprover();
+    const ws = tempWorkspace();
+    const s = first.host.createSession({ cwd: ws });
+    await first.host.send(s.id, 'go');
+    for (let i = 0; i < 100 && !first.host.pendingApprovals().length; i++) await new Promise((r) => setTimeout(r, 10));
+    const oldPrompt = first.host.pendingApprovals()[0].promptId;
+    first.host.abort(s.id);
+    await first.host.wait(s.id);
+
+    const second = await mockHost({ 'mock/a': [{ text: 'done', toolCalls: [] }] }, { approval: 'suggest' });
+    second.host.registerApprover();
+    second.host.resume(s.id);
+    for (let i = 0; i < 100 && !second.host.pendingApprovals().length; i++) await new Promise((r) => setTimeout(r, 10));
+    const fresh = second.host.pendingApprovals()[0];
+    expect(fresh.callId).toBe('r1');
+    expect(fresh.promptId).not.toBe(oldPrompt);
+    expect(second.host.approve('r1', 'allow', oldPrompt)).toBe(false);
+    expect(second.host.approve('r1', 'deny', fresh.promptId)).toBe(true);
+    await second.host.wait(s.id);
+  });
+});

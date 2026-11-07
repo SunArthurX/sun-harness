@@ -119,13 +119,31 @@ function printEvent(e: LiveEvent, sessionId: string, state: { streamed: boolean;
   }
 }
 
+/** Answers arriving sooner than this after the prompt was drawn were typed before it appeared and are ignored. */
+const APPROVAL_ARM_MS = 400;
+
 async function askApproval(rl: ReturnType<typeof createInterface> | undefined, a: PendingApproval): Promise<ApprovalDecision> {
   const args = a.arguments.length > 600 ? a.arguments.slice(0, 600) + '…' : a.arguments;
   console.log(c.yellow(`\n⚠  Approve ${c.bold(a.name)} [${a.risk}]?`) + `\n   ${args}`);
   const own = rl ?? createInterface({ input: process.stdin, output: process.stdout });
-  const ans = (await own.question(c.yellow('   [y]es / [n]o / [a]lways for this tool: '))).trim().toLowerCase();
-  if (!rl) own.close();
-  return ans.startsWith('a') ? 'allow_always' : ans.startsWith('y') ? 'allow' : 'deny';
+  try {
+    // A half-typed chat line must not complete into an answer: clear it before asking.
+    own.write(null, { ctrl: true, name: 'u' });
+    while (true) {
+      const shown = Date.now();
+      const ans = (await own.question(c.yellow('   [y]es / [n]o / [a]lways for this tool: '))).trim().toLowerCase();
+      if (Date.now() - shown < APPROVAL_ARM_MS) {
+        console.log(c.dim('   (ignored input typed before the prompt appeared — answer again)'));
+        continue;
+      }
+      if (ans === 'y' || ans === 'yes') return 'allow';
+      if (ans === 'a' || ans === 'always') return 'allow_always';
+      if (ans === 'n' || ans === 'no' || ans === '') return 'deny';
+      console.log(c.dim('   Please answer y, n, or a.'));
+    }
+  } finally {
+    if (!rl) own.close();
+  }
 }
 
 /** Only an interactive terminal can approve; piped/launchd runs stay headless so approvals are denied instead of hanging. */
@@ -140,7 +158,13 @@ function wireApprovals(host: SessionHost, rl?: ReturnType<typeof createInterface
       if (asked.has(a.callId)) continue;
       asked.add(a.callId);
       chain = chain.then(async () => {
-        await host.approve(a.callId, await askApproval(rl, a));
+        const decision = await askApproval(rl, a);
+        try {
+          const ok = await host.approve(a.callId, decision, a.promptId);
+          if (ok === false) console.log(c.dim('   (answer not applied: the approval was already answered or re-issued)'));
+        } catch (e) {
+          console.log(c.dim(`   (answer not applied: ${(e as Error).message})`));
+        }
       });
     }
   });

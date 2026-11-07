@@ -51,7 +51,13 @@ await win.fill('.composer textarea', 'Create notes.md containing a 3-item checkl
 await win.keyboard.press('Enter');
 
 await win.waitForSelector('.approval', { timeout: 90_000 });
-await win.waitForTimeout(400);
+// Race guard: a click in the first moments after the card appears must not approve.
+await win.evaluate(() => document.querySelector('.approval .btn-primary')?.click());
+await win.waitForTimeout(150);
+const stillPending = (await win.evaluate(() => window.sun.call('pendingApprovals'))).length;
+console.log('race-guard', JSON.stringify({ pendingAfterEarlyClick: stillPending }));
+if (stillPending !== 1) process.exitCode = 1;
+await win.waitForTimeout(800);
 await win.screenshot({ path: join(shots, '02-approval.png') });
 await win.click('.approval .btn-primary');
 
