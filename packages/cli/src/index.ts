@@ -9,6 +9,18 @@ import { parseArgs } from 'node:util';
 import {
   HarnessHost,
   RemoteHost,
+  GatewayClient,
+  addRemote,
+  createDevice,
+  ensureTls,
+  getRemote,
+  lanAddresses,
+  listDevices,
+  loadRemotes,
+  readGatewayInfo,
+  removeRemote,
+  revokeDevice,
+  useRemote,
   findGateway,
   launchAgentPlist,
   startGateway,
@@ -54,11 +66,14 @@ Usage:
   sun worktree list | status <id> | diff <id> | merge <id> [--strategy squash|merge] | discard <id>
   sun skills | sun mcp | sun plugins | sun schedules
   sun serve [--port 4471] [--host 127.0.0.1]   Run the gateway (owns sessions; web UI; CLI/desktop attach)
-  sun gateway status | url | install | uninstall   Gateway as a login service (launchd)
+  sun serve --tls [--host 0.0.0.0]              HTTPS with a self-signed, client-pinned certificate (required off localhost)
+  sun gateway status | url | install [--tls --host ..] | uninstall   Gateway as a login service (launchd)
+  sun gateway token create <device> | list | revoke <id|name>      Per-device tokens for remote clients and bots
+  sun remote add <name> <url> --token <t> [--fingerprint <sha256>] | list | use <name> | off | remove <name>
   sun doctor
   sun desktop                      Launch the desktop app (from a source checkout)
 
-Session commands (chat, run, resume, sessions) attach to a running gateway; pass --local to run in-process.
+Session commands (chat, run, resume, sessions) use --remote <name>, else the default remote, else a local gateway; --local runs in-process.
 
 Chat commands: /model <ref>  /mode <id>  /resume  /abort  /reflect  /sessions  /help  /exit
 Home: ${sunHome()}`;
@@ -325,7 +340,7 @@ function loadAgent(label: string, xml: string): string {
   return plist;
 }
 
-async function serve(values: { port?: string; host?: string }): Promise<void> {
+async function serve(values: { port?: string; host?: string; tls?: boolean; insecure?: boolean }): Promise<void> {
   const running = await findGateway();
   if (running) throw new Error(`A gateway is already running at ${running.url} (pid ${running.pid}).`);
   const host = new HarnessHost({ connectMcp: true });
@@ -333,8 +348,11 @@ async function serve(values: { port?: string; host?: string }): Promise<void> {
   // The gateway owns sessions: auto-resume, schedules, jobs and the intel catch-up run here, headless.
   host.startBackground(60_000, { intel: true });
   const webRoot = webRootCandidates().find((p) => existsSync(join(p, 'index.html')));
-  const gw = await startGateway(host, { port: Number(values.port) || 4471, hostname: values.host, webRoot });
+  const tls = values.tls ? ensureTls({ hosts: values.host ? [values.host] : [] }) : undefined;
+  const gw = await startGateway(host, { port: Number(values.port) || 4471, hostname: values.host, webRoot, tls, insecure: values.insecure });
   console.log(`${c.bold('sun-harness gateway')} ${gw.url}  (pid ${process.pid}, home ${sunHome()})`);
+  if (tls) console.log(`TLS certificate fingerprint (SHA-256): ${tls.fingerprint}`);
+  if (values.host && values.host !== '127.0.0.1') console.log(c.dim(`Reachable on: ${lanAddresses().map((a) => `${gw.url.split(':')[0]}://${a}:${new URL(gw.url).port}`).join('  ')}  — create a device token: sun gateway token create <name>`));
   console.log(webRoot ? `Web UI: ${gw.url}/#token=${gw.token}` : c.dim('Web UI not built (pnpm build).'));
   const stop = async () => {
     await gw.close();
@@ -346,7 +364,33 @@ async function serve(values: { port?: string; host?: string }): Promise<void> {
   await new Promise(() => undefined);
 }
 
-async function gatewayCommand(sub: string): Promise<void> {
+async function remoteCommand(sub: string, rest: string[], values: { token?: string; fingerprint?: string }): Promise<void> {
+  if (sub === 'add') {
+    const [name, url] = rest;
+    if (!name || !url || !values.token) throw new Error('Usage: sun remote add <name> <url> --token <device-token> [--fingerprint <sha256>]');
+    if (url.startsWith('https://') && !values.fingerprint) console.log(c.yellow('No --fingerprint given: trusting the certificate presented now (verify it matches the gateway).'));
+    const e = await addRemote({ name, url, token: values.token, fingerprint: values.fingerprint });
+    const ok = await new GatewayClient(e).call('appInfo').then(
+      () => true,
+      (err: Error) => (console.log(c.red(`Saved, but the gateway did not answer: ${err.message}`)), false),
+    );
+    console.log(`${ok ? c.green('Connected') : 'Saved'}: ${e.name} → ${e.url}${e.fingerprint ? `  (pinned ${e.fingerprint})` : ''}`);
+  } else if (sub === 'list') {
+    const r = loadRemotes();
+    for (const e of r.remotes) console.log(`${e.name === r.default ? c.green('*') : ' '} ${e.name.padEnd(12)} ${e.url}${e.fingerprint ? c.dim(`  ${e.fingerprint.slice(0, 23)}…`) : c.yellow('  (no TLS)')}`);
+    if (!r.remotes.length) console.log(c.dim('No remotes. Add one with: sun remote add <name> <url> --token <t> --fingerprint <fp>'));
+  } else if (sub === 'use') {
+    useRemote(rest[0]);
+    console.log(rest[0] ? `Session commands now use ${rest[0]}.` : 'Using the local gateway / in-process host.');
+  } else if (sub === 'off') {
+    useRemote(undefined);
+    console.log('Using the local gateway / in-process host.');
+  } else if (sub === 'remove') {
+    console.log(removeRemote(rest[0] ?? '') ? 'Removed.' : 'No such remote.');
+  } else throw new Error(`Unknown remote command ${sub}`);
+}
+
+async function gatewayCommand(sub: string, rest: string[] = [], values: { port?: string; host?: string; tls?: boolean; insecure?: boolean } = {}): Promise<void> {
   const label = 'com.sun-harness.gateway';
   const plist = join(homedir(), 'Library', 'LaunchAgents', `${label}.plist`);
   if (sub === 'status') {
@@ -357,9 +401,31 @@ async function gatewayCommand(sub: string): Promise<void> {
     const gw = await findGateway();
     if (!gw) throw new Error('No gateway running.');
     console.log(`${gw.url}/#token=${gw.token}`);
+    if (gw.fingerprint) console.log(c.dim(`certificate fingerprint ${gw.fingerprint} (self-signed: confirm it in the browser warning)`));
+  } else if (sub === 'token') {
+    const action = rest[0] ?? 'list';
+    if (action === 'create') {
+      const name = rest[1];
+      if (!name) throw new Error('Usage: sun gateway token create <device-name>');
+      const { device, token } = createDevice(name);
+      const gw = readGatewayInfo();
+      const port = gw ? new URL(gw.url).port : values.port || '4471';
+      const scheme = gw?.url.startsWith('https') ? 'https' : 'http';
+      const fp = gw?.fingerprint ?? (scheme === 'https' ? ensureTls().fingerprint : undefined);
+      console.log(`Device ${c.bold(device.name)} (${device.id}) token — shown once, store it now:\n  ${token}`);
+      for (const ip of lanAddresses().length ? lanAddresses() : ['127.0.0.1']) {
+        console.log(c.dim(`  sun remote add <name> ${scheme}://${ip}:${port} --token ${token}${fp ? ` --fingerprint ${fp}` : ''}`));
+      }
+      if (scheme !== 'https') console.log(c.yellow('  The gateway is not using TLS; restart it with --tls before using it from other machines.'));
+    } else if (action === 'list') {
+      for (const d of listDevices()) console.log(`${d.id}  ${d.name.padEnd(16)} created ${d.createdAt.slice(0, 16)}  last used ${d.lastUsedAt?.slice(0, 16) ?? '—'}`);
+    } else if (action === 'revoke') {
+      console.log(revokeDevice(rest[1] ?? '') ? 'Revoked.' : 'No such device.');
+    } else throw new Error(`Unknown token command ${action}`);
   } else if (sub === 'install') {
     const cliPath = installBundle();
-    loadAgent(label, launchAgentPlist({ label, nodePath: process.execPath, args: [cliPath, 'serve'], log: homePath('gateway.log'), keepAlive: true }));
+    const flags = [...(values.tls ? ['--tls'] : []), ...(values.host ? ['--host', values.host] : []), ...(values.port ? ['--port', values.port] : []), ...(values.insecure ? ['--insecure'] : [])];
+    loadAgent(label, launchAgentPlist({ label, nodePath: process.execPath, args: [cliPath, 'serve', ...flags], log: homePath('gateway.log'), keepAlive: true }));
     for (let i = 0; i < 40 && !(await findGateway()); i++) await new Promise((r) => setTimeout(r, 250));
     const gw = await findGateway();
     console.log(gw ? c.green(`Gateway installed and running at ${gw.url}. Web UI: ${gw.url}/#token=${gw.token}`) : c.yellow(`Installed ${plist}; not reachable yet (see ${homePath('gateway.log')}).`));
@@ -448,6 +514,11 @@ async function main(): Promise<void> {
       local: { type: 'boolean' },
       port: { type: 'string' },
       host: { type: 'string' },
+      tls: { type: 'boolean' },
+      insecure: { type: 'boolean' },
+      remote: { type: 'string' },
+      token: { type: 'string' },
+      fingerprint: { type: 'string' },
       help: { type: 'boolean', short: 'h' },
     },
   });
@@ -458,11 +529,17 @@ async function main(): Promise<void> {
   const sessionCwd = values.cwd || !values.mode || values.mode === 'coding' ? cwd : undefined;
   const approval = values.approval as ApprovalMode | undefined;
   if (cmd === 'serve') return serve(values);
-  if (cmd === 'gateway') return gatewayCommand(args[0] ?? 'status');
+  if (cmd === 'gateway') return gatewayCommand(args[0] ?? 'status', args.slice(1), values);
+  if (cmd === 'remote') return remoteCommand(args[0] ?? 'list', args.slice(1), values);
 
-  // Session commands attach to a running gateway (one owner for every session) unless --local.
-  const gw = ['chat', 'run', 'resume', 'sessions'].includes(cmd) && !values.local ? await findGateway() : undefined;
-  if (gw) return sessionCommands(new RemoteHost(gw), cmd, args, values, sessionCwd, approval);
+  // Session commands: --local > --remote <name> > default remote > local gateway > in-process.
+  if (['chat', 'run', 'resume', 'sessions'].includes(cmd) && !values.local) {
+    const remote = getRemote(values.remote);
+    if (values.remote && !remote) throw new Error(`No remote named ${values.remote} (sun remote list).`);
+    if (remote) return sessionCommands(new RemoteHost(remote), cmd, args, values, values.cwd ? cwd : undefined, approval);
+    const gw = await findGateway();
+    if (gw) return sessionCommands(new RemoteHost(gw), cmd, args, values, sessionCwd, approval);
+  }
 
   const needsMcp = ['chat', 'run', 'resume', 'mcp'].includes(cmd);
   const host = new HarnessHost({ connectMcp: needsMcp });

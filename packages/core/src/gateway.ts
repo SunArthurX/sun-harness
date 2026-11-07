@@ -1,4 +1,6 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
+import { createServer as createHttpsServer, request as httpsRequest } from 'node:https';
+import { Readable } from 'node:stream';
 import { existsSync, readFileSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { homedir, platform } from 'node:os';
 import { extname, join, normalize, resolve } from 'node:path';
@@ -10,6 +12,7 @@ import { readMemory, writeMemory } from './memory.js';
 import { ensureDir, homePath, sunHome } from './paths.js';
 import { readSse } from './providers/sse.js';
 import { listSchedules, removeSchedule } from './schedule.js';
+import { fingerprintOf, matchDevice } from './remote.js';
 import type { ApprovalDecision, LiveEvent, RunStatus, SessionEvent, SessionSummary } from './types.js';
 
 export const VERSION = '0.2.0';
@@ -82,6 +85,9 @@ export interface GatewayInfo {
   token: string;
   pid: number;
   startedAt: string;
+  /** Present when the gateway serves HTTPS: local clients pin this certificate. */
+  cert?: string;
+  fingerprint?: string;
 }
 
 function infoFile(): string {
@@ -102,8 +108,8 @@ export async function findGateway(timeoutMs = 800): Promise<GatewayInfo | undefi
   const info = readGatewayInfo();
   if (!info) return undefined;
   try {
-    const r = await fetch(`${info.url}/api/health`, { headers: { authorization: `Bearer ${info.token}` }, signal: AbortSignal.timeout(timeoutMs) });
-    if (!r.ok) return undefined;
+    const r = await pinnedFetch(info, '/api/health', { headers: { authorization: `Bearer ${info.token}` }, signal: AbortSignal.timeout(timeoutMs) });
+    if (r.status !== 200) return undefined;
     const body = (await r.json()) as { home?: string };
     return body.home === sunHome() ? info : undefined;
   } catch {
@@ -132,7 +138,13 @@ export interface GatewayOptions {
   webRoot?: string;
   /** Write ~/.sun/gateway.json so clients can find this gateway (default true). */
   advertise?: boolean;
+  /** Serve HTTPS with this certificate (see ensureTls). Required for non-loopback addresses. */
+  tls?: { cert: string; key: string };
+  /** Allow plain HTTP on a non-loopback address (not recommended). */
+  insecure?: boolean;
 }
+
+const LOOPBACK = new Set(['127.0.0.1', 'localhost', '::1']);
 
 export interface RunningGateway {
   url: string;
@@ -146,17 +158,25 @@ export interface RunningGateway {
  * Binds to 127.0.0.1 by default; every request needs the bearer token (header, or ?token= for EventSource).
  */
 export async function startGateway(host: HarnessHost, opts: GatewayOptions = {}): Promise<RunningGateway> {
+  const hostname = opts.hostname ?? '127.0.0.1';
+  if (!LOOPBACK.has(hostname) && !opts.tls && !opts.insecure) {
+    throw new Error(`Refusing to listen on ${hostname} without TLS. Use --tls (self-signed certificate, pinned by clients) or --insecure.`);
+  }
   const token = opts.token ?? randomBytes(24).toString('hex');
   const methods = hostMethods(host, { mode: 'gateway' });
   const webRoot = opts.webRoot && existsSync(join(opts.webRoot, 'index.html')) ? resolve(opts.webRoot) : undefined;
-  const authed = (req: IncomingMessage, url: URL) => req.headers.authorization === `Bearer ${token}` || url.searchParams.get('token') === token;
+  // The owner token (gateway.json) or any non-revoked device token (sun gateway token create).
+  const authed = (req: IncomingMessage, url: URL) => {
+    const presented = req.headers.authorization?.replace(/^Bearer /, '') ?? url.searchParams.get('token') ?? undefined;
+    return presented === token || !!matchDevice(presented);
+  };
 
   const send = (res: ServerResponse, code: number, body: unknown) => {
     res.writeHead(code, { 'content-type': 'application/json' });
     res.end(JSON.stringify(body));
   };
 
-  const server = createServer(async (req, res) => {
+  const handler = async (req: IncomingMessage, res: ServerResponse) => {
     const url = new URL(req.url ?? '/', 'http://localhost');
     if (url.pathname.startsWith('/api/')) {
       if (!authed(req, url)) return send(res, 401, { ok: false, error: 'unauthorized' });
@@ -203,18 +223,21 @@ export async function startGateway(host: HarnessHost, opts: GatewayOptions = {})
     if (!file.startsWith(webRoot) || !existsSync(file) || statSync(file).isDirectory()) file = join(webRoot, 'index.html');
     res.writeHead(200, { 'content-type': MIME[extname(file)] ?? 'application/octet-stream' });
     res.end(readFileSync(file));
-  });
+  };
+  const server: Server = opts.tls ? createHttpsServer({ cert: opts.tls.cert, key: opts.tls.key }, handler) : createServer(handler);
 
   await new Promise<void>((ok, fail) => {
     server.once('error', fail);
-    server.listen(opts.port ?? 4471, opts.hostname ?? '127.0.0.1', () => ok());
+    server.listen(opts.port ?? 4471, hostname, () => ok());
   });
   const addr = server.address();
   const port = typeof addr === 'object' && addr ? addr.port : opts.port;
-  const urlBase = `http://${opts.hostname && opts.hostname !== '0.0.0.0' ? opts.hostname : '127.0.0.1'}:${port}`;
+  const urlBase = `${opts.tls ? 'https' : 'http'}://${hostname === '0.0.0.0' || hostname === '::' ? '127.0.0.1' : hostname}:${port}`;
   if (opts.advertise !== false) {
     ensureDir(sunHome());
-    writeFileSync(infoFile(), JSON.stringify({ url: urlBase, token, pid: process.pid, startedAt: new Date().toISOString() } satisfies GatewayInfo, null, 2), { mode: 0o600 });
+    const info: GatewayInfo = { url: urlBase, token, pid: process.pid, startedAt: new Date().toISOString() };
+    if (opts.tls) Object.assign(info, { cert: opts.tls.cert, fingerprint: fingerprintOf(opts.tls.cert) });
+    writeFileSync(infoFile(), JSON.stringify(info, null, 2), { mode: 0o600 });
   }
   return {
     url: urlBase,
@@ -237,16 +260,73 @@ export async function startGateway(host: HarnessHost, opts: GatewayOptions = {})
 
 // ---------------- client ----------------
 
+export interface ClientTarget {
+  url: string;
+  token: string;
+  /** Pinned certificate for https gateways: trusted as the only CA, and its fingerprint must match. */
+  cert?: string;
+  fingerprint?: string;
+}
+
+interface MiniResponse {
+  status: number;
+  body: ReadableStream<Uint8Array> | null;
+  json(): Promise<unknown>;
+}
+
+/** fetch for http; node:https with certificate pinning for https (self-signed gateways). */
+export function pinnedFetch(target: ClientTarget, path: string, init: { method?: string; headers?: Record<string, string>; body?: string; signal?: AbortSignal }): Promise<MiniResponse> {
+  const url = `${target.url}${path}`;
+  if (!url.startsWith('https://') || !target.cert) return fetch(url, init) as unknown as Promise<MiniResponse>;
+  return new Promise((resolve, reject) => {
+    const norm = (f?: string) => (f ?? '').replace(/[^0-9a-f]/gi, '').toUpperCase();
+    const req = httpsRequest(
+      url,
+      {
+        method: init.method ?? 'GET',
+        headers: init.headers,
+        ca: target.cert,
+        // The certificate is pinned: identity is its fingerprint, not the hostname it was issued for.
+        checkServerIdentity: (_host, peer) =>
+          norm(peer.fingerprint256) === norm(target.fingerprint) ? undefined : new Error(`Gateway certificate fingerprint changed (got ${peer.fingerprint256}). Refusing to connect.`),
+        signal: init.signal,
+        // No pooled sockets: a connection verified for another client (or another pin) must never be reused.
+        agent: false,
+      },
+      (res) => {
+        const peer = (res.socket as import('node:tls').TLSSocket).getPeerCertificate?.();
+        if (!peer || norm(peer.fingerprint256) !== norm(target.fingerprint)) {
+          res.destroy();
+          return reject(new Error('Gateway certificate fingerprint changed. Refusing to connect.'));
+        }
+        const body = Readable.toWeb(res) as unknown as ReadableStream<Uint8Array>;
+        resolve({
+          status: res.statusCode ?? 0,
+          body,
+          json: async () => {
+            let text = '';
+            for await (const chunk of res) text += chunk;
+            return JSON.parse(text);
+          },
+        });
+      },
+    );
+    req.on('error', reject);
+    req.end(init.body);
+  });
+}
+
 /** Thin client for a running gateway: method calls plus a live event stream. */
 export class GatewayClient {
-  constructor(readonly info: Pick<GatewayInfo, 'url' | 'token'>) {}
+  constructor(readonly info: ClientTarget) {}
 
   async call<T = any>(method: string, ...args: unknown[]): Promise<T> {
-    const r = await fetch(`${this.info.url}/api/call`, {
+    const r = await pinnedFetch(this.info, '/api/call', {
       method: 'POST',
       headers: { 'content-type': 'application/json', authorization: `Bearer ${this.info.token}` },
       body: JSON.stringify({ method, args }),
     });
+    if (r.status === 401) throw new Error('Gateway rejected the token (revoked or wrong).');
     const body = (await r.json()) as { ok: boolean; result?: T; error?: string };
     if (!body.ok) throw new Error(body.error ?? `gateway call ${method} failed`);
     return body.result as T;
@@ -262,7 +342,7 @@ export class GatewayClient {
     (async () => {
       while (!ctrl.signal.aborted) {
         try {
-          const r = await fetch(`${this.info.url}/api/events?approver=${opts.approver ? 1 : 0}`, {
+          const r = await pinnedFetch(this.info, `/api/events?approver=${opts.approver ? 1 : 0}`, {
             headers: { authorization: `Bearer ${this.info.token}` },
             signal: ctrl.signal,
           });
@@ -321,7 +401,7 @@ export class RemoteHost implements SessionHost {
   private approver = false;
   private unsubs: (() => void)[] = [];
 
-  constructor(info: Pick<GatewayInfo, 'url' | 'token'>) {
+  constructor(info: ClientTarget) {
     this.client = new GatewayClient(info);
   }
 

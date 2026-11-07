@@ -193,7 +193,7 @@ export class HarnessHost {
   }
 
   defaultCwd(mode: string): string {
-    if (mode === 'coding') return process.cwd();
+    if (mode === 'coding' && process.cwd() !== '/') return process.cwd();
     const dir = homePath('workspace');
     mkdirSync(dir, { recursive: true });
     return dir;
