@@ -1,5 +1,7 @@
 import { DEFAULT_SANDBOX, type SandboxConfig } from './sandbox.js';
 import { DEFAULT_BROWSER, type BrowserConfig } from './browser/browser.js';
+import { DEFAULT_SEARCH, type SearchConfig } from './research/search.js';
+import { DEFAULT_TAINT, type TaintConfig } from './research/taint.js';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { ensureDir, homePath, sunHome } from './paths.js';
 import { AnthropicProvider } from './providers/anthropic.js';
@@ -73,6 +75,12 @@ export interface SunConfig {
   sandbox: SandboxConfig;
   /** Browser automation over CDP (specs/022). */
   browser: BrowserConfig;
+  /** Web search provider (specs/023). */
+  search: SearchConfig;
+  /** Prompt-injection guard for external content (specs/023). */
+  taint: TaintConfig;
+  /** Tool calls run concurrently in one step (read-only tools, subagents). */
+  maxParallelTools: number;
   /** Chat bots run inside the gateway (sun serve). Allowlists are platform user ids; empty = nobody. */
   bots: BotsConfig;
 }
@@ -168,6 +176,9 @@ export function defaultConfig(): SunConfig {
     repoMap: { enabled: true, budget: 6000, minFiles: 8 },
     sandbox: structuredClone(DEFAULT_SANDBOX),
     browser: structuredClone(DEFAULT_BROWSER),
+    search: structuredClone(DEFAULT_SEARCH),
+    taint: structuredClone(DEFAULT_TAINT),
+    maxParallelTools: 6,
     bots: {
       defaultMode: 'assistant',
       approvals: 'chat',

@@ -1284,3 +1284,10 @@ pre.diff {
 .browser-view { outline: none; }
 .browser-view img { display: block; width: 100%; height: auto; cursor: default; }
 .browser-panel.taken .browser-view img { cursor: crosshair; }
+
+/* Deliverables */
+.files-panel .file-row { display: flex; gap: 8px; align-items: center; padding: 3px 0; }
+.files-panel .tag { font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; padding: 1px 6px; border-radius: 6px; border: 1px solid var(--line); color: var(--muted); }
+.files-panel .tag.ok { color: var(--ok); border-color: var(--ok); }
+.linklike { background: none; border: 0; padding: 0; color: var(--text); cursor: pointer; text-align: left; }
+.linklike:hover { text-decoration: underline; }

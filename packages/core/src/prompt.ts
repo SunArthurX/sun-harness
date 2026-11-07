@@ -1,6 +1,7 @@
 import { localDate } from './util/date.js';
 import { platform, release } from 'node:os';
 import type { ModeDef } from './modes.js';
+import { UNTRUSTED_PROMPT } from './research/taint.js';
 import type { ProjectContext } from './rules.js';
 
 export interface PromptParts {
@@ -16,6 +17,8 @@ export interface PromptParts {
   repoMap?: string;
   /** Description of the shell sandbox, when commands run in one. */
   sandbox?: string;
+  /** Explain <untrusted> blocks (when web or browser tools are available). */
+  untrustedNote?: boolean;
   now?: Date;
 }
 
@@ -68,6 +71,7 @@ export function buildSystemPrompt(p: PromptParts): string {
   if (p.memory?.trim()) {
     out.push('# Memory (what you know about the user)\n' + p.memory.trim());
   }
+  if (p.untrustedNote) out.push(UNTRUSTED_PROMPT);
   for (const s of p.extraSections ?? []) out.push(`# ${s.title}\n${s.text}`);
   return out.join('\n\n');
 }

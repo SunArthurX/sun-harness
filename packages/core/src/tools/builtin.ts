@@ -180,63 +180,6 @@ export function htmlToText(html: string): string {
     .trim();
 }
 
-const webFetch: Tool = {
-  name: 'web_fetch',
-  description: 'Fetch a URL and return readable text (HTML is converted to text). Use for docs, articles, APIs.',
-  parameters: { type: 'object', properties: { url: { type: 'string' } }, required: ['url'] },
-  risk: 'network',
-  source: 'builtin',
-  async execute(args, ctx) {
-    const res = await fetch(String(args.url), {
-      signal: AbortSignal.any([ctx.signal, AbortSignal.timeout(30_000)]),
-      headers: { 'user-agent': 'sun-harness/0.1 (+https://github.com)' },
-    });
-    const type = res.headers.get('content-type') || '';
-    const body = await res.text();
-    const text = type.includes('html') ? htmlToText(body) : body;
-    return truncate(`[${res.status} ${type}]\n${text}`, 50_000);
-  },
-};
-
-let searchProbe: { ok: boolean; at: number } | undefined;
-
-const webSearch: Tool = {
-  name: 'web_search',
-  async available() {
-    if (searchProbe && Date.now() - searchProbe.at < 10 * 60_000) return searchProbe.ok;
-    let ok = false;
-    try {
-      const r = await fetch('https://html.duckduckgo.com/html/?q=test', { signal: AbortSignal.timeout(4000), headers: { 'user-agent': 'Mozilla/5.0 sun-harness/0.1' } });
-      ok = r.ok;
-    } catch {
-      ok = false;
-    }
-    searchProbe = { ok, at: Date.now() };
-    return ok;
-  },
-  description: 'Search the web (DuckDuckGo). Returns titles, URLs and snippets. Follow up with web_fetch.',
-  parameters: { type: 'object', properties: { query: { type: 'string' } }, required: ['query'] },
-  risk: 'network',
-  source: 'builtin',
-  async execute(args, ctx) {
-    const res = await fetch(`https://html.duckduckgo.com/html/?q=${encodeURIComponent(String(args.query))}`, {
-      signal: AbortSignal.any([ctx.signal, AbortSignal.timeout(20_000)]),
-      headers: { 'user-agent': 'Mozilla/5.0 (Macintosh) sun-harness/0.1' },
-    });
-    const html = await res.text();
-    const results: string[] = [];
-    const re = /<a[^>]*class="result__a"[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>[\s\S]*?<a[^>]*class="result__snippet"[^>]*>([\s\S]*?)<\/a>/g;
-    let m: RegExpExecArray | null;
-    while ((m = re.exec(html)) && results.length < 10) {
-      let url = m[1];
-      const uddg = /uddg=([^&]+)/.exec(url);
-      if (uddg) url = decodeURIComponent(uddg[1]);
-      results.push(`- ${htmlToText(m[2])}\n  ${url}\n  ${htmlToText(m[3])}`);
-    }
-    return results.join('\n') || 'No results (search endpoint may be rate limited; try web_fetch on a known URL).';
-  },
-};
-
 const todoWrite: Tool = {
   name: 'todo_write',
   description:
@@ -268,4 +211,5 @@ const todoWrite: Tool = {
   },
 };
 
-export const BUILTIN_TOOLS: Tool[] = [readFile, writeFileTool, editFileTool, applyPatchTool, listDir, globTool, grep, bash, webFetch, webSearch, todoWrite];
+/** web_fetch and web_search are configured per host (search provider, readability, PDF): see research/tools.ts. */
+export const BUILTIN_TOOLS: Tool[] = [readFile, writeFileTool, editFileTool, applyPatchTool, listDir, globTool, grep, bash, todoWrite];

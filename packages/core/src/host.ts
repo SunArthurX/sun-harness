@@ -1,5 +1,5 @@
 import { localDate } from './util/date.js';
-import { existsSync, mkdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import { dirname, join, relative } from 'node:path';
 import { FileState } from './tools/edit.js';
@@ -7,6 +7,8 @@ import { detectVerifyCommands } from './verify.js';
 import { buildRepoMap } from './repomap.js';
 import { BrowserManager, type BrowserInput } from './browser/browser.js';
 import { createBrowserTools } from './browser/tools.js';
+import { PythonKernel } from './research/python.js';
+import { createResearchTools } from './research/tools.js';
 import { createSandbox, secretEnvNames, startAllowlistProxy, type ExecSandbox, type SandboxMode } from './sandbox.js';
 import { JobManager, restorableJobIds, type JobResult } from './jobs.js';
 import { createWorktree, mergeWorktree, removeWorktree, worktreeDiff, worktreeStatus, type WorktreeInfo, type WorktreeStatus } from './worktree.js';
@@ -236,6 +238,8 @@ export class HarnessHost {
     this.sandboxes.get(id)?.dispose?.();
     this.sandboxes.delete(id);
     void this.browser.closeTab(id);
+    this.kernels.get(id)?.dispose();
+    this.kernels.delete(id);
     SessionLog.delete(id);
     this.broadcastSessions();
   }
@@ -326,7 +330,14 @@ export class HarnessHost {
         tools: () => tools.filter((t) => this.modeAllows(log.currentMode(), t, !!log.meta()?.parent)),
         systemPrompt: (modelRef) => this.systemPrompt(log, modelRef),
         approvalMode: () => log.meta()?.approval ?? this.config.approval,
-        policy: () => ({ sandboxedShell: this.config.sandbox.autoApprove && this.sandboxFor(log).kind !== 'none' }),
+        policy: () => {
+          const taints = log.all().filter((e): e is Extract<SessionEvent, { type: 'context/taint' }> => e.type === 'context/taint');
+          return {
+            sandboxedShell: this.config.sandbox.autoApprove && this.sandboxFor(log).kind !== 'none',
+            tainted: taints.length > 0,
+            injected: this.config.taint.enabled && taints.some((t) => t.findings.length > 0),
+          };
+        },
         contextLimit: (ref) => compactionLimit(this.config, ref),
         verify:
           this.config.verify?.enabled
@@ -371,7 +382,7 @@ export class HarnessHost {
       ...t,
       execute: (args: unknown, ctx: Parameters<Tool['execute']>[1]) => this.jobs.promoteIfSlow(ctx.sessionId, t.name, args, () => t.execute(args, ctx), promote),
     }));
-    for (const t of [...BUILTIN_TOOLS, ...SERVICE_TOOLS, ...this.browserTools, ...this.pluginTools, ...slowSafe]) byName.set(t.name, t);
+    for (const t of [...BUILTIN_TOOLS, ...this.researchTools, ...SERVICE_TOOLS, ...this.browserTools, ...this.pluginTools, ...slowSafe]) byName.set(t.name, t);
     // Capability gating: drop tools whose backend is unreachable right now.
     const all = [...byName.values()];
     const ok = await Promise.all(all.map((t) => (t.available ? t.available().catch(() => false) : Promise.resolve(true))));
@@ -394,6 +405,45 @@ export class HarnessHost {
     },
   );
   private browserTools = createBrowserTools(this.browser);
+
+  // ---------- research ----------
+
+  private kernels = new Map<string, PythonKernel>();
+  private researchTools = createResearchTools({
+    search: () => this.config.search,
+    kernel: (sessionId, cwd) => {
+      let k = this.kernels.get(sessionId);
+      if (!k) this.kernels.set(sessionId, (k = new PythonKernel(cwd, this.sandboxFor(SessionLog.open(sessionId)))));
+      return k;
+    },
+  });
+
+  /** Files the session created or changed in its workspace (from checkpoints), plus screenshots and figures. */
+  deliverables(sessionId: string): { path: string; abs: string; created: boolean; size: number; mtime: string }[] {
+    const log = SessionLog.open(sessionId);
+    const cwd = log.meta()!.cwd;
+    const seen = new Map<string, boolean>();
+    for (const e of log.all()) {
+      if (e.type !== 'checkpoint') continue;
+      try {
+        const snap = JSON.parse(readFileSync(homePath('checkpoints', sessionId, `${e.id}.json`), 'utf8')) as { files: { path: string; before: string | null }[] };
+        for (const f of snap.files) if (!seen.has(f.path)) seen.set(f.path, f.before === null);
+      } catch {
+        for (const f of e.files) if (!seen.has(f)) seen.set(f, false);
+      }
+    }
+    for (const dir of ['screenshots', 'figures']) {
+      const d = join(cwd, dir);
+      if (existsSync(d)) for (const f of readdirSync(d)) if (!seen.has(join(d, f))) seen.set(join(d, f), true);
+    }
+    return [...seen.entries()]
+      .filter(([p]) => existsSync(p))
+      .map(([p, created]) => {
+        const st = statSync(p);
+        return { path: relative(cwd, p) || p, abs: p, created, size: st.size, mtime: st.mtime.toISOString() };
+      })
+      .sort((a, b) => b.mtime.localeCompare(a.mtime));
+  }
 
   browserInfo(sessionId?: string): { available: boolean; description: string; active: boolean; takeover: boolean; vncUrl?: string } {
     return {
@@ -491,6 +541,7 @@ export class HarnessHost {
       skills: this.listSkills(meta.cwd).map((s) => ({ name: s.name, description: s.description })),
       memory: readMemory(),
       repoMap: this.repoMapFor(log),
+      untrustedNote: this.config.taint.enabled,
       sandbox: this.sandboxFor(log).kind === 'none' ? undefined : `${this.sandboxFor(log).describe()}. Writes outside the workspace fail with "Operation not permitted"${this.config.sandbox.network === 'off' ? '; there is no network access' : this.config.sandbox.network === 'allowlist' ? `; network only to: ${this.config.sandbox.allow.join(', ')}` : ''}. Ask the user if a command genuinely needs more access.`,
       knowledgeProviders: this.knowledgeProviders().map((k) => ({ id: k.id, name: k.name })),
       extraSections: this.promptSections.map((s) => ({ title: s.title, text: s.text() })),
@@ -927,6 +978,7 @@ export class HarnessHost {
     for (const id of this.runs.keys()) this.abort(id);
     for (const sb of this.sandboxes.values()) sb.dispose?.();
     await this.browser.dispose().catch(() => undefined);
+    for (const k of this.kernels.values()) k.dispose();
     this.proxy?.server.close();
     await Promise.all([...this.mcp.values()].map((m) => m.closeAll()));
   }

@@ -47,6 +47,7 @@ export const api = {
     id: string,
     ev: { type: 'click'; x: number; y: number } | { type: 'wheel'; x: number; y: number; deltaX: number; deltaY: number } | { type: 'key'; key: string } | { type: 'text'; text: string },
   ) => call<void>('browserInput', id, ev),
+  deliverables: (id: string) => call<{ path: string; abs: string; created: boolean; size: number; mtime: string }[]>('deliverables', id),
   sandboxInfo: (id?: string) => call<{ mode: string; kind: string; description: string; network: string; blocked: string[] }>('sandboxInfo', id),
   undo: (id: string, steps?: number) => call<{ undone: string[]; restored: string[] }>('undo', id, steps),
   deleteSession: (id: string) => call<void>('deleteSession', id),

@@ -51,3 +51,8 @@ export * from './sandbox.js';
 export * from './browser/cdp.js';
 export * from './browser/browser.js';
 export * from './browser/tools.js';
+export * from './research/readable.js';
+export * from './research/search.js';
+export * from './research/taint.js';
+export * from './research/python.js';
+export * from './research/tools.js';

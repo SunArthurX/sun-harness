@@ -2,6 +2,7 @@ import type { ApprovalMode, SunConfig } from './config.js';
 import { SessionLog } from './log.js';
 import { deriveMessages, estimateTokens, pendingToolCalls } from './messages.js';
 import { needsApproval } from './policy.js';
+import { isUntrustedTool, scanInjection, wrapUntrusted } from './research/taint.js';
 import { ProviderError, type ModelResponse, type Provider } from './providers/types.js';
 import { toSchema, truncate, type Tool, type ToolServices } from './tools/types.js';
 import { runVerify } from './verify.js';
@@ -269,7 +270,7 @@ export class Agent {
         let output = await tool.execute(args, { cwd, sessionId: this.id, signal, services: this.d.services });
         const extra = await this.d.hooks?.postToolUse?.({ sessionId: this.id, tool: call.name, args, output, cwd });
         if (extra) output += `\n\n[hook] ${extra}`;
-        return { output: truncate(output), isError: false, ms: Date.now() - started };
+        return { output: this.guardUntrusted(tool, truncate(output)), isError: false, ms: Date.now() - started };
       } catch (e) {
         if (signal.aborted) return { output: '[Aborted by user]', isError: true, ms: Date.now() - started };
         return { output: `Error: ${(e as Error).message}`, isError: true, ms: Date.now() - started };
@@ -286,7 +287,7 @@ export class Agent {
         let j = i;
         while (j < prepared.length && prepared[j].parallel) j++;
         const batch = prepared.slice(i, j);
-        const results = await Promise.all(batch.map(runOne));
+        const results = await pool(batch, this.d.config.maxParallelTools ?? 6, runOne);
         // Log in the model's order so the transcript is deterministic.
         batch.forEach((p, k) => results[k] !== 'aborted' && record(p, results[k] as { output: string; isError: boolean; ms: number }));
         if (signal.aborted) return;
@@ -299,6 +300,16 @@ export class Agent {
         i++;
       }
     }
+  }
+
+  /** Wrap external content, scan it for prompt injection, and log the taint (model-visible means logged). */
+  private guardUntrusted(tool: Tool, output: string): string {
+    const cfg = this.d.config.taint;
+    if (!cfg?.enabled || !(tool.untrusted || isUntrustedTool(tool.name, cfg))) return output;
+    const findings = scanInjection(output);
+    const first = !this.d.log.all().some((e) => e.type === 'context/taint');
+    if (first || findings.length) this.emit({ type: 'context/taint', tool: tool.name, findings });
+    return wrapUntrusted(tool.name, output, findings);
   }
 
   /** Files were edited since the last automatic verification in this session. */
@@ -397,4 +408,19 @@ export class Agent {
     }
     throw lastError;
   }
+}
+
+/** Map with at most `limit` calls in flight; results keep the input order. */
+async function pool<T, R>(items: T[], limit: number, fn: (x: T) => Promise<R>): Promise<R[]> {
+  const out = new Array<R>(items.length);
+  let next = 0;
+  await Promise.all(
+    Array.from({ length: Math.max(1, Math.min(limit, items.length)) }, async () => {
+      while (next < items.length) {
+        const k = next++;
+        out[k] = await fn(items[k]);
+      }
+    }),
+  );
+  return out;
 }

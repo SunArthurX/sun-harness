@@ -259,6 +259,35 @@ function Todos({ items }: { items: TodoItem[] }) {
   );
 }
 
+/** Deliverables: files the session created or changed, newest first. */
+function FilesPanel({ sessionId, version, onClose }: { sessionId: string; version: number; onClose: () => void }) {
+  const [files, setFiles] = useState<Awaited<ReturnType<typeof api.deliverables>>>([]);
+  useEffect(() => {
+    api.deliverables(sessionId).then(setFiles, () => setFiles([]));
+  }, [sessionId, version]);
+  const size = (n: number) => (n > 1e6 ? `${(n / 1e6).toFixed(1)} MB` : n > 1e3 ? `${(n / 1e3).toFixed(1)} kB` : `${n} B`);
+  return (
+    <div className="changes files-panel">
+      <div className="row-between">
+        <strong>Files from this session</strong>
+        <button className="btn-ghost small" onClick={onClose}>
+          ✕
+        </button>
+      </div>
+      {!files.length && <p className="muted small">No files yet.</p>}
+      {files.map((f) => (
+        <div key={f.abs} className="file-row">
+          <span className={`tag ${f.created ? 'ok' : ''}`}>{f.created ? 'new' : 'changed'}</span>
+          <button className="linklike mono small" title={f.abs} onClick={() => api.openPath(f.abs)}>
+            {f.path}
+          </button>
+          <span className="muted small">{size(f.size)}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function Chat({
   summary,
   approvals,
@@ -278,6 +307,7 @@ export function Chat({
   const [modes, setModes] = useState<{ id: string; label: string }[]>([]);
   const [showChanges, setShowChanges] = useState(false);
   const [showBrowser, setShowBrowser] = useState(false);
+  const [showFiles, setShowFiles] = useState(false);
   const scroller = useRef<HTMLDivElement>(null);
   const stick = useRef(true);
 
@@ -370,6 +400,11 @@ export function Chat({
               {sandbox.kind === 'none' ? 'no sandbox' : `⛉ ${sandbox.kind}`}
             </span>
           )}
+          {undoable > 0 && (
+            <button className={`chip ${showFiles ? 'on' : ''}`} title="Files this session created or changed" onClick={() => setShowFiles(!showFiles)}>
+              ▤ Files
+            </button>
+          )}
           {usesBrowser && (
             <button className={`chip ${showBrowser ? 'on' : ''}`} title="Live view of the agent's browser" onClick={() => setShowBrowser(!showBrowser)}>
               ◎ Browser
@@ -429,6 +464,7 @@ export function Chat({
       >
         {showChanges && summary.worktree && <ChangesPanel s={summary} onClose={() => setShowChanges(false)} />}
         {showBrowser && <BrowserPanel sessionId={summary.id} onClose={() => setShowBrowser(false)} />}
+        {showFiles && <FilesPanel sessionId={summary.id} version={events.length} onClose={() => setShowFiles(false)} />}
         {todos && todos.items.length > 0 && <Todos items={todos.items} />}
         {events.map((e) => {
           switch (e.type) {

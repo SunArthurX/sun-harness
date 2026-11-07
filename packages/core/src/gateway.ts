@@ -40,6 +40,7 @@ export function hostMethods(host: HarnessHost, info: { mode: 'local' | 'gateway'
     undo: (id: string, steps?: number) => host.undo(id, { steps }),
     sandboxInfo: (id?: string) => host.sandboxInfo(id),
     browserInfo: (id?: string) => host.browserInfo(id),
+    deliverables: (id: string) => host.deliverables(id),
     browserView: (id: string, on: boolean) => host.browserView(id, on),
     browserTakeover: (id: string, on: boolean) => host.browserTakeover(id, on),
     browserInput: (id: string, ev: Parameters<HarnessHost['browserInput']>[1]) => host.browserInput(id, ev),

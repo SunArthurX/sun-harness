@@ -49,6 +49,8 @@ export interface Tool {
    * Unavailable tools are not offered to the model (a dead tool invites endless retries).
    */
   available?(): Promise<boolean>;
+  /** Output is external content (web, browser, …): wrapped as untrusted and scanned for prompt injection. */
+  untrusted?: boolean;
 }
 
 export function toSchema(t: Tool): ToolSchema {

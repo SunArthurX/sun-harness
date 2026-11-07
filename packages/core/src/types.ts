@@ -86,6 +86,8 @@ export type SessionEventBody =
   | { type: 'verify/result'; passed: boolean; results: { command: string; code: number | null; output: string }[] }
   | { type: 'checkpoint/undo'; id: string; restored: string[] }
   | { type: 'browser/takeover'; on: boolean }
+  /** External content entered the context (first time per session, and whenever injection signals are found). */
+  | { type: 'context/taint'; tool: string; findings: string[] }
   | { type: 'job/started'; jobId: string; name: string; command: string }
   | { type: 'job/finished'; jobId: string; name: string; state: 'done' | 'failed' | 'killed' | 'lost'; exitCode?: number };
 
