@@ -5,6 +5,8 @@ import { dirname, join, relative } from 'node:path';
 import { FileState } from './tools/edit.js';
 import { detectVerifyCommands } from './verify.js';
 import { buildRepoMap } from './repomap.js';
+import { BrowserManager, type BrowserInput } from './browser/browser.js';
+import { createBrowserTools } from './browser/tools.js';
 import { createSandbox, secretEnvNames, startAllowlistProxy, type ExecSandbox, type SandboxMode } from './sandbox.js';
 import { JobManager, restorableJobIds, type JobResult } from './jobs.js';
 import { createWorktree, mergeWorktree, removeWorktree, worktreeDiff, worktreeStatus, type WorktreeInfo, type WorktreeStatus } from './worktree.js';
@@ -233,6 +235,7 @@ export class HarnessHost {
     this.abort(id);
     this.sandboxes.get(id)?.dispose?.();
     this.sandboxes.delete(id);
+    void this.browser.closeTab(id);
     SessionLog.delete(id);
     this.broadcastSessions();
   }
@@ -368,7 +371,7 @@ export class HarnessHost {
       ...t,
       execute: (args: unknown, ctx: Parameters<Tool['execute']>[1]) => this.jobs.promoteIfSlow(ctx.sessionId, t.name, args, () => t.execute(args, ctx), promote),
     }));
-    for (const t of [...BUILTIN_TOOLS, ...SERVICE_TOOLS, ...this.pluginTools, ...slowSafe]) byName.set(t.name, t);
+    for (const t of [...BUILTIN_TOOLS, ...SERVICE_TOOLS, ...this.browserTools, ...this.pluginTools, ...slowSafe]) byName.set(t.name, t);
     // Capability gating: drop tools whose backend is unreachable right now.
     const all = [...byName.values()];
     const ok = await Promise.all(all.map((t) => (t.available ? t.available().catch(() => false) : Promise.resolve(true))));
@@ -376,6 +379,48 @@ export class HarnessHost {
   }
 
   private repoMaps = new Map<string, string>();
+
+  // ---------- browser ----------
+
+  private lastFrame = new Map<string, number>();
+  readonly browser = new BrowserManager(
+    () => this.config.browser,
+    (f) => {
+      // At most ~4 frames per second per session over IPC/SSE.
+      const now = Date.now();
+      if (now - (this.lastFrame.get(f.sessionId) ?? 0) < 250) return;
+      this.lastFrame.set(f.sessionId, now);
+      this.broadcast({ kind: 'browser', sessionId: f.sessionId, frame: f.data, width: f.width, height: f.height, url: f.url, title: f.title, takeover: this.browser.isTakenOver(f.sessionId) });
+    },
+  );
+  private browserTools = createBrowserTools(this.browser);
+
+  browserInfo(sessionId?: string): { available: boolean; description: string; active: boolean; takeover: boolean; vncUrl?: string } {
+    return {
+      available: this.browser.available(),
+      description: this.browser.describe(),
+      active: sessionId ? this.browser.hasTab(sessionId) : false,
+      takeover: sessionId ? this.browser.isTakenOver(sessionId) : false,
+      vncUrl: this.browser.vncUrl,
+    };
+  }
+
+  /** Start or stop streaming the session's tab to clients (live view). */
+  async browserView(sessionId: string, on: boolean): Promise<void> {
+    await this.browser.setScreencast(sessionId, on);
+  }
+
+  /** A human takes the browser (agent browser tools wait) or hands it back. Logged: the model is told. */
+  browserTakeover(sessionId: string, on: boolean): void {
+    if (this.browser.isTakenOver(sessionId) === on) return;
+    this.browser.setTakeover(sessionId, on);
+    this.append(SessionLog.open(sessionId), { type: 'browser/takeover', on });
+    this.broadcast({ kind: 'browser', sessionId, takeover: on });
+  }
+
+  browserInput(sessionId: string, ev: BrowserInput): Promise<void> {
+    return this.browser.input(sessionId, ev);
+  }
   private sandboxes = new Map<string, ExecSandbox>();
   private proxy?: { port: number; server: import('node:http').Server };
   /** Hosts the allowlist proxy refused (shown by `sun sandbox status`). */
@@ -881,6 +926,7 @@ export class HarnessHost {
     else this.jobs.detach();
     for (const id of this.runs.keys()) this.abort(id);
     for (const sb of this.sandboxes.values()) sb.dispose?.();
+    await this.browser.dispose().catch(() => undefined);
     this.proxy?.server.close();
     await Promise.all([...this.mcp.values()].map((m) => m.closeAll()));
   }

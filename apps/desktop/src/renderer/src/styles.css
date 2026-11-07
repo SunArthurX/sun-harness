@@ -1259,3 +1259,28 @@ pre.diff {
   color: var(--warn);
   border-color: rgba(232, 195, 122, 0.3);
 }
+
+/* Browser live view and takeover */
+.browser-panel {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  align-self: stretch;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg);
+  overflow: hidden;
+}
+.browser-panel.taken { border-color: var(--warn); }
+.browser-bar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--line);
+}
+.browser-url { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.browser-hint { margin: 0; padding: 4px 10px; color: var(--warn); }
+.browser-view { outline: none; }
+.browser-view img { display: block; width: 100%; height: auto; cursor: default; }
+.browser-panel.taken .browser-view img { cursor: crosshair; }

@@ -85,6 +85,7 @@ export type SessionEventBody =
   | { type: 'checkpoint'; id: string; files: string[] }
   | { type: 'verify/result'; passed: boolean; results: { command: string; code: number | null; output: string }[] }
   | { type: 'checkpoint/undo'; id: string; restored: string[] }
+  | { type: 'browser/takeover'; on: boolean }
   | { type: 'job/started'; jobId: string; name: string; command: string }
   | { type: 'job/finished'; jobId: string; name: string; state: 'done' | 'failed' | 'killed' | 'lost'; exitCode?: number };
 
@@ -136,4 +137,6 @@ export type LiveEvent =
   | { kind: 'delta'; sessionId: string; text?: string; reasoning?: string }
   | { kind: 'sessions'; sessions: SessionSummary[] }
   | { kind: 'approvals'; approvals: PendingApproval[] }
-  | { kind: 'notice'; level: 'info' | 'warn' | 'error'; text: string };
+  | { kind: 'notice'; level: 'info' | 'warn' | 'error'; text: string }
+  /** Live view of a session's browser tab (JPEG frames, only while a client watches). */
+  | { kind: 'browser'; sessionId: string; frame?: string; width?: number; height?: number; url?: string; title?: string; takeover: boolean };

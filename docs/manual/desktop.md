@@ -13,6 +13,7 @@ Choose a mode card, pick a workspace (required for Coding; Agent and Assistant d
 - **Worktree**: sessions on a worktree show ⑂ in the sidebar and a branch chip in the header; the chip opens the Changes panel (files, diff, Merge (squash), Merge commit, Discard). See [Worktree sessions](worktrees.md).
 - **Plan**: when the agent uses `todo_write`, a sticky plan with a progress bar appears at the top.
 - **Verification**: after the agent finishes editing, a "✓ verified" or "✗ verification failed" line shows the project checks that ran; click it for the output. See [Coding](coding.md#verification-the-done-gate).
+- **Browser**: sessions that used the browser show **◎ Browser**: a live view with **Take over** / **Hand back to agent** (and **noVNC ↗** in Docker mode). See [Browser](browser.md).
 - **Plan review**: in Plan mode the agent's plan appears as a card: **Approve and start coding** or **Keep planning**.
 - **Approval card**: Allow / Always allow `<tool>` (for this session) / Deny. The buttons arm after a moment ("read first…") so a click or Enter aimed at something else can't approve. Subagent approvals appear in the parent session.
 - **Paused banner**: shown for quota, auth, rate limit, network, step limit, or interruption. **Resume** retries the same model; pick another model and **Switch & resume** to continue elsewhere. Nothing is lost.

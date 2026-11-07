@@ -48,3 +48,6 @@ export * from './repomap.js';
 export * from './diagnostics.js';
 export * from './bestofn.js';
 export * from './sandbox.js';
+export * from './browser/cdp.js';
+export * from './browser/browser.js';
+export * from './browser/tools.js';

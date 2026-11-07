@@ -49,6 +49,8 @@ import {
   type LiveEvent,
   type PendingApproval,
   type SandboxMode,
+  BrowserManager,
+  findChrome,
   createSandbox,
   runBestOfN,
 } from '@sun/core';
@@ -69,6 +71,7 @@ Usage:
   sun run "<prompt>" [--mode ..] [--model ..] [--approval suggest|auto-edit|full-auto] [--worktree] [--json]
   sun run "<prompt>" --best-of N [--model a,b] [--apply]   N parallel worktree attempts judged by the project's tests
   sun undo <sessionId> [--steps n]   Revert the session's last file edits (checkpoints)
+  sun browser status | login [url] [--profile name] | stop   Agent browser (CDP); login opens the profile visibly so you can sign in
   sun sandbox status | test   Shell sandbox in use (seatbelt / bwrap / docker / none) and a quick self-test
   Session flags: --sandbox off|auto|seatbelt|bwrap|docker  (per session; default from config.sandbox.mode)
   sun resume <sessionId> [--model provider/model] [--chat]
@@ -615,6 +618,7 @@ async function main(): Promise<void> {
       concurrency: { type: 'string' },
       token: { type: 'string' },
       'best-of': { type: 'string' },
+      profile: { type: 'string' },
       sandbox: { type: 'string' },
       apply: { type: 'boolean' },
       steps: { type: 'string' },
@@ -730,6 +734,35 @@ async function main(): Promise<void> {
       } else if (sub === 'accept') console.log(`Applied → ${acceptProposal(args[1]).appliedTo}`);
       else if (sub === 'reject') rejectProposal(args[1]), console.log('Rejected.');
       else for (const p of listProposals(args[1] as never)) console.log(`${p.id}  ${p.status.padEnd(8)} [${p.type}] ${p.title} ${c.dim(`(${p.source.kind} ${p.source.ref})`)}`);
+      break;
+    }
+    case 'browser': {
+      const sub = args[0] ?? 'status';
+      const cfg = { ...host.config.browser, ...(values.profile ? { profile: values.profile } : {}) };
+      if (sub === 'status') {
+        const b = new BrowserManager(() => cfg);
+        console.log(`${b.available() ? c.green('available') : c.yellow('unavailable')}  mode ${cfg.mode} · ${b.describe()}`);
+        console.log(c.dim(`profiles: ${homePath('browser', 'profiles')}`));
+      } else if (sub === 'login') {
+        const url = args[1] ?? 'about:blank';
+        if (cfg.mode === 'docker') {
+          const b = new BrowserManager(() => cfg);
+          await b.navigate('login', url);
+          console.log(`Sign in through the live view: ${c.bold(b.vncUrl ?? '(no VNC port)')}\nPress Enter here when done.`);
+          await new Promise((r) => process.stdin.once('data', r));
+          await b.dispose();
+        } else {
+          const chrome = findChrome(cfg.chromePath);
+          if (!chrome) throw new Error('No Chrome/Chromium/Edge/Brave found (set browser.chromePath).');
+          const profile = homePath('browser', 'profiles', cfg.profile.replace(/[^\w.-]/g, '_'));
+          mkdirSync(profile, { recursive: true });
+          console.log(`Opening ${url} with profile "${cfg.profile}". Sign in, then close the window; the agent reuses the session.`);
+          spawnSync(chrome, [`--user-data-dir=${profile}`, '--no-first-run', '--no-default-browser-check', url], { stdio: 'ignore' });
+        }
+      } else if (sub === 'stop') {
+        spawnSync('docker', ['rm', '-f', `sun-browser-${cfg.profile.replace(/[^\w.-]/g, '_')}`], { stdio: 'ignore' });
+        console.log('Stopped the browser container (if any). Local Chrome stops with the sun process that started it.');
+      } else throw new Error(`Unknown browser command ${sub}`);
       break;
     }
     case 'sandbox': {

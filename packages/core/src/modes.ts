@@ -62,6 +62,14 @@ const ASSISTANT_TOOLS = new Set([
   'load_skill',
   'task',
   'schedule_task',
+  'browser_navigate',
+  'browser_snapshot',
+  'browser_click',
+  'browser_type',
+  'browser_press_key',
+  'browser_scroll',
+  'browser_back',
+  'browser_screenshot',
 ]);
 
 export const BUILTIN_MODES: ModeDef[] = [
@@ -77,7 +85,7 @@ export const BUILTIN_MODES: ModeDef[] = [
     label: 'Plan',
     description: 'Read-only exploration that ends in a plan for the user to approve, then switches to coding.',
     prompt: PLAN,
-    allowTool: (t) => (t.risk === 'read' && t.source === 'builtin' && t.name !== 'schedule_task') || t.name === 'exit_plan_mode',
+    allowTool: (t) => (t.risk === 'read' && t.source === 'builtin' && t.name !== 'schedule_task' && !t.name.startsWith('browser_')) || t.name === 'exit_plan_mode',
   },
   {
     id: 'agent',

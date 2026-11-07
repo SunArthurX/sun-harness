@@ -7,6 +7,7 @@ sun run "<prompt>" --best-of N [--model a,b] [--apply]     parallel worktree att
 sun resume <sessionId> [--model provider/model] [--chat]
 sun undo <sessionId> [--steps n]                         revert the last edit steps (checkpoints)
 sun sandbox status | test                                which shell sandbox is used; self-test
+sun browser status | login [url] [--profile name] | stop  agent browser; sign in to a profile
 sun sessions | sun show <sessionId>
 sun models | sun modes
 sun init

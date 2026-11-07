@@ -1,4 +1,5 @@
 import { DEFAULT_SANDBOX, type SandboxConfig } from './sandbox.js';
+import { DEFAULT_BROWSER, type BrowserConfig } from './browser/browser.js';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { ensureDir, homePath, sunHome } from './paths.js';
 import { AnthropicProvider } from './providers/anthropic.js';
@@ -70,6 +71,8 @@ export interface SunConfig {
   repoMap: { enabled: boolean; budget: number; minFiles: number };
   /** Shell sandbox for bash, background jobs, and verify commands (specs/021). */
   sandbox: SandboxConfig;
+  /** Browser automation over CDP (specs/022). */
+  browser: BrowserConfig;
   /** Chat bots run inside the gateway (sun serve). Allowlists are platform user ids; empty = nobody. */
   bots: BotsConfig;
 }
@@ -164,6 +167,7 @@ export function defaultConfig(): SunConfig {
     verify: { enabled: true, maxAttempts: 2, timeoutMs: 300000 },
     repoMap: { enabled: true, budget: 6000, minFiles: 8 },
     sandbox: structuredClone(DEFAULT_SANDBOX),
+    browser: structuredClone(DEFAULT_BROWSER),
     bots: {
       defaultMode: 'assistant',
       approvals: 'chat',

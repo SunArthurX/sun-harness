@@ -13,6 +13,7 @@
 | `compaction` | `{thresholdTokens: 200000, keepRecent: 12, buffer: "25%"}` | compact when history exceeds `min(thresholdTokens, contextWindow − buffer)` |
 | `verify` | `{enabled: true, maxAttempts: 2, timeoutMs: 300000}` | done gate: run project checks when the agent finishes after editing ([Coding](coding.md)) |
 | `repoMap` | `{enabled: true, budget: 6000, minFiles: 8}` | repository outline in Coding/Plan prompts (characters, minimum source files) |
+| `browser` | `{mode: "local", headless: true, profile: "default", chromePath?, cdpUrl?, docker: {image: "sun-harness/browser:latest"}, viewport: {width: 1280, height: 800}}` | agent browser ([Browser](browser.md)); `mode`: local, docker, cdp |
 | `sandbox` | `{mode: "auto", network: "on", allow: [...], writable: [], denyRead: [...], scrubEnv: true, autoApprove: false, docker: {image: "node:22-bookworm-slim"}}` | shell sandbox ([Shell sandbox](sandbox.md)); `mode`: auto, seatbelt, bwrap, docker, off; `network`: on, off, allowlist |
 | `rules` | `{globalMaxChars: 12000, projectMaxChars: 40000}` | separate prompt budgets for global and project rules |
 | `providers.<id>` | presets | `{type: openai|anthropic, baseUrl, apiKeyEnv, apiKey?, models[], headers?, echoReasoning?, noKey?, contextWindow?, modelContext?, cacheControl?}` — `cacheControl` turns on explicit prompt caching for OpenAI-compatible APIs that support it (on for the DashScope preset) |

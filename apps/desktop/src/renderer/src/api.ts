@@ -40,6 +40,13 @@ export const api = {
   mergeWorktree: (id: string, strategy?: 'squash' | 'merge') => call<{ strategy: string; output: string }>('mergeWorktree', id, strategy),
   discardWorktree: (id: string) => call<void>('discardWorktree', id),
   listCheckpoints: (id: string) => call<{ id: string; files: string[]; undone: boolean; ts: string }[]>('listCheckpoints', id),
+  browserInfo: (id?: string) => call<{ available: boolean; description: string; active: boolean; takeover: boolean; vncUrl?: string }>('browserInfo', id),
+  browserView: (id: string, on: boolean) => call<void>('browserView', id, on),
+  browserTakeover: (id: string, on: boolean) => call<void>('browserTakeover', id, on),
+  browserInput: (
+    id: string,
+    ev: { type: 'click'; x: number; y: number } | { type: 'wheel'; x: number; y: number; deltaX: number; deltaY: number } | { type: 'key'; key: string } | { type: 'text'; text: string },
+  ) => call<void>('browserInput', id, ev),
   sandboxInfo: (id?: string) => call<{ mode: string; kind: string; description: string; network: string; blocked: string[] }>('sandboxInfo', id),
   undo: (id: string, steps?: number) => call<{ undone: string[]; restored: string[] }>('undo', id, steps),
   deleteSession: (id: string) => call<void>('deleteSession', id),

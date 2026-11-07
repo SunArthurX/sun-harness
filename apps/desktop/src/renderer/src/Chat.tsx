@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { api } from './api';
 import { MODE_META, StatusDot } from './App';
 import { Markdown } from './markdown';
+import { BrowserPanel } from './Browser';
 
 type ResultEvent = Extract<SessionEvent, { type: 'tool/result' }>;
 
@@ -276,6 +277,7 @@ export function Chat({
   const [models, setModels] = useState<string[]>([]);
   const [modes, setModes] = useState<{ id: string; label: string }[]>([]);
   const [showChanges, setShowChanges] = useState(false);
+  const [showBrowser, setShowBrowser] = useState(false);
   const scroller = useRef<HTMLDivElement>(null);
   const stick = useRef(true);
 
@@ -330,6 +332,7 @@ export function Chat({
     const undone = new Set(events.filter((e) => e.type === 'checkpoint/undo').map((e) => (e as Extract<SessionEvent, { type: 'checkpoint/undo' }>).id));
     return events.filter((e) => e.type === 'checkpoint' && !undone.has(e.id)).length;
   }, [events]);
+  const usesBrowser = useMemo(() => events.some((e) => e.type === 'assistant/message' && e.toolCalls.some((c) => c.name.startsWith('browser_'))), [events]);
   const [undoMsg, setUndoMsg] = useState('');
   const [sandbox, setSandbox] = useState<{ kind: string; description: string }>();
   useEffect(() => {
@@ -366,6 +369,11 @@ export function Chat({
             <span className={`chip mono ${sandbox.kind === 'none' ? 'warn' : ''}`} title={sandbox.description}>
               {sandbox.kind === 'none' ? 'no sandbox' : `⛉ ${sandbox.kind}`}
             </span>
+          )}
+          {usesBrowser && (
+            <button className={`chip ${showBrowser ? 'on' : ''}`} title="Live view of the agent's browser" onClick={() => setShowBrowser(!showBrowser)}>
+              ◎ Browser
+            </button>
           )}
           {summary.worktree && (
             <button className={`chip mono branch ${showChanges ? "on" : ""}`} title="Worktree changes" onClick={() => setShowChanges(!showChanges)}>
@@ -420,6 +428,7 @@ export function Chat({
         }}
       >
         {showChanges && summary.worktree && <ChangesPanel s={summary} onClose={() => setShowChanges(false)} />}
+        {showBrowser && <BrowserPanel sessionId={summary.id} onClose={() => setShowBrowser(false)} />}
         {todos && todos.items.length > 0 && <Todos items={todos.items} />}
         {events.map((e) => {
           switch (e.type) {
@@ -498,6 +507,12 @@ export function Chat({
                   </summary>
                   <pre>{e.results.map((r) => `$ ${r.command}  (exit ${r.code})\n${r.output}`).join('\n\n').slice(-6000)}</pre>
                 </details>
+              );
+            case 'browser/takeover':
+              return (
+                <div key={e.seq} className="divider">
+                  {e.on ? 'you took over the browser' : 'browser handed back to the agent'}
+                </div>
               );
             case 'checkpoint/undo':
               return (
