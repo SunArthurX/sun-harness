@@ -2,7 +2,7 @@ import { localDate } from './util/date.js';
 import { existsSync, mkdirSync, realpathSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import { join, relative } from 'node:path';
-import { JobManager, type JobResult } from './jobs.js';
+import { JobManager, restorableJobIds, type JobResult } from './jobs.js';
 import { createWorktree, mergeWorktree, removeWorktree, worktreeDiff, worktreeStatus, type WorktreeInfo, type WorktreeStatus } from './worktree.js';
 import { Agent, type AgentHooks, type ApprovalRequest, type RunResult } from './agent.js';
 import { availableModels, compactionLimit, contextWindowOf, createProviderFactory, isProviderReady, loadConfig, parseModelRef, providerKey, saveConfig, type ApprovalMode, type ProviderFactory, type SunConfig } from './config.js';
@@ -98,6 +98,7 @@ export class HarnessHost {
   }
 
   async init(): Promise<void> {
+    const restorable = new Set(restorableJobIds());
     for (const s of SessionLog.list()) {
       if (s.status === 'running' || s.status === 'awaiting_approval') {
         SessionLog.open(s.id).append({ type: 'run/status', status: 'paused', reason: 'interrupted', detail: 'The app stopped during a run.' });
@@ -108,8 +109,10 @@ export class HarnessHost {
         if (e.type === 'job/started') open.set(e.jobId, e.name);
         else if (e.type === 'job/finished') open.delete(e.jobId);
       }
-      for (const [jobId, name] of open) log.append({ type: 'job/finished', jobId, name, state: 'lost' });
+      for (const [jobId, name] of open) if (!restorable.has(jobId)) log.append({ type: 'job/finished', jobId, name, state: 'lost' });
     }
+    // Re-attach after the cleanup above: a job that already finished is delivered (and may start a run) right away.
+    this.jobs.restore();
     if (this.opts.loadPlugins !== false) await this.reloadPlugins();
   }
 
@@ -699,7 +702,8 @@ export class HarnessHost {
 
   async dispose(): Promise<void> {
     this.stopBackground();
-    this.jobs.killAll();
+    if (this.config.jobs?.killOnExit) this.jobs.killAll();
+    else this.jobs.detach();
     for (const id of this.runs.keys()) this.abort(id);
     await Promise.all([...this.mcp.values()].map((m) => m.closeAll()));
   }
