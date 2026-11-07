@@ -64,7 +64,9 @@ export function KnowledgePage() {
           </div>
           {stats && (
             <p className="muted small">
-              {stats.personal.documents} documents · {stats.personal.chunks} chunks · providers: {stats.providers.map((p) => p.name).join(', ')}
+              {stats.personal.documents} documents · {stats.personal.chunks} chunks
+              {stats.personal.model ? ` · ${stats.personal.embedded} embedded (${stats.personal.model})` : ' · keyword search (BM25)'} · providers: {stats.providers.map((p) => p.name).join(', ')}
+              {stats.personal.lastError && <span className="err-text"> · embeddings unavailable, using BM25: {stats.personal.lastError}</span>}
               <br />
               roots: <span className="mono">{stats.roots.join(', ')}</span>
             </p>
@@ -463,6 +465,16 @@ export function SettingsPage() {
               Personal KB folders (comma separated)
               <input className="mono" defaultValue={cfg.kb.roots.join(', ')} onBlur={(e) => save({ kb: { ...cfg.kb, roots: e.target.value.split(',').map((s) => s.trim()).filter(Boolean) } })} />
             </label>
+            <label className="row">
+              <input type="checkbox" checked={cfg.kb.embeddings.enabled} onChange={(e) => save({ kb: { ...cfg.kb, embeddings: { ...cfg.kb.embeddings, enabled: e.target.checked } } })} />
+              Hybrid retrieval (BM25 + embeddings; note chunks are sent to the embedding provider)
+            </label>
+            <input
+              className="mono"
+              placeholder="qwen/text-embedding-v4"
+              defaultValue={cfg.kb.embeddings.model}
+              onBlur={(e) => save({ kb: { ...cfg.kb, embeddings: { ...cfg.kb.embeddings, model: e.target.value } } })}
+            />
             <label className="row">
               <input type="checkbox" checked={cfg.kb.company.enabled} onChange={(e) => save({ kb: { ...cfg.kb, company: { ...cfg.kb.company, enabled: e.target.checked } } })} />
               Company knowledge base (reserved HTTP provider)

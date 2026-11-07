@@ -56,6 +56,7 @@ export function hostMethods(host: HarnessHost, info: { mode: 'local' | 'gateway'
     kbStats: () => host.kbStats(),
     kbSearch: (q: string) => host.kbSearch(q, 10),
     kbAdd: (title: string, text: string) => host.kbAdd(title, text),
+    kbIndex: () => host.kbIndex(),
     getMemory: () => readMemory(),
     setMemory: (text: string) => writeMemory(text),
     listProposals: () => listProposals(),

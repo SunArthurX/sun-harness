@@ -1225,3 +1225,7 @@ pre.diff {
   gap: 8px;
   border-top: 1px solid var(--line);
 }
+
+.err-text {
+  color: var(--err);
+}

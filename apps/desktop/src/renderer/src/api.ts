@@ -57,7 +57,9 @@ export const api = {
   reloadMcp: (cwd: string) => call<McpServerState[]>('reloadMcp', cwd),
   listPlugins: () => call<PluginState[]>('listPlugins'),
   reloadPlugins: () => call<PluginState[]>('reloadPlugins'),
-  kbStats: () => call<{ personal: { documents: number; chunks: number }; roots: string[]; providers: { id: string; name: string }[] }>('kbStats'),
+  kbStats: () =>
+    call<{ personal: { documents: number; chunks: number; embedded: number; model?: string; lastError?: string }; roots: string[]; providers: { id: string; name: string }[] }>('kbStats'),
+  kbIndex: () => call<{ embedded: number; enabled: boolean }>('kbIndex'),
   kbSearch: (q: string) => call<(KnowledgeHit & { provider: string })[]>('kbSearch', q),
   kbAdd: (title: string, text: string) => call<string>('kbAdd', title, text),
   getMemory: () => call<string>('getMemory'),

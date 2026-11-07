@@ -13,6 +13,20 @@ Any folder of Markdown or text files. Default `~/.sun/kb`; add more folders (an 
 - New files are picked up automatically (incremental by modification time).
 - Add a note: Knowledge screen, `sun kb add "<title>" file.md`, or ask the agent ("save this as a note").
 
+## Hybrid retrieval (optional)
+
+Keyword search (BM25) finds exact words. Turn on embeddings to also find notes that mean the same thing in other words, or in another language:
+
+```json
+{ "kb": { "embeddings": { "enabled": true, "model": "qwen/text-embedding-v4" } } }
+```
+
+Or tick **Hybrid retrieval** in Settings. The model is `provider/model` from your configured providers (DashScope `text-embedding-v4`, OpenAI `text-embedding-3-small`, Ollama `nomic-embed-text`, …). Note text is sent to that provider, which is why it is off by default.
+
+- `sun kb index` embeds every note now; otherwise indexing happens on the first search. Only new or changed notes are embedded again (cache in `~/.sun/kb-index/`).
+- Results combine both rankings. Example: the question "how can I sleep better at night" finds a Chinese note titled 失眠 ("insomnia") that keyword search alone cannot.
+- If the embedding provider fails (no balance, offline), search falls back to keywords and the Knowledge screen shows why.
+
 ## Company knowledge base (reserved)
 
 Point sun-harness at an HTTP search endpoint:

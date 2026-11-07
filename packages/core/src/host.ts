@@ -5,10 +5,11 @@ import { join, relative } from 'node:path';
 import { JobManager, type JobResult } from './jobs.js';
 import { createWorktree, mergeWorktree, removeWorktree, worktreeDiff, worktreeStatus, type WorktreeInfo, type WorktreeStatus } from './worktree.js';
 import { Agent, type AgentHooks, type ApprovalRequest, type RunResult } from './agent.js';
-import { availableModels, compactionLimit, contextWindowOf, createProviderFactory, isProviderReady, loadConfig, saveConfig, type ApprovalMode, type ProviderFactory, type SunConfig } from './config.js';
+import { availableModels, compactionLimit, contextWindowOf, createProviderFactory, isProviderReady, loadConfig, parseModelRef, providerKey, saveConfig, type ApprovalMode, type ProviderFactory, type SunConfig } from './config.js';
 import { createShellHooks } from './hooks.js';
 import { HttpKnowledgeProvider } from './kb/company.js';
 import { LocalMarkdownKB } from './kb/local.js';
+import { HybridKB, openAIEmbedder, type EmbedFn } from './kb/hybrid.js';
 import type { KnowledgeProvider } from './kb/types.js';
 import { SessionLog } from './log.js';
 import { McpManager, type McpServerState } from './mcp.js';
@@ -33,6 +34,8 @@ export interface HostOptions {
   loadPlugins?: boolean;
   connectMcp?: boolean;
   shellHooks?: boolean;
+  /** Override the embedding function (tests). */
+  embedder?: EmbedFn;
 }
 
 export interface CreateSessionInput {
@@ -64,6 +67,7 @@ export class HarnessHost {
   private approvals = new Map<string, { pending: PendingApproval; resolve: (d: ApprovalDecision) => void }>();
   private mcp = new Map<string, McpManager>();
   private personalKb: LocalMarkdownKB;
+  private hybridKb?: HybridKB;
   readonly jobs = new JobManager(
     (job) => this.append(SessionLog.open(job.sessionId), { type: 'job/started', jobId: job.id, name: job.name, command: job.command }),
     (r) => this.deliverJob(r),
@@ -77,6 +81,20 @@ export class HarnessHost {
     this.config = opts.config ?? loadConfig();
     this.factory = opts.providerFactory ?? createProviderFactory(this.config);
     this.personalKb = new LocalMarkdownKB(this.config.kb.roots);
+    this.hybridKb = this.makeHybrid();
+  }
+
+  /** Hybrid KB when embeddings are enabled and their provider is configured. */
+  private makeHybrid(): HybridKB | undefined {
+    const e = this.config.kb.embeddings;
+    if (!e?.enabled) return undefined;
+    const { provider, model } = parseModelRef(e.model);
+    const p = this.config.providers[provider];
+    if (!p || p.type !== 'openai') return undefined;
+    return new HybridKB(this.personalKb, {
+      embed: this.opts.embedder ?? openAIEmbedder({ baseUrl: p.baseUrl, apiKey: providerKey(p), model, dimensions: e.dimensions }),
+      model: e.model,
+    });
   }
 
   async init(): Promise<void> {
@@ -136,6 +154,7 @@ export class HarnessHost {
     this.config = loadConfig();
     if (!this.opts.providerFactory) this.factory = createProviderFactory(this.config);
     this.personalKb = new LocalMarkdownKB(this.config.kb.roots);
+    this.hybridKb = this.makeHybrid();
     return this.config;
   }
 
@@ -549,7 +568,7 @@ export class HarnessHost {
   }
 
   knowledgeProviders(): KnowledgeProvider[] {
-    const out: KnowledgeProvider[] = [this.personalKb];
+    const out: KnowledgeProvider[] = [this.hybridKb ?? this.personalKb];
     const c = this.config.kb.company;
     if (c.enabled && c.baseUrl) out.push(new HttpKnowledgeProvider('company', c.name ?? 'Company KB', c.baseUrl, c.tokenEnv ? process.env[c.tokenEnv] : undefined));
     return [...out, ...this.pluginKnowledge];
@@ -576,7 +595,14 @@ export class HarnessHost {
   }
 
   async kbStats() {
-    return { personal: await this.personalKb.stats(), roots: this.config.kb.roots, providers: this.knowledgeProviders().map((p) => ({ id: p.id, name: p.name })) };
+    const personal = this.hybridKb ? await this.hybridKb.stats() : { ...(await this.personalKb.stats()), embedded: 0, model: undefined, lastError: undefined };
+    return { personal, roots: this.config.kb.roots, providers: this.knowledgeProviders().map((p) => ({ id: p.id, name: p.name })) };
+  }
+
+  /** Precompute embeddings for the personal KB (no-op without hybrid retrieval). */
+  async kbIndex(): Promise<{ embedded: number; enabled: boolean }> {
+    if (!this.hybridKb) return { embedded: 0, enabled: false };
+    return { embedded: await this.hybridKb.index(), enabled: true };
   }
 
   async kbAdd(title: string, text: string): Promise<string> {

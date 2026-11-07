@@ -8,7 +8,7 @@ sun sessions | sun show <sessionId>
 sun models | sun modes
 sun init
 sun intel run [--force] | analyze <date> | list | show [date] | install-schedule | uninstall-schedule
-sun kb search <query> | add <title> <file|-> | stats
+sun kb search <query> | add <title> <file|-> | index | stats
 sun evolve reflect <sessionId> | list [pending|accepted|rejected] | accept <id> | reject <id>
 sun worktree list | status <id> | diff <id> | merge <id> [--strategy squash|merge] | discard <id>
 sun skills | sun mcp | sun plugins | sun schedules

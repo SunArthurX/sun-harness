@@ -53,6 +53,8 @@ export interface SunConfig {
   kb: {
     roots: string[];
     company: { enabled: boolean; baseUrl: string; tokenEnv?: string; name?: string };
+    /** Hybrid retrieval: BM25 + embeddings ("provider/model", OpenAI-compatible /embeddings). Off by default: notes are sent to the provider. */
+    embeddings: { enabled: boolean; model: string; dimensions?: number };
   };
   intel: { sources: IntelSource[]; analysisModel?: string; hour: number; minute: number };
   evolution: { autoReflect: boolean };
@@ -142,7 +144,7 @@ export function defaultConfig(): SunConfig {
     skills: { extraDirs: [], compat: true },
     plugins: { disabled: [], settings: {} },
     mcp: { enabled: true },
-    kb: { roots: [homePath('kb')], company: { enabled: false, baseUrl: '', tokenEnv: 'COMPANY_KB_TOKEN', name: 'Company KB' } },
+    kb: { roots: [homePath('kb')], company: { enabled: false, baseUrl: '', tokenEnv: 'COMPANY_KB_TOKEN', name: 'Company KB' }, embeddings: { enabled: false, model: 'qwen/text-embedding-v4' } },
     intel: { sources: DEFAULT_INTEL_SOURCES, hour: 9, minute: 0 },
     evolution: { autoReflect: false },
     jobs: { promoteAfterMs: 30000 },

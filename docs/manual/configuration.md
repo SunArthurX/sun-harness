@@ -18,6 +18,7 @@
 | `mcp.enabled` | `true` | connect MCP servers |
 | `kb.roots` | `[~/.sun/kb]` | personal KB folders |
 | `kb.company` | disabled | `{enabled, name, baseUrl, tokenEnv}` |
+| `kb.embeddings` | `{enabled: false, model: "qwen/text-embedding-v4"}` | hybrid BM25 + embedding retrieval; `dimensions?` |
 | `intel` | 14 sources, 09:00 | `{sources[], analysisModel?, hour, minute}` |
 | `evolution.autoReflect` | `false` | reserved |
 | `jobs.promoteAfterMs` | `30000` | MCP calls still running after this move to a background job (0 = never) |
@@ -36,6 +37,7 @@ Provider presets: `deepseek`, `anthropic`, `openai`, `glm`, `qwen` (DashScope), 
   sessions/<id>.jsonl          # durable session logs
   memory/MEMORY.md
   kb/                          # personal notes (kb_add_note writes to kb/notes/)
+  kb-index/embeddings.json     # embedding cache for hybrid retrieval
   skills/<name>/SKILL.md
   plugins/<name>/
   evolution/proposals/*.json  backlog.md  journal.md

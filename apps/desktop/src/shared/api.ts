@@ -34,6 +34,7 @@ export const API_METHODS = [
   'kbStats',
   'kbSearch',
   'kbAdd',
+  'kbIndex',
   'getMemory',
   'setMemory',
   'listProposals',

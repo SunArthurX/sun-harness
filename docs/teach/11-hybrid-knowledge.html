@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" /><meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>11 · Hybrid knowledge — sun-harness</title>
+<link rel="stylesheet" href="teach.css" />
+<script type="module">import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs'; mermaid.initialize({ startOnLoad: true, theme: 'neutral' });</script>
+</head>
+<body>
+<header class="top"><div class="wrap"><a class="brand" href="index.html">sun<em>harness</em> · teach</a><nav><a href="index.html">All pages</a></nav></div></header>
+<main class="wrap">
+<p class="muted">Iteration 6 · spec <code>specs/013-hybrid-knowledge.md</code> · extends ADR <code>0003</code></p>
+<h1>11 · Hybrid <em>knowledge</em></h1>
+<p class="lede">Page 03 chose BM25 before embeddings and promised that embeddings would arrive later as another provider, without changing the seam. This page keeps that promise, and shows why the answer is "both", not "replace".</p>
+
+<h2>The gap BM25 cannot close</h2>
+<table>
+<tr><th>Query</th><th>Note</th><th>BM25</th><th>Hybrid</th></tr>
+<tr><td>how can I sleep better at night</td><td># 失眠 (insomnia) — 晚上十点后不看手机… (no phone after 10 pm…)</td><td>nothing (no shared words)</td><td>top hit</td></tr>
+<tr><td>winter tires for my vehicle</td><td># 换轮胎 (changing tires) — 冬天之前给汽车换雪地胎… (fit snow tires before winter…)</td><td>nothing</td><td>top hit</td></tr>
+<tr><td>冬天 轮胎 (winter, tires)</td><td># 换轮胎</td><td>top hit</td><td>top hit</td></tr>
+</table>
+<p class="muted">Measured live with DashScope <code>text-embedding-v4</code>.</p>
+
+<h2>Pipeline</h2>
+<div class="mermaid">
+flowchart LR
+  Q[query] --> B[BM25 over chunks<br/>pool of 30]
+  Q --> E[embed query]
+  N[(notes)] --> C[chunks] --> X{in cache?<br/>sha1 model+text}
+  X -->|no| EM[embed in batches of 10] --> CA[(kb-index/embeddings.json)]
+  X -->|yes| CA
+  E --> COS[cosine vs cached vectors]
+  CA --> COS
+  B --> RRF[reciprocal rank fusion<br/>Σ 1/(60+rank)]
+  COS --> RRF
+  RRF --> K[top k hits]
+  EM -. quota / offline .-> FB[return BM25 + lastError]
+</div>
+
+<h2>Design questions</h2>
+<div class="qa"><p class="q">Why rank fusion instead of adding the scores?</p><p class="a">BM25 scores are unbounded and depend on the corpus; cosine similarity lives in [−1, 1] and depends on the model. Adding them would need per-corpus tuning. Reciprocal rank fusion uses only positions, so the two lists combine fairly, and a note that is good in both rises to the top. A test pins this with a note matching both lexically and semantically.</p></div>
+<div class="qa"><p class="q">How does it avoid re-embedding the whole knowledge base on every change?</p><p class="a">The cache is content-addressed: the key is <code>sha1(model + chunk text)</code>. Editing one file re-embeds only that file's changed chunks; chunks of deleted files are pruned; switching models changes every key, so nothing stale is reused. Vectors are stored as base64 Float32, about a quarter of the size of JSON numbers.</p></div>
+<div class="qa"><p class="q">What happens when the embedding provider is down or out of balance?</p><p class="a">Search still answers. The hybrid provider catches the error, returns BM25 results, and records <code>lastError</code>, which the Knowledge screen shows. During development GLM's embedding endpoint answered <code>余额不足</code> (insufficient balance), which made a convenient live test of exactly this path.</p></div>
+<div class="qa"><p class="q">Why is it off by default?</p><p class="a">Turning it on sends your notes to a third-party API. Under <em>human in control</em>, that is a choice you make in Settings, not a default.</p></div>
+<p class="lesson">Design the seam before the feature. Because <code>KnowledgeProvider</code> existed from day one, hybrid search is one new class that wraps the old one; no caller changed.</p>
+
+<div class="nav"><a href="10-gateway.html">← 10 · The gateway</a><a href="12-packaging.html">12 · Packaging →</a></div>
+</main>
+</body>
+</html>

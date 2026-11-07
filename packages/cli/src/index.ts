@@ -48,7 +48,7 @@ Usage:
   sun models | sun modes
   sun init                         Scaffold AGENTS.md, specs/, .sun/ in the current project
   sun intel run [--force] | analyze <date> | list | show [date] | install-schedule | uninstall-schedule
-  sun kb search <query> | add <title> <file> | stats
+  sun kb search <query> | add <title> <file> | index | stats
   sun evolve reflect <sessionId> | list | accept <id> | reject <id>
   sun worktree list | status <id> | diff <id> | merge <id> [--strategy squash|merge] | discard <id>
   sun skills | sun mcp | sun plugins | sun schedules
@@ -500,6 +500,9 @@ async function main(): Promise<void> {
       } else if (sub === 'add') {
         const text = args[2] === '-' || !args[2] ? readFileSync(0, 'utf8') : readFileSync(args[2], 'utf8');
         console.log(await host.kbAdd(args[1], text));
+      } else if (sub === 'index') {
+        const r = await host.kbIndex();
+        console.log(r.enabled ? `Embedded ${r.embedded} new chunks.` : 'Hybrid retrieval is off. Enable kb.embeddings in ~/.sun/config.json or Settings.');
       } else console.log(JSON.stringify(await host.kbStats(), null, 2));
       break;
     }

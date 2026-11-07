@@ -34,3 +34,4 @@ export * from './worktree.js';
 export * from './jobs.js';
 export * from './gateway.js';
 export * from './launchd.js';
+export * from './kb/hybrid.js';

@@ -101,6 +101,12 @@ export class LocalMarkdownKB implements KnowledgeProvider {
     }
   }
 
+  /** Every chunk (for vector indexing). `text` is the same slice search() returns. */
+  allChunks(): { title: string; text: string; source: string }[] {
+    this.refresh();
+    return [...this.files.values()].flatMap((f) => f.chunks.map((c) => ({ title: c.title, text: c.text.slice(0, 1500), source: c.file })));
+  }
+
   async search(query: string, k = 6): Promise<KnowledgeHit[]> {
     this.refresh();
     const all = [...this.files.values()].flatMap((f) => f.chunks);
