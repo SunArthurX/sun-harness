@@ -10,8 +10,9 @@
 | `denyInsteadOfPrompting` | `false` | deny approvals with a reason instead of waiting |
 | `maxSteps` | `60` | model requests per run before pausing |
 | `autoResume` | `{enabled: true, intervalMinutes: 15}` | retry paused sessions (desktop) |
-| `compaction` | `{thresholdTokens: 90000, keepRecent: 12}` | history summarization |
-| `providers.<id>` | presets | `{type: openai|anthropic, baseUrl, apiKeyEnv, apiKey?, models[], headers?, echoReasoning?, noKey?}` |
+| `compaction` | `{thresholdTokens: 200000, keepRecent: 12, buffer: "25%"}` | compact when history exceeds `min(thresholdTokens, contextWindow − buffer)` |
+| `rules` | `{globalMaxChars: 12000, projectMaxChars: 40000}` | separate prompt budgets for global and project rules |
+| `providers.<id>` | presets | `{type: openai|anthropic, baseUrl, apiKeyEnv, apiKey?, models[], headers?, echoReasoning?, noKey?, contextWindow?, modelContext?}` |
 | `skills` | `{extraDirs: [], compat: true}` | extra skill folders; read Claude/agents locations |
 | `plugins` | `{disabled: [], settings: {}}` | plugin control |
 | `mcp.enabled` | `true` | connect MCP servers |

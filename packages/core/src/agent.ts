@@ -29,6 +29,8 @@ export interface AgentDeps {
   tools(): Tool[];
   systemPrompt(modelRef: string): string;
   approvalMode(): ApprovalMode;
+  /** Token count at which history must be compacted for a model (context window minus buffer). */
+  contextLimit?(modelRef: string): number;
   /** `reason` explains a non-human decision (e.g. headless deny) to the model. */
   requestApproval(req: ApprovalRequest, signal: AbortSignal): Promise<{ decision: ApprovalDecision; reason?: string }>;
   services: ToolServices;
@@ -284,7 +286,8 @@ export class Agent {
     const events = this.d.log.all();
     const messages = deriveMessages(events);
     const { thresholdTokens, keepRecent } = this.d.config.compaction;
-    if (!force && estimateTokens(messages) < thresholdTokens) return;
+    const limit = this.d.contextLimit?.(modelRef) ?? thresholdTokens;
+    if (!force && estimateTokens(messages) < limit) return;
 
     // Clean boundaries: points with no outstanding tool calls.
     const boundaries: number[] = [];
@@ -316,15 +319,31 @@ export class Agent {
         return `${m.role.toUpperCase()}: ${m.content}`;
       })
       .join('\n\n');
-    const { provider, model } = this.d.resolveModel(modelRef);
-    const resp = await provider.complete({
-      model,
-      system:
-        'You compress agent transcripts. Write a dense, factual summary that lets the agent continue the task: goal, decisions, files touched, commands run and results, current state, open todos. No preamble.',
-      messages: [{ role: 'user', content: transcript.slice(-200_000) }],
-      tools: [],
-      signal,
-    });
-    this.emit({ type: 'context/compaction', summary: resp.text.trim(), upToSeq: cut });
+    // After a model switch, summarize with the previous model first: it could hold this history,
+    // the new (possibly smaller) one may not. Fall back to the current model with a trimmed transcript.
+    const lastCompactionEvent = this.d.log.last('context/compaction');
+    const sw = this.d.log.last('model/switch');
+    const candidates = sw && sw.seq > (lastCompactionEvent?.seq ?? -1) && sw.from && sw.from !== modelRef ? [sw.from, modelRef] : [modelRef];
+    let lastError: unknown;
+    for (const ref of candidates) {
+      try {
+        const { provider, model } = this.d.resolveModel(ref);
+        const maxChars = Math.min(200_000, (this.d.contextLimit?.(ref) ?? 100_000) * 3);
+        const resp = await provider.complete({
+          model,
+          system:
+            'You compress agent transcripts. Write a dense, factual summary that lets the agent continue the task: goal, decisions, files touched, commands run and results, current state, open todos. No preamble.',
+          messages: [{ role: 'user', content: transcript.slice(-maxChars) }],
+          tools: [],
+          signal,
+        });
+        this.emit({ type: 'context/compaction', summary: resp.text.trim(), upToSeq: cut, ...(ref !== modelRef ? { model: ref } : {}) });
+        return;
+      } catch (e) {
+        lastError = e;
+        if (signal.aborted) throw e;
+      }
+    }
+    throw lastError;
   }
 }

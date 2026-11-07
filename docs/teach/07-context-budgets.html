@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" /><meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>07 · Context budgets — sun-harness</title>
+<link rel="stylesheet" href="teach.css" />
+<script type="module">import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs'; mermaid.initialize({ startOnLoad: true, theme: 'neutral' });</script>
+</head>
+<body>
+<header class="top"><div class="wrap"><a class="brand" href="index.html">sun<em>harness</em> · teach</a><nav><a href="index.html">All pages</a></nav></div></header>
+<main class="wrap">
+<p class="muted">Iteration 2 · spec <code>specs/009-context-budgets.md</code></p>
+<h1>07 · Context <em>budgets</em></h1>
+<p class="lede">Context is the scarcest resource in a harness. This iteration makes two budgets explicit: how much of the prompt rules may take, and how much history a given model can hold before it must be summarized.</p>
+
+<h2>Where the ideas came from</h2>
+<table>
+<tr><th>Finding (intel)</th><th>Principle</th><th>sun-harness change</th></tr>
+<tr><td>DeepSeek Harness 0.2.2: global and project AGENTS.md get separate <code>maxBytes</code></td><td>budgeted, separately scoped instruction layers</td><td><code>rules.globalMaxChars</code> / <code>projectMaxChars</code></td></tr>
+<tr><td>DeepSeek Harness 0.2.2: compact with the old model before switching to a smaller one</td><td>history shape must be valid for the <em>new</em> model</td><td>summarizer preference after <code>model/switch</code></td></tr>
+<tr><td>OpenCode 2.2.5: <code>"compaction": {"buffer": "20%"}</code></td><td>window-relative policy</td><td><code>compaction.buffer</code>, per-model windows</td></tr>
+</table>
+
+<h2>Two layers, two budgets</h2>
+<div class="mermaid">
+flowchart LR
+  subgraph Global [global budget 12k]
+    G[~/.sun/AGENTS.md]
+  end
+  subgraph Project [project budget 40k]
+    A[root AGENTS.md] --> B[sub AGENTS.md] --> C[.sun/rules] --> D[.cursor/rules]
+  end
+  Global --> P[System prompt]
+  Project --> P
+  D -. over budget .-> X["truncated + 'read the file' pointer"]
+</div>
+<div class="qa"><p class="q">Why not one total budget?</p><p class="a">With one budget, order decides who loses. A 60k-character project AGENTS.md (a generated API reference, say) would push out your personal global rules, the ones evolution writes for you. Separate budgets make each layer's guarantee independent. The test <em>"a huge project AGENTS.md cannot evict the global rules"</em> pins it.</p></div>
+
+<h2>Compaction limit per model</h2>
+<pre><code>limit(model) = min(thresholdTokens, contextWindow(model) − buffer)
+deepseek-chat: min(200 000, 128 000 − 25%) = 96 000 tokens
+qwen-max:      min(200 000,  32 768 − 25%) = 24 576 tokens</code></pre>
+
+<h2>Switching to a smaller model</h2>
+<div class="mermaid">
+sequenceDiagram
+  participant U as User
+  participant A as Agent
+  participant Big as Old model (1M)
+  participant Small as New model (3k)
+  U->>A: switch model → small, send "q3"
+  A->>A: history 3 000 tokens > limit(small) 2 250
+  A->>Big: summarize transcript (old model first)
+  alt old model works
+    Big-->>A: summary → context/compaction (model: big)
+  else old model out of quota
+    A->>Small: summarize trimmed transcript (≤ 3 × limit chars)
+    Small-->>A: summary → context/compaction
+  end
+  A->>Small: summary + recent turns + q3
+</div>
+<div class="qa"><p class="q">Why is compaction lazy, at the next request, instead of happening inside "switch model"?</p><p class="a">Because a model switch is a log event, and the loop derives everything from the log. Doing the work in the next <code>run()</code> means it is durable and resumable. If the app quits between the switch and the next request, the compaction still happens, and still with the right model, because the <code>model/switch</code> event records <code>from</code>.</p></div>
+<div class="qa"><p class="q">What about quota fallback, where the old model cannot run?</p><p class="a">The summarizer list is <code>[old, new]</code>. The new model gets a transcript trimmed to about three characters per token of its own limit. A summary from fewer tokens is better than a request that is guaranteed to fail.</p></div>
+<p class="lesson">Make limits a function of the model, not a constant. When a model change makes the old shape invalid, transform the state with whichever party can still read it.</p>
+
+<div class="nav"><a href="06-research-loop.html">← 06 · The research loop</a><a href="08-worktrees.html">08 · Worktrees →</a></div>
+</main>
+</body>
+</html>

@@ -1,7 +1,7 @@
 import { localDate } from './util/date.js';
 import { existsSync, mkdirSync } from 'node:fs';
 import { Agent, type AgentHooks, type ApprovalRequest, type RunResult } from './agent.js';
-import { availableModels, createProviderFactory, isProviderReady, loadConfig, saveConfig, type ProviderFactory, type SunConfig } from './config.js';
+import { availableModels, compactionLimit, contextWindowOf, createProviderFactory, isProviderReady, loadConfig, saveConfig, type ProviderFactory, type SunConfig } from './config.js';
 import { createShellHooks } from './hooks.js';
 import { HttpKnowledgeProvider } from './kb/company.js';
 import { LocalMarkdownKB } from './kb/local.js';
@@ -125,10 +125,10 @@ export class HarnessHost {
     return this.reloadConfig();
   }
 
-  listModels(): { ref: string; provider: string; ready: boolean }[] {
-    const out: { ref: string; provider: string; ready: boolean }[] = [];
+  listModels(): { ref: string; provider: string; ready: boolean; contextWindow: number }[] {
+    const out: { ref: string; provider: string; ready: boolean; contextWindow: number }[] = [];
     for (const [id, p] of Object.entries(this.config.providers)) {
-      for (const m of p.models) out.push({ ref: `${id}/${m}`, provider: id, ready: isProviderReady(p) });
+      for (const m of p.models) out.push({ ref: `${id}/${m}`, provider: id, ready: isProviderReady(p), contextWindow: contextWindowOf(this.config, `${id}/${m}`) });
     }
     return out;
   }
@@ -255,6 +255,7 @@ export class HarnessHost {
         tools: () => tools.filter((t) => this.modeAllows(log.currentMode(), t, !!log.meta()?.parent)),
         systemPrompt: (modelRef) => this.systemPrompt(log, modelRef),
         approvalMode: () => this.config.approval,
+        contextLimit: (ref) => compactionLimit(this.config, ref),
         requestApproval: (req, signal) => this.requestApproval(req, log.meta()?.parent ?? id, signal),
         services: this.services(log, controller.signal),
         hooks,
@@ -300,7 +301,7 @@ export class HarnessHost {
       mode,
       cwd: meta.cwd,
       model: modelRef,
-      project: loadProjectContext(meta.cwd),
+      project: loadProjectContext(meta.cwd, this.config.rules),
       skills: this.listSkills(meta.cwd).map((s) => ({ name: s.name, description: s.description })),
       memory: readMemory(),
       knowledgeProviders: this.knowledgeProviders().map((k) => ({ id: k.id, name: k.name })),

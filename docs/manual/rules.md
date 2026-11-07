@@ -12,6 +12,8 @@ Agents drift when the "why" lives only in a chat. sun-harness keeps the why in f
 
 Rules are re-read before every model request, so edits apply immediately.
 
+Global and project rules have separate budgets (`rules.globalMaxChars`, `rules.projectMaxChars`). If a layer is over budget, the overflowing file is truncated and later files are listed with a pointer, so the agent can `read_file` them when relevant. A huge project `AGENTS.md` can never push your global rules out of the prompt.
+
 ## Recommended project layout
 
 ```text

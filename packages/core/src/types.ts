@@ -71,7 +71,7 @@ export type SessionEventBody =
   | { type: 'run/status'; status: RunStatus; reason?: PauseReason | string; detail?: string }
   | { type: 'model/switch'; from: string; to: string; reason: string }
   | { type: 'mode/switch'; from: string; to: string }
-  | { type: 'context/compaction'; summary: string; upToSeq: number }
+  | { type: 'context/compaction'; summary: string; upToSeq: number; /** Summarizer model when it differs from the session model. */ model?: string }
   | { type: 'todo/update'; items: TodoItem[] };
 
 export type SessionEvent = EventBase & SessionEventBody;

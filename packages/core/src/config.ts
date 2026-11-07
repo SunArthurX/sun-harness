@@ -17,6 +17,10 @@ export interface ProviderConfig {
   headers?: Record<string, string>;
   /** Local servers (e.g. Ollama) need no key. */
   noKey?: boolean;
+  /** Default context window (tokens) for this provider's models. */
+  contextWindow?: number;
+  /** Per-model context windows (tokens), overriding built-in knowledge. */
+  modelContext?: Record<string, number>;
 }
 
 export interface IntelSource {
@@ -39,7 +43,9 @@ export interface SunConfig {
   denyInsteadOfPrompting: boolean;
   maxSteps: number;
   autoResume: { enabled: boolean; intervalMinutes: number };
-  compaction: { thresholdTokens: number; keepRecent: number };
+  /** thresholdTokens is an absolute cap; buffer ("20%" or a token count) is kept free below the model's context window. */
+  compaction: { thresholdTokens: number; keepRecent: number; buffer: string | number };
+  rules: { globalMaxChars: number; projectMaxChars: number };
   skills: { extraDirs: string[]; compat: boolean };
   /** Every folder in ~/.sun/plugins loads unless listed in `disabled`. */
   plugins: { disabled: string[]; settings: Record<string, Record<string, unknown>> };
@@ -129,7 +135,8 @@ export function defaultConfig(): SunConfig {
     denyInsteadOfPrompting: false,
     maxSteps: 60,
     autoResume: { enabled: true, intervalMinutes: 15 },
-    compaction: { thresholdTokens: 90000, keepRecent: 12 },
+    compaction: { thresholdTokens: 200000, keepRecent: 12, buffer: '25%' },
+    rules: { globalMaxChars: 12000, projectMaxChars: 40000 },
     skills: { extraDirs: [], compat: true },
     plugins: { disabled: [], settings: {} },
     mcp: { enabled: true },
@@ -190,6 +197,44 @@ export function isProviderReady(p: ProviderConfig): boolean {
 }
 
 /** "provider/model" → parts. Model names may contain "/" (OpenRouter), so split at the first slash. */
+/** Known context windows (tokens). Config `modelContext` / `contextWindow` override these. */
+export const KNOWN_CONTEXT_WINDOWS: Record<string, number> = {
+  'deepseek-chat': 128_000,
+  'deepseek-reasoner': 128_000,
+  'gpt-5': 400_000,
+  'gpt-5-mini': 400_000,
+  'gpt-4.1': 1_047_576,
+  'glm-4.6': 200_000,
+  'glm-4.5-air': 128_000,
+  'qwen3-coder-plus': 1_000_000,
+  'qwen-plus': 131_072,
+  'qwen-max': 32_768,
+  'gemini-2.5-pro': 1_048_576,
+  'gemini-2.5-flash': 1_048_576,
+};
+
+export function contextWindowOf(cfg: SunConfig, ref: string): number {
+  const { provider, model } = parseModelRef(ref);
+  const p = cfg.providers[provider];
+  const base = model.split('/').pop()!;
+  return (
+    p?.modelContext?.[model] ??
+    KNOWN_CONTEXT_WINDOWS[model] ??
+    KNOWN_CONTEXT_WINDOWS[base] ??
+    (/claude/.test(model) ? 200_000 : undefined) ??
+    p?.contextWindow ??
+    (provider === 'ollama' ? 32_768 : 128_000)
+  );
+}
+
+/** Token count at which history is compacted for this model: window minus buffer, capped by thresholdTokens. */
+export function compactionLimit(cfg: SunConfig, ref: string): number {
+  const window = contextWindowOf(cfg, ref);
+  const b = cfg.compaction.buffer ?? '25%';
+  const buffer = typeof b === 'number' ? b : /%$/.test(b) ? (window * parseFloat(b)) / 100 : Number(b) || window * 0.25;
+  return Math.max(1000, Math.min(cfg.compaction.thresholdTokens, Math.floor(window - buffer)));
+}
+
 export function parseModelRef(ref: string): { provider: string; model: string } {
   const i = ref.indexOf('/');
   if (i < 0) return { provider: 'deepseek', model: ref };

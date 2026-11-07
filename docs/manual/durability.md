@@ -32,4 +32,10 @@ If the daily intel analysis fails for quota, the report is saved with raw items 
 
 ## Long sessions
 
-When history grows past `compaction.thresholdTokens`, older turns are summarized into a compaction event; recent turns stay verbatim. A provider "context length exceeded" error forces a compaction and one retry.
+Each model has a context window (built-in table, or `providers.<id>.modelContext` in config). When history grows past the window minus `compaction.buffer` (default 25%), older turns are summarized into a compaction event; recent turns stay verbatim. A provider "context length exceeded" error forces a compaction and one retry.
+
+Switching to a smaller model is safe: if the history no longer fits, the **previous** model writes the summary before the new model sees anything. If the previous model is unavailable (it ran out of quota), the new model summarizes a trimmed transcript instead.
+
+```json
+{ "providers": { "ollama": { "modelContext": { "qwen3-coder": 65536 } } }, "compaction": { "buffer": "20%" } }
+```
