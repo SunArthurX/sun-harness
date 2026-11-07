@@ -1,11 +1,12 @@
 import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { GatewayClient, HarnessHost, findGateway, hostMethods, importCredentialEnv, type LiveEvent } from '@sun/core';
+import { GatewayClient, HarnessHost, augmentPath, findGateway, hostMethods, importCredentialEnv, type LiveEvent } from '@sun/core';
 import { API_METHODS } from '../shared/api';
 
 // GUI apps on macOS do not inherit the login shell env; pick up API keys from ~/.sun/.env and shell rc files.
 if (!process.env.SUN_SKIP_SHELL_ENV) importCredentialEnv();
+augmentPath();
 
 const here = dirname(fileURLToPath(import.meta.url));
 

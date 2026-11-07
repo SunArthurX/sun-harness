@@ -20,6 +20,12 @@ A harness reduces to six parts: **model, context, tools, loop, log, policy**. su
 - **Modes**: coding, agent, assistant; subagents; scheduled tasks.
 - **Harness intel**: daily fetch of 14 harness release feeds, LLM analysis of what changed and why it works, launchd schedule.
 - **Evolution**: reflection and intel produce proposals (memory, skill, rule, feature) that you accept or reject.
+- **Gateway + web UI**: `sun serve` owns every session (schedules, jobs, auto-resume run headless); CLI, desktop and browser attach as clients.
+- **Worktree sessions**: parallel coding on isolated branches; review the diff, squash-merge or discard.
+- **Background jobs**: long commands and slow MCP calls run in the background; results come back into the session.
+- **Context budgets**: per-model context windows, separate rule budgets, safe compaction when switching to a smaller model.
+- **Hybrid knowledge (optional)**: BM25 + embeddings with rank fusion; finds notes across languages.
+- **Packaged macOS app**: `pnpm desktop:install` → `~/Applications/sun-harness.app`.
 
 ## Quick start
 
@@ -28,8 +34,9 @@ pnpm install
 pnpm build
 export DEEPSEEK_API_KEY=...        # or any supported provider
 node packages/cli/dist/index.js doctor
-pnpm desktop:start                 # desktop app
+pnpm desktop:install               # desktop app → ~/Applications/sun-harness.app
 node packages/cli/dist/index.js    # terminal chat
+node packages/cli/dist/index.js gateway install   # optional: always-on gateway + web UI
 ```
 
 Full guide: [docs/manual](docs/manual/README.md).

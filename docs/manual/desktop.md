@@ -1,6 +1,6 @@
 # Desktop app
 
-Start with `pnpm desktop:start` (built) or `pnpm desktop` (dev). The left rail switches screens; the badge on **Sessions** counts sessions that need you (paused or awaiting approval).
+Install with `pnpm desktop:install` (→ `~/Applications/sun-harness.app`), or start from the checkout with `pnpm desktop:start` (built) or `pnpm desktop` (dev). The app finds your tools (`node`, `npx`, `git`, Homebrew, nvm) even when launched from Finder. The left rail switches screens; the badge on **Sessions** counts sessions that need you (paused or awaiting approval).
 
 ## Welcome
 

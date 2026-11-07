@@ -32,7 +32,7 @@ flowchart LR
   X -->|yes| CA
   E --> COS[cosine vs cached vectors]
   CA --> COS
-  B --> RRF[reciprocal rank fusion<br/>Σ 1/(60+rank)]
+  B --> RRF["reciprocal rank fusion<br/>Σ 1/(60+rank)"]
   COS --> RRF
   RRF --> K[top k hits]
   EM -. quota / offline .-> FB[return BM25 + lastError]

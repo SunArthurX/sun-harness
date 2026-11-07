@@ -32,14 +32,16 @@ describe('gateway', () => {
     const remote = new RemoteHost(gw);
     const seen: LiveEvent[] = [];
     remote.subscribe((e) => seen.push(e));
-    await new Promise((r) => setTimeout(r, 100));
+    await remote.ready();
     const s = await remote.createSession({ cwd: tempWorkspace() });
     await remote.send(s.id, 'hello over http');
     const r = await remote.wait(s.id);
     expect(r?.status).toBe('idle');
     const events = await remote.getEvents(s.id);
     expect(events.filter((e) => e.type === 'tool/result')).toHaveLength(1);
-    expect(seen.some((e) => e.kind === 'event' && e.event.type === 'assistant/message')).toBe(true);
+    expect(seen.some((e) => e.kind === 'event' && e.event.type === 'user/message')).toBe(true);
+    expect(seen.some((e) => e.kind === 'delta' && e.text === 'remote done')).toBe(true);
+    expect(seen.some((e) => e.kind === 'notice')).toBe(false);
     await expect(remote.client.call('nope')).rejects.toThrow(/Unknown method/);
     await remote.dispose();
   });

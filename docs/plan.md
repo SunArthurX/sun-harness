@@ -82,16 +82,25 @@ flowchart LR
 - [x] Spec `specs/008-approval-policy.md`; headless deny with reason; `denyInsteadOfPrompting`; hook `onFailure: "block"`
 - [x] Tests, manual, teaching page `docs/teach/06-research-loop.html`
 
+### Iterations 2–7 `[x]`
+- [x] 2 — Context budgets: separate global/project rule budgets; model context windows; `%` compaction buffer; compact with the old model before downgrading (`specs/009`, teach 07)
+- [x] 3 — Worktree sessions: isolated branch per session; status/diff; squash or merge; discard (`specs/010`, teach 08)
+- [x] 4 — Background jobs: `bash` background, slow-MCP promotion, eventual delivery into the session (`specs/011`, teach 09)
+- [x] 5 — Gateway: `sun serve` owns sessions; CLI/desktop/web attach; per-session approval; launchd service; headless schedules (`specs/012`, ADR 0005, teach 10)
+- [x] 6 — Hybrid knowledge: BM25 + embeddings with rank fusion, content-addressed cache, BM25 fallback (`specs/013`, teach 11)
+- [x] 7 — Packaged macOS app: self-contained bundle, offline packaging, Finder PATH, ad-hoc signing, icon (`specs/014`, teach 12)
+
 ## Iteration backlog (research loop)
 
 Filled from intel reports (`~/.sun/evolution/proposals`); each item becomes a spec before code.
 
 | Candidate | Seen in | Part |
 |---|---|---|
-| Separate prompt budgets for global vs project rules | DeepSeek Harness 0.2.2 | Context |
-| Compact with the old model before switching to a smaller-context model | DeepSeek Harness 0.2.2 | Loop |
-| Background MCP tasks with eventual result delivery | Claude Code 2.1.319 | Tools |
-| One gateway owns every session; surfaces attach as clients (web UI, bots) | Hermes Agent 0.23 | Architecture |
-| Git worktree per session for parallel changes | DeepSeek Harness 0.2.2, Codex | Tools, policy |
-| Embedding knowledge provider (plugin) | — | Context |
-| Packaged, signed macOS app (`pnpm --filter @sun/desktop package`) | — | Desktop |
+| Jobs that survive restarts (owned by the gateway, re-attach on start) | Claude Code `/tasks`, Hermes | Tools |
+| Prompt/keystroke race guard for approvals; approval prompt ids | Claude Code 2.1.318 | Policy |
+| Locked, honest config writes (file lock, non-zero exit on failed writes) | Claude Code 2.1.317–318 | Log |
+| Negative capability cache for MCP servers that fail fast | Claude Code 2.1.318 | Tools |
+| Credential / key expiry surfaced in status | Claude Code 2.1.318 | Model |
+| Remote gateway access with TLS and per-device tokens; chat bots (DingTalk, Telegram) as clients | Hermes Agent | Architecture |
+| Developer ID signing + notarization; auto-update | — | Desktop |
+| Session export/import and sharing | Codex, Claude Code | Log |

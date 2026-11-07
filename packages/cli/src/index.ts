@@ -16,6 +16,7 @@ import {
   type SessionHost,
   acceptProposal,
   homePath,
+  augmentPath,
   importCredentialEnv,
   listIntelReports,
   listProposals,
@@ -150,6 +151,7 @@ async function chat(host: SessionHost, sessionId: string): Promise<void> {
   const state = { streamed: false, reasoning: false };
   host.subscribe((e) => printEvent(e, sessionId, state));
   wireApprovals(host, rl);
+  await host.ready?.();
   const s = (await host.listSessions()).find((x) => x.id === sessionId)!;
   console.log(c.bold('sun-harness') + c.dim(`  session ${s.id} · ${s.mode} · ${s.model} · ${s.cwd}${host instanceof RemoteHost ? ' · via gateway' : ''}`));
   console.log(c.dim('Type /help for commands. Ctrl+C aborts a run; /exit quits.'));
@@ -365,6 +367,7 @@ async function sessionCommands(
       const state = { streamed: false, reasoning: false };
       if (!values.json) host.subscribe((e) => printEvent(e, s.id, state));
       wireApprovals(host);
+      await host.ready?.();
       await host.send(s.id, prompt);
       let r = await host.wait(s.id);
       // Background jobs deliver their results as new turns; stay until they and those turns finish.
@@ -389,6 +392,7 @@ async function sessionCommands(
       const state = { streamed: false, reasoning: false };
       host.subscribe((e) => printEvent(e, id, state));
       wireApprovals(host);
+      await host.ready?.();
       await host.resume(id, { model: values.model });
       const r = await host.wait(id);
       console.log(c.dim(`\nsession ${id} · ${r?.status}${r?.reason ? ` (${r.reason})` : ''}`));
@@ -404,6 +408,7 @@ async function sessionCommands(
 
 async function main(): Promise<void> {
   importCredentialEnv();
+  augmentPath();
   const { values, positionals } = parseArgs({
     allowPositionals: true,
     options: {

@@ -11,7 +11,7 @@ Each surface used to run its own `HarnessHost`. Two hosts on one `SUN_HOME` can 
 
 - `sun serve [--port 4471] [--host 127.0.0.1]` runs one `HarnessHost` with the background tick (auto-resume, schedules, intel catch-up) and jobs, behind HTTP:
   - `POST /api/call {method, args}` → `{ok, result}` | `{ok: false, error}`. The method table is `hostMethods(host)`, shared with the desktop IPC.
-  - `GET /api/events` → Server-Sent Events of every `LiveEvent`; `?approver=1` registers the connection as an approver until it closes.
+  - `GET /api/events` → Server-Sent Events of every `LiveEvent`; the first event is `{kind: "notice", text: "connected"}` and clients wait for it before sending, so no early output is missed. `?approver=1` registers the connection as an approver until it closes.
   - `GET /api/health` → `{ok, home, version, pid}`.
   - Any other path serves the built web UI (`apps/desktop/out/renderer`, or `~/.sun/web`), with path traversal blocked.
 - Security: binds `127.0.0.1` by default; every API request needs the bearer token (header, or `?token=` for EventSource). The gateway writes `~/.sun/gateway.json` (`url`, `token`, `pid`, mode 0600) and removes it on clean shutdown.

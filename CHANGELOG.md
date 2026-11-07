@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.2.0 — 2026-11-07
+
+### Iteration 2 — Context budgets
+- Separate prompt budgets for global and project rules (`rules.globalMaxChars`, `rules.projectMaxChars`).
+- Per-model context windows (built-in table + `modelContext`), `compaction.buffer` (default 25%).
+- After a model switch, the previous model summarizes history the new model cannot hold; falls back to the new model with a trimmed transcript.
+
+### Iteration 3 — Worktree sessions
+- `createSession({ worktree: true })`, `sun --worktree`, desktop toggle; status, diff, squash/merge, discard; Changes panel.
+
+### Iteration 4 — Background jobs
+- `bash` `background: true`, `job_status`, `job_kill`; slow MCP calls promoted after `jobs.promoteAfterMs`; results delivered as `source: job` messages; lost jobs marked on restart; `sun run` waits for jobs.
+
+### Iteration 5 — Gateway and web UI
+- `sun serve` (HTTP + SSE, token auth, localhost), `sun gateway status|url|install|uninstall` (launchd KeepAlive).
+- CLI and desktop attach to a running gateway; browser web UI via the same renderer; per-session approval mode.
+- Shared method table `hostMethods` for desktop IPC and HTTP.
+
+### Iteration 6 — Hybrid knowledge
+- Optional BM25 + embedding retrieval with reciprocal rank fusion, embedding cache, BM25 fallback; `sun kb index`; Settings toggle.
+
+### Iteration 7 — Packaged macOS app
+- `pnpm desktop:package` / `desktop:install`; self-contained main bundle; offline packaging with the local Electron; ad-hoc signing; app icon.
+- `augmentPath()` so Finder-launched apps and launchd jobs find `node`, `npx`, Homebrew and nvm tools.
+
 ## 0.1.0 — 2026-11-07
 
 ### M0 Foundations

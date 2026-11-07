@@ -160,7 +160,7 @@ export async function startGateway(host: HarnessHost, opts: GatewayOptions = {})
       if (url.pathname === '/api/health') return send(res, 200, { ok: true, home: sunHome(), version: VERSION, pid: process.pid });
       if (url.pathname === '/api/events') {
         res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache', connection: 'keep-alive' });
-        res.write(': connected\n\n');
+        res.write(`data: ${JSON.stringify({ kind: 'notice', level: 'info', text: 'connected' })}\n\n`);
         const release = url.searchParams.get('approver') === '1' ? host.registerApprover() : () => undefined;
         const unsub = host.subscribe((e) => res.write(`data: ${JSON.stringify(e)}\n\n`));
         const beat = setInterval(() => res.write(': ping\n\n'), 15_000);
@@ -249,9 +249,13 @@ export class GatewayClient {
     return body.result as T;
   }
 
-  /** Stream live events. `approver` makes this connection count as a human who can answer approvals. */
-  subscribe(fn: (e: LiveEvent) => void, opts: { approver?: boolean } = {}): () => void {
+  /**
+   * Stream live events. `approver` makes this connection count as a human who can answer approvals.
+   * `onReady` fires once the stream is connected (the gateway's first "connected" notice).
+   */
+  subscribe(fn: (e: LiveEvent) => void, opts: { approver?: boolean; onReady?: () => void } = {}): () => void {
     const ctrl = new AbortController();
+    let ready = false;
     (async () => {
       while (!ctrl.signal.aborted) {
         try {
@@ -262,7 +266,13 @@ export class GatewayClient {
           if (!r.body) throw new Error('no event stream');
           for await (const { data } of readSse(r.body)) {
             try {
-              fn(JSON.parse(data));
+              const e = JSON.parse(data) as LiveEvent;
+              if (!ready && e.kind === 'notice' && e.text === 'connected') {
+                ready = true;
+                opts.onReady?.();
+                continue;
+              }
+              fn(e);
             } catch {
               // ignore malformed event
             }
@@ -298,6 +308,8 @@ export interface SessionHost {
   readyModels(): string[] | Promise<string[]>;
   listJobs(sessionId?: string): { state: string }[] | Promise<{ state: string }[]>;
   reflect(id: string): Promise<{ id: string; type: string; title: string }[]>;
+  /** Resolves when every live subscription is connected (remote hosts); send only after this. */
+  ready?(): Promise<void>;
   dispose(): Promise<void>;
 }
 
@@ -336,10 +348,18 @@ export class RemoteHost implements SessionHost {
     this.approver = true;
     return () => (this.approver = false);
   }
+  private pending: Promise<void>[] = [];
+
   subscribe(fn: (e: LiveEvent) => void): () => void {
-    const u = this.client.subscribe(fn, { approver: this.approver });
+    let onReady!: () => void;
+    this.pending.push(Promise.race([new Promise<void>((r) => (onReady = r)), new Promise<void>((r) => setTimeout(r, 5000))]));
+    const u = this.client.subscribe(fn, { approver: this.approver, onReady });
     this.unsubs.push(u);
     return u;
+  }
+
+  async ready(): Promise<void> {
+    await Promise.all(this.pending);
   }
   isRunning(id: string) {
     return this.client.call<boolean>('isRunning', id);

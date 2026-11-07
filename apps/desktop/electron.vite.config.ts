@@ -4,8 +4,8 @@ import react from '@vitejs/plugin-react';
 
 export default defineConfig({
   main: {
-    // @sun/core is bundled into the main process; its runtime deps stay external.
-    plugins: [externalizeDepsPlugin({ exclude: ['@sun/core'] })],
+    // Bundle core and its runtime deps into main so the packaged app needs no node_modules.
+    plugins: [externalizeDepsPlugin({ exclude: ['@sun/core', '@modelcontextprotocol/sdk'] })],
     build: { rollupOptions: { input: resolve(__dirname, 'src/main/index.ts') } },
   },
   preload: {

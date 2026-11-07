@@ -1,6 +1,6 @@
 {
   "name": "@sun/desktop",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "main": "./out/main/index.js",
@@ -10,15 +10,14 @@
     "build": "electron-vite build",
     "start": "electron-vite preview",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "package": "electron-vite build && electron-builder --mac --dir"
+    "package": "electron-vite build && electron-builder --mac --dir --publish never && node scripts/adhoc-sign.mjs"
   },
-  "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.32.2"
-  },
+  "dependencies": {},
   "devDependencies": {
     "@fontsource-variable/hanken-grotesk": "^5.3.0",
     "@fontsource-variable/jetbrains-mono": "^5.3.0",
     "@fontsource/instrument-serif": "^5.3.0",
+    "@modelcontextprotocol/sdk": "^1.32.2",
     "@sun/core": "workspace:*",
     "@types/dompurify": "^3.2.0",
     "@types/react": "^19.0.0",
@@ -37,11 +36,25 @@
   "build": {
     "appId": "dev.sun-harness.desktop",
     "productName": "sun-harness",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
     "files": [
-      "out/**/*"
+      "out/**/*",
+      "package.json"
     ],
+    "electronDist": "node_modules/electron/dist",
+    "electronVersion": "45.2.3",
+    "npmRebuild": false,
+    "asar": true,
     "mac": {
-      "category": "public.app-category.developer-tools"
+      "category": "public.app-category.developer-tools",
+      "target": [
+        "dir"
+      ],
+      "identity": null,
+      "icon": "build/icon.png"
     }
   }
 }

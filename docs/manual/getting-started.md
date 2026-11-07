@@ -45,10 +45,21 @@ Change the default model in the desktop Settings page or in `~/.sun/config.json`
 
 ## First session — desktop
 
+Install the app (macOS, Apple Silicon or Intel):
+
+```sh
+pnpm desktop:install   # builds sun-harness.app and copies it to ~/Applications
+open ~/Applications/sun-harness.app
+```
+
+Or run it from the checkout:
+
 ```sh
 pnpm desktop:start     # built app
 pnpm desktop           # dev mode with hot reload
 ```
+
+The app is ad-hoc signed for your own Mac. To give it to someone else, sign it with an Apple Developer ID and notarize it.
 
 1. Pick **Coding**, choose a project folder, press **Start**.
 2. Ask for something concrete: "Add a `--version` flag to the CLI and a test for it."
@@ -70,6 +81,14 @@ sun init     # AGENTS.md (+ CLAUDE.md symlink), specs/000-vision.md, .sun/{rules
 ```
 
 Then edit `AGENTS.md` and `specs/000-vision.md`. Every session reads them (see [Rules and specs](rules.md)).
+
+## Always-on gateway (recommended)
+
+```sh
+sun gateway install    # one background owner for sessions, schedules, jobs; web UI at http://127.0.0.1:4471
+```
+
+See [Gateway and web UI](gateway.md).
 
 ## Daily harness intel
 

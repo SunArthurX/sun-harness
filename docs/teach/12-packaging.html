@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" /><meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>12 · Packaging — sun-harness</title>
+<link rel="stylesheet" href="teach.css" />
+<script type="module">import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs'; mermaid.initialize({ startOnLoad: true, theme: 'neutral' });</script>
+</head>
+<body>
+<header class="top"><div class="wrap"><a class="brand" href="index.html">sun<em>harness</em> · teach</a><nav><a href="index.html">All pages</a></nav></div></header>
+<main class="wrap">
+<p class="muted">Iteration 7 · spec <code>specs/014-packaging.md</code></p>
+<h1>12 · <em>Packaging</em></h1>
+<p class="lede">A dev build that runs from a terminal is not an app. The packaged app runs from Finder with almost no environment, on a network that cannot download Electron, and without a paid signing certificate. Each of those needed a decision.</p>
+
+<figure style="text-align:center"><img src="img/icon.png" alt="App icon" width="180"/><figcaption>The icon, rendered from SVG by Electron itself.</figcaption></figure>
+
+<h2>Build pipeline</h2>
+<div class="mermaid">
+flowchart LR
+  S[core + desktop sources] --> V[electron-vite build<br/>main bundles core + MCP SDK]
+  V --> O[out/** only, no node_modules]
+  O --> B[electron-builder --dir<br/>electronDist = local Electron]
+  I[make-icon.cjs → icon.png] --> B
+  B --> A[sun-harness.app]
+  A --> C[ad-hoc codesign + verify]
+  C --> L[~/Applications · open via LaunchServices]
+</div>
+
+<h2>Problems and decisions</h2>
+<div class="qa"><p class="q">electron-builder wants to download Electron again, and GitHub downloads fail here.</p><p class="a">The workspace already has the exact Electron binary (fetched once through a mirror; see page 04). <code>electronDist</code> points the builder at it and <code>electronVersion</code> pins the version, so packaging is offline.</p></div>
+<div class="qa"><p class="q">pnpm symlinks confuse dependency collection. How does the app get its runtime libraries?</p><p class="a">It doesn't need any. The main bundle includes core and the MCP SDK (and its zod); the app's <code>package.json</code> has no runtime dependencies. A check of the bundle's imports shows only <code>electron</code> and <code>node:*</code> built-ins. Smaller surface, and nothing to resolve at runtime.</p></div>
+<div class="qa"><p class="q">The app starts from Finder with <code>PATH=/usr/bin:/bin</code>. What breaks?</p><p class="a">Everything the agent runs: MCP servers started with <code>npx</code> or <code>node</code>, <code>pnpm test</code> in the bash tool, Homebrew tools. <code>augmentPath()</code> appends the usual user locations (nvm's default version, Homebrew, <code>~/.local/bin</code>, pnpm, bun, cargo, …) after the existing PATH. The packaged app was then launched with exactly that minimal PATH, and a live session ran an MCP server started as plain <code>node</code>. Its unit test caught a real duplicate: under nvm, Node's own folder and nvm's default bin are the same path.</p></div>
+<div class="qa"><p class="q">No Apple Developer ID. Will it even open?</p><p class="a">Apple Silicon refuses unsigned code, but accepts an ad-hoc signature on the machine that made it. The package script ad-hoc signs and verifies with <code>codesign --verify --deep --strict</code>; then <code>open ~/Applications/sun-harness.app</code> launches it through LaunchServices, the same path a double-click takes. Shipping to other Macs still needs a Developer ID and notarization; that is documented, not faked.</p></div>
+
+<figure><img src="img/packaged.png" alt="Packaged app session" width="100%" style="border-radius:12px;border:1px solid var(--line)"/><figcaption>The packaged app with a minimal PATH: a live session calling an MCP tool.</figcaption></figure>
+<p class="lesson">Test the shipped artifact in the shipped environment. "Works in dev" hid the minimal-PATH problem; launching the real binary with Finder's PATH exposed it at once.</p>
+
+<div class="nav"><a href="11-hybrid-knowledge.html">← 11 · Hybrid knowledge</a><a href="index.html">All pages →</a></div>
+</main>
+</body>
+</html>

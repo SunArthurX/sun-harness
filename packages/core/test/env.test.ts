@@ -1,5 +1,24 @@
 import { describe, expect, it } from 'vitest';
-import { parseEnvLines } from '../src/index.js';
+import { dirname } from 'node:path';
+import { augmentPath, parseEnvLines } from '../src/index.js';
+
+describe('PATH augmentation for GUI and launchd processes', () => {
+  it('appends user tool dirs after the existing PATH, without duplicates', () => {
+    const saved = process.env.PATH;
+    try {
+      process.env.PATH = '/usr/bin:/bin';
+      const added = augmentPath();
+      const parts = process.env.PATH!.split(':');
+      expect(parts.slice(0, 2)).toEqual(['/usr/bin', '/bin']);
+      expect(parts).toContain(dirname(process.execPath));
+      expect(new Set(parts).size).toBe(parts.length);
+      expect(augmentPath()).toEqual([]);
+      expect(added.length).toBeGreaterThan(0);
+    } finally {
+      process.env.PATH = saved;
+    }
+  });
+});
 
 describe('credential env import', () => {
   it('parses simple exports and skips anything that needs a shell', () => {

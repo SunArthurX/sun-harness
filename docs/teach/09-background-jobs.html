@@ -26,13 +26,13 @@ sequenceDiagram
   M->>A: bash {command: "pnpm test", background: true}
   A->>J: startProcess
   J-->>L: job/started
-  A-->>M: "Started job-ab12; result will be delivered"
+  A-->>M: Started job-ab12, result will be delivered
   M->>A: continues other work, then ends the turn
   Note over A: run idle
   J-->>L: job/finished (exit 0)
   J->>A: deliver: user/message {source: job} + output tail
   A->>M: new turn with the result
-  M-->>A: "Tests passed (412)…"
+  M-->>A: Tests passed (412)
 </div>
 
 <h2>Promotion of slow tool calls</h2>
