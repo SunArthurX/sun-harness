@@ -1,4 +1,4 @@
-import { app, BrowserWindow, clipboard, dialog, globalShortcut, ipcMain, session, shell, systemPreferences } from 'electron';
+import { app, BrowserWindow, clipboard, dialog, globalShortcut, ipcMain, nativeImage, session, shell, systemPreferences } from 'electron';
 import { dirname, join } from 'node:path';
 import { Readable } from 'node:stream';
 import { buffer } from 'node:stream/consumers';
@@ -637,6 +637,10 @@ function createWindow(): void {
 }
 
 app.whenReady().then(async () => {
+  if (process.platform === 'darwin') {
+    const icon = nativeImage.createFromPath(join(here, '../../build/icon.png'));
+    if (!icon.isEmpty()) app.dock?.setIcon(icon);
+  }
   // The renderer may use the microphone (voice input) and show notifications; every other permission is refused.
   session.defaultSession.setPermissionRequestHandler((contents, permission, cb, details) =>
     cb(contents === win?.webContents && (permission === 'notifications' || (permission === 'media' && (details as { mediaTypes?: string[] }).mediaTypes?.every((t) => t === 'audio') !== false))),

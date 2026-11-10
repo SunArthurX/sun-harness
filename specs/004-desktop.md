@@ -45,7 +45,7 @@ the same task closed the windows but left the app running.
 
 ## Visual language
 
-Warm dark "solar instrument" theme: ink background, single amber accent, Instrument Serif display, Hanken Grotesk body, JetBrains Mono for code. Fonts are bundled (offline).
+Warm dark "solar instrument" theme: ink background, single amber accent, Instrument Serif display, Hanken Grotesk body, JetBrains Mono for code. Fonts are bundled (offline). The rail mark is the same playful sun face as the app icon.
 
 ## Verification
 

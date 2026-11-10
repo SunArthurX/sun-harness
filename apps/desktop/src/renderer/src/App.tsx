@@ -235,7 +235,27 @@ export function App({ initialSettings }: { initialSettings?: SettingsSnapshot })
     <div className="shell">
       <nav className="rail">
         <div className="sun-mark" title={t("sun-harness")}>
-          <span />
+          <svg viewBox="130 150 764 760" aria-hidden="true">
+            <g fill="#ff9f1a">
+              <rect x="492" y="168" width="40" height="92" rx="20" />
+              <rect x="250" y="250" width="40" height="92" rx="20" transform="rotate(-42 270 296)" />
+              <rect x="734" y="250" width="40" height="92" rx="20" transform="rotate(42 754 296)" />
+              <rect x="150" y="470" width="92" height="40" rx="20" />
+              <rect x="782" y="470" width="92" height="40" rx="20" />
+              <rect x="286" y="690" width="40" height="92" rx="20" transform="rotate(48 306 736)" />
+              <rect x="698" y="690" width="40" height="92" rx="20" transform="rotate(-48 718 736)" />
+              <path d="M500 748c8 78 46 118 96 132" fill="none" stroke="#ff9f1a" strokeWidth="40" strokeLinecap="round" />
+            </g>
+            <circle cx="512" cy="512" r="196" fill="#ff9f1a" />
+            <g fill="#2a1c14">
+              <ellipse cx="446" cy="486" rx="18" ry="20" />
+              <ellipse cx="590" cy="478" rx="18" ry="20" />
+              <rect x="392" y="430" width="78" height="16" rx="8" transform="rotate(-8 431 438)" />
+              <rect x="548" y="408" width="86" height="16" rx="8" transform="rotate(18 591 416)" />
+              <path d="M430 560c28 46 92 58 150 28" fill="none" stroke="#2a1c14" strokeWidth="16" strokeLinecap="round" />
+            </g>
+            <path d="M560 582c22 8 34 28 24 42-14 16-36 8-44-12-6-16 4-32 20-30z" fill="#e26a2c" />
+          </svg>
         </div>
         {NAV.map((n) => (
           <button key={n.id} className={`rail-btn ${page === n.id ? 'on' : ''}`} data-nav={n.id} onClick={() => setPage(n.id)} title={t(n.label)}>
