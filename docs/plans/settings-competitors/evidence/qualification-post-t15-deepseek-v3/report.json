@@ -1,0 +1,63 @@
+{
+  "checkpoint": "post-t15",
+  "model": "deepseek/deepseek-chat",
+  "modelVersion": "deepseek-chat",
+  "providerRevision": "not reported by the provider adapter",
+  "startedAt": "2026-11-09T12:59:39.387Z",
+  "promptSha256": "45ff08846f4244c6aa8b30a511e0640ac83bac2b51b72e810570d7344a67b74f",
+  "suiteSha256": "28ca59fcb2aab1d0b2554c0dec8da9fbe75ec87392e6bd1e0984cb194506b51c",
+  "repetitions": 3,
+  "expectedAttempts": 9,
+  "validation": [
+    {
+      "id": "attachment-replay",
+      "ok": true,
+      "failsUntouched": true,
+      "solvable": true,
+      "output": ""
+    },
+    {
+      "id": "permission-denial",
+      "ok": true,
+      "failsUntouched": true,
+      "solvable": true,
+      "output": ""
+    },
+    {
+      "id": "validated-setting",
+      "ok": true,
+      "failsUntouched": true,
+      "solvable": true,
+      "output": ""
+    }
+  ],
+  "attempts": [
+    {
+      "task": "attachment-replay",
+      "repetition": 1,
+      "attempt": 1,
+      "status": "idle",
+      "durationMs": 13119,
+      "inputTokens": 43261,
+      "outputTokens": 1585,
+      "toolCalls": 14,
+      "passed": true,
+      "diffFile": "attachment-replay-1.diff",
+      "acceptanceFile": "attachment-replay-1.txt"
+    },
+    {
+      "task": "permission-denial",
+      "repetition": 1,
+      "attempt": 1,
+      "status": "idle",
+      "durationMs": 14671,
+      "inputTokens": 43777,
+      "outputTokens": 1997,
+      "toolCalls": 19,
+      "passed": true,
+      "diffFile": "permission-denial-1.diff",
+      "acceptanceFile": "permission-denial-1.txt"
+    }
+  ],
+  "result": "running"
+}

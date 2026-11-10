@@ -1,0 +1,4 @@
+/private/var/folders/4c/_fqg96ms18dc7mrmk9dfq32c0000gp/T/sun-computer-probe-xXFQsY/sun-computer-probe.app: replacing existing signature
+Built a macOS 13 deployment-target arm64 helper and verified the disposable signed Electron bundle.
+Packaged process reported Screen Recording permission-required and Accessibility permission-required.
+Foreground identity matched the isolated fixture. A mismatched process denied inspection. AX window role not-inspected.

@@ -1,0 +1,10 @@
+$ vitest run
+
+ RUN  v5.1.0 /Users/sunqingguang/Downloads/06.code/sun-harness
+
+
+ Test Files  34 passed (34)
+      Tests  237 passed | 1 skipped (238)
+   Start at  19:46:55
+   Duration  6.79s (tests 88%, import 9%, transform 3%)
+

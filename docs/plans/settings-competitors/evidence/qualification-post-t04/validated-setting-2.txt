@@ -1,0 +1,31 @@
+✖ defaults, UI labels, boundary validation and shared revision (0.829541ms)
+✔ verbose remains editable (0.45625ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 1
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 44.101209
+
+✖ failing tests:
+
+test at .eval-hidden/acceptance.test.mjs:8:1
+✖ defaults, UI labels, boundary validation and shared revision (0.829541ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  undefined !== 25
+  
+      at TestContext.<anonymous> (file:///private/var/folders/4c/_fqg96ms18dc7mrmk9dfq32c0000gp/T/sun-eval-validated-setting-4lAtcl/.eval-hidden/acceptance.test.mjs:11:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1201:25)
+      at Test.start (node:internal/test_runner/test:1096:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:385:17) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: 25,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

@@ -3,7 +3,7 @@
 | Chapter | What you learn |
 |---|---|
 | [Getting started](getting-started.md) | Install, configure a model, first session (desktop and CLI) |
-| [Desktop app](desktop.md) | Every screen and control |
+| [Desktop app](desktop.md) | Every screen and control; English and Simplified Chinese |
 | [Automations](automations.md) | Say “every weekday at 9 …” to schedule; the Automations menu; run history, catch-up, notifications |
 | [Everyday conveniences](everyday.md) | Context usage report, steering, custom /commands, @files, images, diffs, cost, rewind, export/import, ⌘K, search, pins, shortcuts |
 | [Gateway and web UI](gateway.md) | One always-on owner for sessions; browser UI; CLI/desktop attach; remote access over TLS |
@@ -14,6 +14,10 @@
 | [Assistant](assistant.md) | Layered memory, DingTalk and email/calendar connectors, model routing, daily briefing, event triggers, voice, efficiency metrics |
 | [Research](research.md) | Search providers, readable pages and PDFs, Python kernel, parallel subagents, deliverables, prompt-injection guard |
 | [Browser](browser.md) | Real browser for the agent (local Chrome or sandboxed Chromium), live view, takeover, login profiles |
+| [Website passwords](passwords.md) | macOS Keychain-backed storage and private website sign-in |
+| [Computer Use](computer-use.md) | macOS app grants, native observations, approvals, and emergency stop |
+| [Appshots](appshots.md) | Capture the front window, redact it, and replay the prepared image |
+| [Execution targets](execution-targets.md) | Reviewed shell jobs on this Mac, Local Docker, or a pinned gateway |
 | [Shell sandbox](sandbox.md) | Seatbelt / bubblewrap / Docker isolation, network allowlist, hidden credentials |
 | [Worktree sessions](worktrees.md) | Parallel coding sessions on isolated branches; review, merge, discard |
 | [Background jobs](jobs.md) | Long commands and slow tools run in the background; results come back |
@@ -24,5 +28,8 @@
 | [Harness intel](intel.md) | Daily briefing on other harnesses and its schedule |
 | [Evolution](evolution.md) | Reflection, proposals, and how the harness improves |
 | [Configuration reference](configuration.md) | Every field of `~/.sun/config.json` and the data layout |
+| [Verify a local build](verification.md) | Reproduce product tests and inspect feature-level evidence |
 
 Teaching pages (how and why it was built): open [`docs/teach/index.html`](../teach/index.html).
+
+- [Settings](settings-roadmap.md): the shipped settings slices, and where each control is documented. Family accounts and a hosted computer stay deferred.

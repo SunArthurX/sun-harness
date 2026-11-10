@@ -1,0 +1,44 @@
+$ pnpm exec vitest run packages/core/test/browser.test.ts -t 'exposes browser tools'   # browser.ts temporarily restored to: if (proc && proc.exitCode === null) proc.kill();
+
+ RUN  v5.1.0 /Users/sunqingguang/Downloads/06.code/sun-harness
+
+ ❯ packages/core/test/browser.test.ts (12 tests | 1 failed | 11 skipped) 1993ms
+   ❯ browser over CDP (local Chrome, headless) (8)
+     × exposes browser tools to a session through the host 1959ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/core/test/browser.test.ts > browser over CDP (local Chrome, headless) > exposes browser tools to a session through the host
+AssertionError: expected [ …(8) ] to deeply equal []
+
+- Expected
++ Received
+
+- []
++ [
++   "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome --user-data-dir=/var/folders/4c/_fqg96ms18dc7mrmk9dfq32c0000gp/T/sun-test-e76A3E/home/browser/profiles/host-94227 --remote-debugging-port=0 --no-first-run --no-default-browser-check --disable-background-networking --disable-sync --window-size=1280,800 --headless=new about:blank",
++   "/Applications/Google Chrome.app/Contents/Frameworks/Google Chrome Framework.framework/Versions/156.0.8078.81/Helpers/Google Chrome Helper.app/Contents/MacOS/Google Chrome Helper --type=gpu-process --gpu-recent-crash-count=0 --headless=new --noerrdialogs --user-data-dir=/var/folders/4c/_fqg96ms18dc7mrmk9dfq32c0000gp/T/sun-test-e76A3E/home/browser/profiles/host-94227 --gpu-preferences=WAAAAAAAAAAgAQAEAAAAAAAAAAAAAGAAQAAAAAAAAAADAAAAAAAAADgAAAAAAAAAAAAAAAAAAAACAAAAAAAAAAAAAAAAAAAAKAAAAAAAAAAoAAAAAAAAAAgAAAAAAAAADAAAAAEAAAAAAAAAAAAAAAgAAAAAAAAACAAAAAAAAAA= --shared-files --field-trial-handle=1718379636,r,10093196301513716705,6809127324383854390,262144 --disable-features=PaintHolding --variations-seed-version --pseudonymization-salt-handle=1935764596,r,14878161549298667023,16680715376785168645,4 --trace-process-track-uuid=3190708988185955192 --seatbelt-client=26",
++   "/Applications/Google Chrome.app/Contents/Frameworks/Google Chrome Framework.framework/Versions/156.0.8078.81/Helpers/Google Chrome Helper.app/Contents/MacOS/Google Chrome Helper --type=utility --utility-sub-type=network.mojom.NetworkService --lang=en-US --service-sandbox-type=network --noerrdialogs --user-data-dir=/var/folders/4c/_fqg96ms18dc7mrmk9dfq32c0000gp/T/sun-test-e76A3E/home/browser/profiles/host-94227 --shared-files --field-trial-handle=1718379636,r,10093196301513716705,6809127324383854390,262144 --disable-features=PaintHolding --variations-seed-version --pseudonymization-salt-handle=1935764596,r,14878161549298667023,16680715376785168645,4 --trace-process-track-uuid=3190708989122997041 --seatbelt-client=30",
++   "/Applications/Google Chrome.app/Contents/Frameworks/Google Chrome Framework.framework/Versions/156.0.8078.81/Helpers/Google Chrome Helper.app/Contents/MacOS/Google Chrome Helper --type=utility --utility-sub-type=storage.mojom.StorageService --lang=en-US --service-sandbox-type=service --noerrdialogs --user-data-dir=/var/folders/4c/_fqg96ms18dc7mrmk9dfq32c0000gp/T/sun-test-e76A3E/home/browser/profiles/host-94227 --shared-files --field-trial-handle=1718379636,r,10093196301513716705,6809127324383854390,262144 --disable-features=PaintHolding --variations-seed-version --pseudonymization-salt-handle=1935764596,r,14878161549298667023,16680715376785168645,4 --trace-process-track-uuid=3190708990060038890 --seatbelt-client=50",
++   "/Applications/Google Chrome.app/Contents/Frameworks/Google Chrome Framework.framework/Versions/156.0.8078.81/Helpers/Google Chrome Helper (Renderer).app/Contents/MacOS/Google Chrome Helper (Renderer) --type=renderer --top-chrome-webui --noerrdialogs --user-data-dir=/var/folders/4c/_fqg96ms18dc7mrmk9dfq32c0000gp/T/sun-test-e76A3E/home/browser/profiles/host-94227 --remote-debugging-port=0 --lang=en-US --num-raster-threads=4 --enable-zero-copy --enable-gpu-memory-buffer-compositor-resources --enable-main-frame-before-activation --renderer-client-id=6 --launch-time-ticks=1050978501965 --shared-files --field-trial-handle=1718379636,r,10093196301513716705,6809127324383854390,262144 --disable-features=PaintHolding --variations-seed-version --pseudonymization-salt-handle=1935764596,r,14878161549298667023,16680715376785168645,4 --trace-process-track-uuid=3190708991934122588 --seatbelt-client=78",
++   "/Applications/Google Chrome.app/Contents/Frameworks/Google Chrome Framework.framework/Versions/156.0.8078.81/Helpers/Google Chrome Helper (Renderer).app/Contents/MacOS/Google Chrome Helper (Renderer) --type=renderer --noerrdialogs --user-data-dir=/var/folders/4c/_fqg96ms18dc7mrmk9dfq32c0000gp/T/sun-test-e76A3E/home/browser/profiles/host-94227 --remote-debugging-port=0 --lang=en-US --num-raster-threads=4 --enable-zero-copy --enable-gpu-memory-buffer-compositor-resources --enable-main-frame-before-activation --renderer-client-id=7 --launch-time-ticks=1050978534779 --shared-files --field-trial-handle=1718379636,r,10093196301513716705,6809127324383854390,262144 --disable-features=PaintHolding --variations-seed-version --pseudonymization-salt-handle=1935764596,r,14878161549298667023,16680715376785168645,4 --trace-process-track-uuid=3190708992871164437 --seatbelt-client=78",
++   "/Applications/Google Chrome.app/Contents/Frameworks/Google Chrome Framework.framework/Versions/156.0.8078.81/Helpers/Google Chrome Helper (Renderer).app/Contents/MacOS/Google Chrome Helper (Renderer) --type=renderer --noerrdialogs --user-data-dir=/var/folders/4c/_fqg96ms18dc7mrmk9dfq32c0000gp/T/sun-test-e76A3E/home/browser/profiles/host-94227 --remote-debugging-port=0 --lang=en-US --num-raster-threads=4 --enable-zero-copy --enable-gpu-memory-buffer-compositor-resources --enable-main-frame-before-activation --renderer-client-id=11 --launch-time-ticks=1050978694916 --shared-files --field-trial-handle=1718379636,r,10093196301513716705,6809127324383854390,262144 --disable-features=PaintHolding --variations-seed-version --pseudonymization-salt-handle=1935764596,r,14878161549298667023,16680715376785168645,4 --trace-process-track-uuid=3190708996619331833 --seatbelt-client=106",
++   "/Applications/Google Chrome.app/Contents/Frameworks/Google Chrome Framework.framework/Versions/156.0.8078.81/Helpers/Google Chrome Helper (Renderer).app/Contents/MacOS/Google Chrome Helper (Renderer) --type=renderer --noerrdialogs --user-data-dir=/var/folders/4c/_fqg96ms18dc7mrmk9dfq32c0000gp/T/sun-test-e76A3E/home/browser/profiles/host-94227 --extension-process --remote-debugging-port=0 --lang=en-US --num-raster-threads=4 --enable-zero-copy --enable-gpu-memory-buffer-compositor-resources --enable-main-frame-before-activation --renderer-client-id=12 --launch-time-ticks=1050978751053 --shared-files --field-trial-handle=1718379636,r,10093196301513716705,6809127324383854390,262144 --disable-features=PaintHolding --variations-seed-version --pseudonymization-salt-handle=1935764596,r,14878161549298667023,16680715376785168645,4 --trace-process-track-uuid=3190708997556373682 --seatbelt-client=111",
++ ]
+
+ ❯ packages/core/test/browser.test.ts:413:21
+    411|     expect(users().length).toBeGreaterThan(0);
+    412|     await host.dispose();
+    413|     expect(users()).toEqual([]);
+       |                     ^
+    414|   }, 60_000);
+    415| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 11 skipped (12)
+   Start at  13:48:20
+   Duration  2.30s (tests 89%, import 6%, transform 4%)
+

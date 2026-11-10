@@ -1,0 +1,49 @@
+{
+  "task": "T14",
+  "result": "pass",
+  "acceptance": ["AC-15"],
+  "commands": [
+    { "command": "pnpm test", "exitCode": 0, "outputFile": "docs/plans/settings-competitors/evidence/T14-test.txt" },
+    { "command": "pnpm build", "exitCode": 0, "outputFile": "docs/plans/settings-competitors/evidence/T14-build.txt" },
+    { "command": "pnpm typecheck", "exitCode": 0, "outputFile": "docs/plans/settings-competitors/evidence/T14-types.txt" },
+    { "command": "node apps/desktop/e2e/settings-remote.mjs", "exitCode": 0, "outputFile": "docs/plans/settings-competitors/evidence/T14-remote.txt" },
+    { "command": "node apps/desktop/e2e/settings.mjs", "exitCode": 0, "outputFile": "docs/plans/settings-competitors/evidence/T14-web.txt" },
+    { "command": "node apps/desktop/e2e/execution-docker.mjs", "exitCode": 0, "outputFile": "docs/plans/settings-competitors/evidence/T14-docker.txt" }
+  ],
+  "artifacts": [
+    "packages/core/src/settings/targets.ts",
+    "packages/core/src/jobs.ts",
+    "packages/core/src/host.ts",
+    "packages/core/src/gateway.ts",
+    "packages/core/src/sandbox.ts",
+    "packages/core/test/execution-targets.test.ts",
+    "apps/desktop/src/renderer/src/settings/ExecutionJobsPanel.tsx",
+    "apps/desktop/src/renderer/src/locale-zh-CN.ts",
+    "apps/desktop/e2e/settings-remote.mjs",
+    "apps/desktop/e2e/settings.mjs",
+    "apps/desktop/e2e/execution-docker.mjs",
+    "specs/032-settings-and-capability-management.md",
+    "docs/adr/0013-execution-target-job-receipts.md",
+    "docs/manual/execution-targets.md",
+    "docs/manual/gateway.md",
+    "docs/manual/desktop.md",
+    "docs/teach/44-execution-targets.html",
+    "docs/teach/index.html",
+    "docs/plan.md",
+    "CHANGELOG.md"
+  ],
+  "manualChecks": [
+    "The controller lost a launch acknowledgement after the gateway started a real process. A fresh controller and restarted gateway recovered the original provider job ID. The workspace recorded one execution, a different command for the same operation failed, and the controller record omitted the command.",
+    "The controller saved cancellation intent before dispatch. After losing the cancellation reply, it recovered the acknowledgement and terminal state from the provider. A provider reservation without a process receipt stayed in reconciliation. A mismatched provider identity was rejected.",
+    "Electron reviewed and started a command on a separate gateway over pinned TLS. The output came from that target and the file existed only in the target workspace. The controller stored no gateway token or shell command. An actual outage showed the target offline and made output unavailable. Reconnecting to the same gateway restored output retrieval.",
+    "Gateway web discovered the current execution host and the separately labelled Local Docker target. It launched a reviewed local job and displayed its output.",
+    "Real Docker ran in a distinct container using a preloaded image. Cancellation acknowledged removal of the operation's own container. A delayed write did not survive, and the fixture found no retained operation containers. The workflow used existing configured targets and performed no service provisioning."
+  ],
+  "limitations": [
+    "The initial target operation is an explicit shell job in an existing session. Remote targets are saved and verified gateway installations.",
+    "Local Docker requires a local Unix socket, a Docker-configured session, and an image already on the daemon. Docker keeps networking off when the session requires an outbound allowlist.",
+    "If the provider cannot confirm a launch reservation, the job can remain in reconciliation. The controller does not replay the shell command.",
+    "The real fixtures ran on macOS with Electron, gateway web, and local Docker. One pre-existing unit test was skipped."
+  ],
+  "rollback": "Settle active jobs on the originating host before reverting. Preserve the controller and provider records, session logs, and workspace output. The existing gateway connection and session APIs remain available."
+}

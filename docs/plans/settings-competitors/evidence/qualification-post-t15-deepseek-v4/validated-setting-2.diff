@@ -1,0 +1,101 @@
+diff --git a/src/cli.mjs b/src/cli.mjs
+index 7ce5944..4ed83aa 100644
+--- a/src/cli.mjs
++++ b/src/cli.mjs
+@@ -2,5 +2,8 @@ export function edit(host, key, raw) {
+   if (key === 'verbose' && (raw === 'true' || raw === 'false')) {
+     return host.update(host.get().revision, { [key]: raw === 'true' });
+   }
++  if (key === 'pageSize' && typeof raw === 'string' && /^[0-9]+$/.test(raw)) {
++    return host.update(host.get().revision, { [key]: Number(raw) });
++  }
+   return { ok: false, code: 'INVALID', key };
+ }
+diff --git a/src/renderer.mjs b/src/renderer.mjs
+index cde2c6b..c517b69 100644
+--- a/src/renderer.mjs
++++ b/src/renderer.mjs
+@@ -1,5 +1,6 @@
+ export const labels = {
+   verbose: { en: 'Verbose logging', zh: '详细日志' },
++  pageSize: { en: 'Page size', zh: '每页数量' },
+ };
+ 
+ export function form(snapshot, locale) {
+diff --git a/src/schema.mjs b/src/schema.mjs
+index eccd0dd..ebf1a80 100644
+--- a/src/schema.mjs
++++ b/src/schema.mjs
+@@ -1,2 +1,7 @@
+-export const defaults = { verbose: false };
+-export const checks = { verbose: value => typeof value === 'boolean' };
++export const PAGE_SIZE_MIN = 10;
++export const PAGE_SIZE_MAX = 100;
++export const defaults = { verbose: false, pageSize: 25 };
++export const checks = {
++  verbose: value => typeof value === 'boolean',
++  pageSize: value => Number.isInteger(value) && value >= PAGE_SIZE_MIN && value <= PAGE_SIZE_MAX,
++};
+diff --git a/test/additions.test.mjs b/test/additions.test.mjs
+new file mode 100644
+index 0000000..d7f6a25
+--- /dev/null
++++ b/test/additions.test.mjs
+@@ -0,0 +1,57 @@
++import { test } from 'node:test';
++import assert from 'node:assert/strict';
++import { createHost } from '../src/host.mjs';
++import { endpoints } from '../src/bridges.mjs';
++import { labels, form } from '../src/renderer.mjs';
++import { edit } from '../src/cli.mjs';
++
++test('pageSize defaults to 25 with default provenance', () => {
++  const snapshot = createHost().get();
++  assert.equal(snapshot.values.pageSize, 25);
++  assert.equal(snapshot.origins.pageSize, 'default');
++});
++
++test('pageSize is exposed through ipc and gateway', () => {
++  const endpointsForHost = endpoints(createHost());
++  assert.equal(endpointsForHost.ipc('getSettings').values.pageSize, 25);
++  const update = { method: 'updateSettings', args: [0, { pageSize: 50 }] };
++  assert.equal(JSON.parse(endpointsForHost.gateway(update)).snapshot.values.pageSize, 50);
++});
++
++test('renderer renders Page size and 每页数量', () => {
++  const snapshot = createHost().get();
++  assert.deepEqual(labels.pageSize, { en: 'Page size', zh: '每页数量' });
++  assert.deepEqual(form(snapshot, 'en').find(field => field.key === 'pageSize').label, 'Page size');
++  assert.deepEqual(form(snapshot, 'zh').find(field => field.key === 'pageSize').label, '每页数量');
++});
++
++test('cli accepts inclusive and digit strings', () => {
++  for (const [raw, expected] of [['10', 10], ['25', 25], ['100', 100], ['050', 50]]) {
++    assert.equal(edit(createHost(), 'pageSize', raw).snapshot.values.pageSize, expected);
++  }
++});
++
++test('cli rejects partial numbers and out-of-range values without mutating state', () => {
++  for (const raw of ['10.5', 'abc', '1e2', ' 25', '', '9', '101', '-25', '0x10', '+50']) {
++    const host = createHost();
++    const result = edit(host, 'pageSize', raw);
++    assert.deepEqual(result, { ok: false, code: 'INVALID', key: 'pageSize' }, `raw ${raw}`);
++    assert.equal(host.persist().pageSize, undefined, `raw ${raw}`);
++    assert.equal(host.get().revision, 0, `raw ${raw}`);
++    assert.equal(host.get().values.pageSize, 25, `raw ${raw}`);
++    assert.equal(host.get().origins.pageSize, 'default', `raw ${raw}`);
++  }
++});
++
++test('rejection surfaces the error thrown by the injected host', () => {
++  const failing = { get: () => { throw new Error('host unavailable'); } };
++  assert.throws(() => edit(failing, 'pageSize', '50'), /host unavailable/);
++});
++
++test('verbose and unknown persisted keys are preserved', () => {
++  const host = createHost({ verbose: true, legacyKey: 'kept' });
++  assert.equal(edit(host, 'verbose', 'false').snapshot.values.verbose, false);
++  assert.equal(edit(host, 'pageSize', '50').snapshot.values.pageSize, 50);
++  assert.equal(edit(host, 'verbose', 'yes').code, 'INVALID');
++  assert.deepEqual(host.persist(), { verbose: false, legacyKey: 'kept', pageSize: 50 });
++});

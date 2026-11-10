@@ -1,0 +1,48 @@
+{
+  "task": "T13",
+  "result": "pass",
+  "acceptance": ["AC-14"],
+  "commands": [
+    { "command": "pnpm test", "exitCode": 0, "outputFile": "docs/plans/settings-competitors/evidence/T13-test.txt" },
+    { "command": "pnpm build", "exitCode": 0, "outputFile": "docs/plans/settings-competitors/evidence/T13-build.txt" },
+    { "command": "pnpm typecheck", "exitCode": 0, "outputFile": "docs/plans/settings-competitors/evidence/T13-types.txt" },
+    { "command": "pnpm --filter @sun/desktop exec electron-builder --mac --dir --publish never --config.directories.output=release/credentials-fixture && codesign --force --deep --sign - apps/desktop/release/credentials-fixture/mac-arm64/sun-harness.app && codesign --verify --deep --strict apps/desktop/release/credentials-fixture/mac-arm64/sun-harness.app", "exitCode": 0, "outputFile": "docs/plans/settings-competitors/evidence/T13-package.txt" },
+    { "command": "node apps/desktop/e2e/credentials.mjs apps/desktop/release/credentials-fixture/mac-arm64/sun-harness.app", "exitCode": 0, "outputFile": "docs/plans/settings-competitors/evidence/T13-signed.txt" },
+    { "command": "node apps/desktop/e2e/credentials.mjs", "exitCode": 0, "outputFile": "docs/plans/settings-competitors/evidence/T13-e2e.txt" },
+    { "command": "node apps/desktop/e2e/settings.mjs", "exitCode": 0, "outputFile": "docs/plans/settings-competitors/evidence/T13-web.txt" }
+  ],
+  "artifacts": [
+    "packages/core/src/settings/credentials.ts",
+    "packages/core/src/settings/capabilities.ts",
+    "packages/core/test/settings-credentials.test.ts",
+    "apps/desktop/src/main/credentials.ts",
+    "apps/desktop/src/main/capture.ts",
+    "apps/desktop/src/main/index.ts",
+    "apps/desktop/src/shared/credentials.ts",
+    "apps/desktop/src/renderer/src/settings/CredentialsPanel.tsx",
+    "apps/desktop/src/renderer/src/PrivateSignIn.tsx",
+    "apps/desktop/src/renderer/src/locale-zh-CN.ts",
+    "apps/desktop/e2e/credentials.mjs",
+    "apps/desktop/e2e/settings.mjs",
+    "specs/032-settings-and-capability-management.md",
+    "docs/adr/0014-private-website-credentials.md",
+    "docs/manual/passwords.md",
+    "docs/manual/desktop.md",
+    "docs/teach/43-private-credentials.html",
+    "docs/teach/index.html",
+    "docs/plan.md",
+    "CHANGELOG.md"
+  ],
+  "manualChecks": [
+    "The signed and development desktop fixtures stored a synthetic password with macOS Keychain-backed encryption. The 0600 vault and returned reference omitted the plaintext. A fresh Electron process filled the original password, replacement filled the new one, and deletion prevented reuse from the already open window.",
+    "The broker rejected a different port, a stale document, an expired or revoked grant, reused grants, old credential revisions, and ciphertext relabelled to another origin. Revocation during a pending decrypt prevented dispatch. When the fake vault was unavailable, save wrote no vault file and fill did not dispatch. Deletion still worked.",
+    "The real site stayed empty until the user clicked Fill. A cross-origin form action was rejected and an external navigation, subresource, and redirect made zero requests to the other origin. The successful form sent the expected value only after explicit submission. Its cookie stayed in the temporary partition and was absent on reopening.",
+    "The fixture reflected the password into the private document and title. The trusted desktop controls, reference response, ordinary agent browser snapshot, session events, inflated session export, config, audit, and process output omitted both synthetic passwords. Appshot was explicitly blocked by the private-window policy. The authenticated gateway rejected vault RPCs, and its web renderer had no password settings entry."
+  ],
+  "limitations": [
+    "The production broker is scoped to macOS desktop and a single visible top-level password field on a reviewed HTTPS origin. Login flows that need another origin or frame can use the existing manual takeover workflow.",
+    "A private sign-in does not transfer the authenticated cookie or page into the agent browser profile. Closing clears the isolated login session.",
+    "Real fixtures ran on macOS arm64, including an ad-hoc signed bundle and local HTTPS sites. The unavailable vault was injected for the failure fixture. One pre-existing unit test was skipped."
+  ],
+  "rollback": "Close private sign-in windows before reverting. Preserve the encrypted vault and the macOS Keychain key if reinstalling the feature later. Provider settings, browser profiles, and exported session data are independent."
+}

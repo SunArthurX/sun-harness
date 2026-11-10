@@ -1,0 +1,53 @@
+{
+  "task": "T09",
+  "result": "pass",
+  "acceptance": ["AC-09", "AC-10", "AC-16"],
+  "commands": [
+    { "command": "pnpm test", "exitCode": 0, "outputFile": "docs/plans/settings-competitors/evidence/T09-test.txt" },
+    { "command": "pnpm build", "exitCode": 0, "outputFile": "docs/plans/settings-competitors/evidence/T09-build.txt" },
+    { "command": "pnpm typecheck", "exitCode": 0, "outputFile": "docs/plans/settings-competitors/evidence/T09-types.txt" },
+    { "command": "node apps/desktop/e2e/settings.mjs", "exitCode": 0, "outputFile": "docs/plans/settings-competitors/evidence/T09-e2e.txt" }
+  ],
+  "artifacts": [
+    "packages/core/src/review.ts",
+    "packages/core/src/worktree.ts",
+    "packages/core/src/log.ts",
+    "packages/core/src/host.ts",
+    "packages/core/src/jobs.ts",
+    "packages/core/src/bestofn.ts",
+    "packages/core/src/hook-config.ts",
+    "packages/core/src/gateway.ts",
+    "packages/core/test/cursor-coding.test.ts",
+    "packages/core/test/worktree.test.ts",
+    "packages/cli/src/index.ts",
+    "apps/desktop/src/renderer/src/Review.tsx",
+    "apps/desktop/src/renderer/src/settings/WorktreesPanel.tsx",
+    "apps/desktop/src/renderer/src/locale-zh-CN.ts",
+    "apps/desktop/e2e/settings.mjs",
+    "specs/010-worktrees.md",
+    "specs/029-cursor-grade-coding.md",
+    "specs/032-settings-and-capability-management.md",
+    "docs/adr/0010-settings-capability-boundaries.md",
+    "docs/manual/worktrees.md",
+    "docs/manual/desktop.md",
+    "docs/manual/cli.md",
+    "docs/manual/extensions.md",
+    "docs/teach/39-review-worktree-governance.html",
+    "docs/teach/index.html",
+    "docs/plan.md",
+    "CHANGELOG.md"
+  ],
+  "manualChecks": [
+    "The exact model request was present in the durable log before provider dispatch. A concurrent rename kept the event sequence contiguous. Invalid references and fabricated evidence failed, and a valid later response was accepted.",
+    "An edited diff made a report stale. An over-budget diff paused the enabled completion gate and a later complete review allowed resume. Browser and Electron reopened the structured report with the configured severity threshold.",
+    "Real Git worktree review included an untracked file absent from checkpoints and kept the actual index bytes unchanged. Explicit base selection, option-like base rejection and bounded branch collisions were exercised.",
+    "Real squash and regular merge conflicts kept the source commit and restored the destination checkout. Dirty source files, dirty destination files, active descendants, live background jobs and replacement checkouts were protected. Clean discard kept a branch with unmerged commits.",
+    "Gateway web rejected an inventory revision made stale by an untracked file and removed a fresh clean selection. CLI returned the same ready inventory. A reviewed setup hook ran once, and the restart fixture required acknowledgment of the durable interrupted marker. Electron displayed the persisted setup result and protected dirty worktree."
+  ],
+  "limitations": [
+    "Electron, the gateway renderer and Git 2.23 were exercised on macOS. One pre-existing unit test remained skipped.",
+    "Ordinary session review covers checkpoint changes and recorded deliverables. Worktree review uses Git changes relative to its recorded base.",
+    "Interrupted setup recovery acknowledges the existing attempt. Its command is never replayed automatically."
+  ],
+  "rollback": "Disable the optional review completion gate in Code review settings. Keep the worktree and candidate branch if a merge requires manual recovery. Acknowledge an interrupted setup only after inspecting the checkout."
+}

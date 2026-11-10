@@ -1,0 +1,19 @@
+✔ missing attachments keep the turn and healthy images in order (1.01075ms)
+✔ replays user and assistant events in order (0.852167ms)
+✔ keeps user message and successful images in original order when some are missing (0.104834ms)
+✔ appends missing marker with newline after empty user text (0.081042ms)
+✔ does not include paths or substitute bytes for missing attachments (0.515375ms)
+✔ propagates non-ENOENT reader errors (0.219209ms)
+✔ propagates non-ENOENT errors such as EISDIR (0.076625ms)
+✔ ignores unrelated event types (0.067875ms)
+✔ does not mutate the events array or its events (0.09675ms)
+✔ intact replay is unchanged (0.083208ms)
+✔ intact attachment replay (0.71975ms)
+ℹ tests 11
+ℹ suites 0
+ℹ pass 11
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 47.082041

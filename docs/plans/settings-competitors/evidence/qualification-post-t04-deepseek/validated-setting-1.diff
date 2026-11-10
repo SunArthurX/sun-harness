@@ -1,0 +1,171 @@
+diff --git a/src/cli.mjs b/src/cli.mjs
+index 7ce5944..0470c51 100644
+--- a/src/cli.mjs
++++ b/src/cli.mjs
+@@ -1,6 +1,16 @@
++import { checks } from './schema.mjs';
++
++const decimals = /^[0-9]+$/;
++
+ export function edit(host, key, raw) {
+   if (key === 'verbose' && (raw === 'true' || raw === 'false')) {
+     return host.update(host.get().revision, { [key]: raw === 'true' });
+   }
++  if (key === 'pageSize' && typeof raw === 'string' && decimals.test(raw)) {
++    const value = Number(raw);
++    if (checks.pageSize(value)) {
++      return host.update(host.get().revision, { [key]: value });
++    }
++  }
+   return { ok: false, code: 'INVALID', key };
+ }
+diff --git a/src/renderer.mjs b/src/renderer.mjs
+index cde2c6b..c517b69 100644
+--- a/src/renderer.mjs
++++ b/src/renderer.mjs
+@@ -1,5 +1,6 @@
+ export const labels = {
+   verbose: { en: 'Verbose logging', zh: '详细日志' },
++  pageSize: { en: 'Page size', zh: '每页数量' },
+ };
+ 
+ export function form(snapshot, locale) {
+diff --git a/src/schema.mjs b/src/schema.mjs
+index eccd0dd..d7de6f7 100644
+--- a/src/schema.mjs
++++ b/src/schema.mjs
+@@ -1,2 +1,11 @@
+-export const defaults = { verbose: false };
+-export const checks = { verbose: value => typeof value === 'boolean' };
++export const pageSize = { min: 10, max: 100 };
++
++export const defaults = { verbose: false, pageSize: 25 };
++export const checks = {
++  verbose: value => typeof value === 'boolean',
++  pageSize: value =>
++    typeof value === 'number'
++    && Number.isInteger(value)
++    && value >= pageSize.min
++    && value <= pageSize.max,
++};
+diff --git a/test/additions.test.mjs b/test/additions.test.mjs
+new file mode 100644
+index 0000000..6d3590d
+--- /dev/null
++++ b/test/additions.test.mjs
+@@ -0,0 +1,115 @@
++import { test } from 'node:test';
++import assert from 'node:assert/strict';
++import { createHost } from '../src/host.mjs';
++import { endpoints } from '../src/bridges.mjs';
++import { edit } from '../src/cli.mjs';
++import { form } from '../src/renderer.mjs';
++import { defaults, checks } from '../src/schema.mjs';
++
++const snapshot = host => host.get();
++
++test('pageSize defaults to 25 with default provenance', () => {
++  const host = createHost();
++  assert.equal(snapshot(host).values.pageSize, 25);
++  assert.equal(snapshot(host).origins.pageSize, 'default');
++  assert.equal(host.persist().pageSize, undefined);
++});
++
++test('check accepts inclusive integer range 10 through 100', () => {
++  assert.equal(checks.pageSize(10), true);
++  assert.equal(checks.pageSize(100), true);
++  assert.equal(checks.pageSize(55), true);
++  for (const bad of [9, 101, 10.5, 25.0 + 1e-9, NaN, Infinity, '25', true, null, undefined, {}]) {
++    assert.equal(checks.pageSize(bad), false, String(bad));
++  }
++});
++
++test('saved pageSize keeps user provenance; unknown persist keys preserved', () => {
++  const host = createHost({ pageSize: 40, legacy: 'kept' });
++  assert.equal(snapshot(host).values.pageSize, 40);
++  assert.equal(snapshot(host).origins.pageSize, 'user');
++  assert.equal(snapshot(host).values.verbose, false);
++  assert.equal(host.persist().legacy, 'kept');
++});
++
++test('CLI accepts decimal digit strings', () => {
++  assert.equal(edit(createHost(), 'pageSize', '10').snapshot.values.pageSize, 10);
++  assert.equal(edit(createHost(), 'pageSize', '100').snapshot.values.pageSize, 100);
++  assert.equal(edit(createHost(), 'pageSize', '30').snapshot.values.pageSize, 30);
++});
++
++test('CLI refuses partial numbers and out-of-range values without touching state', () => {
++  for (const raw of ['9', '101', '0', '25.5', '25px', 'abc', '', ' 25', '25 ', '1e2', '0x10', '-25', '+25']) {
++    const host = createHost();
++    const before = snapshot(host);
++    const result = edit(host, 'pageSize', raw);
++    assert.equal(result.ok, false, raw);
++    assert.equal(result.code, 'INVALID');
++    assert.equal(result.key, 'pageSize');
++    assert.deepEqual(snapshot(host), before);
++  }
++});
++
++test('CLI refuses non-string pageSize input', () => {
++  for (const raw of [25, null, undefined, true, {}]) {
++    const host = createHost();
++    const result = edit(host, 'pageSize', raw);
++    assert.equal(result.ok, false);
++    assert.deepEqual(snapshot(host), snapshot(createHost()));
++  }
++});
++
++test('successful edit bumps revision once and persists', () => {
++  const host = createHost();
++  const result = edit(host, 'pageSize', '50');
++  assert.equal(result.ok, true);
++  assert.equal(result.snapshot.revision, 1);
++  assert.equal(result.snapshot.values.pageSize, 50);
++  assert.equal(result.snapshot.origins.pageSize, 'user');
++  assert.deepEqual(host.persist(), { pageSize: 50 });
++});
++
++test('existing revision check still applies through CLI', () => {
++  const host = createHost();
++  host.update(host.get().revision, { verbose: true });
++  const result = host.update(0, { pageSize: 50 });
++  assert.deepEqual(result, { ok: false, code: 'CONFLICT' });
++});
++
++test('host rejects invalid pageSize directly', () => {
++  const host = createHost();
++  for (const bad of [9, 101, 25.5, '25']) {
++    assert.deepEqual(host.update(0, { pageSize: bad }), { ok: false, code: 'INVALID', key: 'pageSize' });
++  }
++  assert.equal(snapshot(host).revision, 0);
++});
++
++test('Electron IPC exposes get and update for pageSize', () => {
++  const api = endpoints(createHost());
++  assert.equal(api.ipc('getSettings').values.pageSize, 25);
++  const result = api.ipc('updateSettings', 0, { pageSize: 75 });
++  assert.equal(result.ok, true);
++  assert.equal(result.snapshot.values.pageSize, 75);
++});
++
++test('gateway exposes pageSize over JSON', () => {
++  const api = endpoints(createHost());
++  assert.equal(JSON.parse(api.gateway({ method: 'getSettings', args: [] })).values.pageSize, 25);
++  const parsed = JSON.parse(api.gateway({ method: 'updateSettings', args: [0, { pageSize: 60 }] }));
++  assert.equal(parsed.snapshot.values.pageSize, 60);
++});
++
++test('renderer shows localized pageSize labels', () => {
++  const host = createHost();
++  const en = form(snapshot(host), 'en');
++  const zh = form(snapshot(host), 'zh');
++  assert.deepEqual(en.find(f => f.key === 'pageSize'), { key: 'pageSize', label: 'Page size', value: 25 });
++  assert.deepEqual(zh.find(f => f.key === 'pageSize'), { key: 'pageSize', label: '每页数量', value: 25 });
++  assert.equal(en.find(f => f.key === 'verbose').label, 'Verbose logging');
++  assert.equal(zh.find(f => f.key === 'verbose').label, '详细日志');
++});
++
++test('defaults object carries the specified default', () => {
++  assert.equal(defaults.pageSize, 25);
++  assert.equal(defaults.verbose, false);
++});

@@ -1,0 +1,8 @@
+$ pnpm -r run typecheck
+Scope: 3 of 4 workspace projects
+packages/core typecheck$ tsc -p tsconfig.json --noEmit
+packages/core typecheck: Done
+packages/cli typecheck$ tsc -p tsconfig.json --noEmit
+apps/desktop typecheck$ tsc -p tsconfig.json --noEmit
+packages/cli typecheck: Done
+apps/desktop typecheck: Done

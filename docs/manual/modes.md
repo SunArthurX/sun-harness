@@ -4,7 +4,7 @@
 |---|---|---|
 | **Coding** | changing a repository | reads first, follows specs and rules, makes minimal edits, runs tests, summarizes |
 | **Plan** | designing a change before touching code | read-only exploration; ends with a plan you approve, then continues in Coding mode ([details](coding.md#plan-mode)) |
-| **Agent** | open-ended tasks: research, analysis, writing, data work | plans with a todo list, searches and fetches the web, delegates sub-tasks, writes deliverable files, cites sources |
+| **Agent** | open-ended tasks: research, analysis, writing, data work | plans with a todo list, searches and fetches the web, fans independent items into fresh subagents (`wide_research`), writes deliverable files and slide decks, cites sources |
 | **Assistant** | daily help, personal knowledge, reminders | uses your memory and notes, saves new facts, schedules reminders, stays concise |
 
 Switch modes any time from the session header or `/mode`.
@@ -12,6 +12,10 @@ Switch modes any time from the session header or `/mode`.
 ## Subagents
 
 In Agent (and Coding) mode the model can call `task` with a self-contained prompt. A child session runs with its own context and returns a report. Child sessions appear nested under the parent; their approvals show in the parent.
+
+`wide_research` is the bounded form of that for a list: a question plus 2–8 items. Each item gets its own subagent, and the notes are written to `research/<question>.md` for the parent to synthesize. It does not start hundreds of machines.
+
+`make_slides` writes `slides/<title>.html` (arrow keys move between slides) and `slides/<title>-notes.md`. Open the HTML from **Deliverables** in the session bar.
 
 ## Schedules
 

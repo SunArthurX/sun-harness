@@ -1,0 +1,32 @@
+$ node --test packages/cli/e2e/product.mjs
+# started 2026-11-10T05:43:51Z
+✔ built and bundled commands expose help and workspace scaffolding (630.635667ms)
+✔ run reads stdin, emits stream JSON and reopens the durable session (2871.476875ms)
+✔ one-shot noninteractive approval denies a write and returns the denial to the model (628.619042ms)
+✔ a real terminal ignores an early approval and applies a later denial (1268.448708ms)
+✔ an approved edit appears in changes and undo restores the workspace (1018.17625ms)
+✔ quota pauses with exit 3 and a later process resumes on the selected model (1350.749792ms)
+✔ a terminal provider error returns exit 1 for both run and resume (1250.188709ms)
+✔ CLI image input reaches the provider and a portable bundle restores its attachment (1194.746167ms)
+✔ MCP inspection exits after closing a successfully connected stdio server (275.163917ms)
+✔ interactive command loop buffers piped follow-ups and applies mode and model switches (718.989958ms)
+✔ CLI lists project commands and skills, expands arguments, and attaches a mentioned file (1053.888375ms)
+✔ interactive slash commands inspect, revert, report, export and rewind a session (782.334083ms)
+✔ knowledge and memory commands persist and retrieve distinct CJK content (1216.410709ms)
+✔ configured company knowledge sends a bearer token and keeps local search on a remote denial (524.923875ms)
+✔ mail and calendar presets update isolated MCP and untrusted-tool settings without opening accounts (1121.588584ms)
+✔ voice transcribe and record use a controlled audio source and the configured ASR provider (676.873958ms)
+✔ sandbox self-test succeeds for completed probes and fails when the shell cannot run (893.141541ms)
+✔ automation commands preview, persist, edit, pause, run, track history and delete (2003.546458ms)
+✔ intel defaults to the local calendar day for listing, showing, and retrying saved analysis (686.629042ms)
+✔ worktree commands isolate an edit, report its diff, squash it, and clean a separate worktree (7134.026917ms)
+✔ eval runs a hidden check and compares a passing scripted run with a regression (2804.599458ms)
+✔ serve owns CLI sessions, isolates local routing, and creates removable launch-agent metadata (7071.521209ms)
+ℹ tests 22
+ℹ suites 0
+ℹ pass 22
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 37253.203584

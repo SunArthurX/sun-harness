@@ -1,0 +1,59 @@
+{
+  "task": "T04",
+  "result": "pass",
+  "acceptance": [
+    "AC-04",
+    "AC-16"
+  ],
+  "commands": [
+    {
+      "command": "pnpm test",
+      "exitCode": 0,
+      "outputFile": "docs/plans/settings-competitors/evidence/T04-test.txt"
+    },
+    {
+      "command": "pnpm build",
+      "exitCode": 0,
+      "outputFile": "docs/plans/settings-competitors/evidence/T04-build.txt"
+    },
+    {
+      "command": "pnpm typecheck",
+      "exitCode": 0,
+      "outputFile": "docs/plans/settings-competitors/evidence/T04-typecheck.txt"
+    },
+    {
+      "command": "node apps/desktop/e2e/settings.mjs",
+      "exitCode": 0,
+      "outputFile": "docs/plans/settings-competitors/evidence/T04-e2e.txt"
+    }
+  ],
+  "artifacts": [
+    "apps/desktop/src/renderer/src/settings/SettingsPage.tsx",
+    "apps/desktop/src/renderer/src/settings/sections.ts",
+    "apps/desktop/src/renderer/src/settings/routes.ts",
+    "apps/desktop/src/renderer/src/settings/navigation.ts",
+    "apps/desktop/src/renderer/src/settings/fields.tsx",
+    "apps/desktop/test/settings-navigation.test.ts",
+    "apps/desktop/e2e/settings.mjs",
+    "apps/desktop/scripts/i18n.mjs",
+    "specs/028-ui-i18n.md",
+    "specs/032-settings-and-capability-management.md",
+    "docs/manual/configuration.md",
+    "docs/teach/34-settings-navigation.html",
+    "docs/teach/index.html",
+    "docs/plan.md",
+    "CHANGELOG.md"
+  ],
+  "manualChecks": [
+    "Verified the Electron and gateway web assertions at 1440 and 800 CSS pixels. English and Simplified Chinese search reached the same stable field and moved keyboard focus to it.",
+    "Verified settings home, direct routes, Back, and canceling Back while keeping an unsaved edit. Confirmed missing and disabled capabilities are excluded from the registry.",
+    "Verified two staged settings do not touch disk before save. A revision conflict retained both fields through reload and required explicit reapplication. An invalid save retained its draft and never displayed Saved.",
+    "Verified recursive translation coverage and that static searchable field IDs match the host write allowlist."
+  ],
+  "limitations": [
+    "Electron and Chromium web were exercised on macOS. The existing skipped test remains outside this acceptance.",
+    "The Usage section exposes the existing efficiency metrics. Pricing and the additional personal controls belong to T05.",
+    "The post-T04 smaller-model qualification is a separate plan checkpoint and is not represented by these offline tests."
+  ],
+  "rollback": "Restore the previous renderer with a compatible settings protocol version. Section hashes are client navigation only and no settings data migration is needed."
+}

@@ -89,7 +89,6 @@ export class PythonKernel {
         try {
           const r = JSON.parse(line);
           this.waiting.get(r.id)?.(r);
-          this.waiting.delete(r.id);
         } catch {
           // a stray line from a C extension; ignore
         }
@@ -109,6 +108,9 @@ export class PythonKernel {
   }
 
   run(code: string, timeoutMs = 120_000, signal?: AbortSignal): Promise<CellResult> {
+    if (signal?.aborted) {
+      return Promise.resolve({ stdout: '', stderr: '', result: null, error: 'Aborted before the cell was sent.', figures: [] });
+    }
     const p = this.proc ?? this.start();
     const id = this.nextId++;
     return new Promise((resolve) => {
@@ -117,6 +119,7 @@ export class PythonKernel {
         done({ stdout: '', stderr: '', result: null, error: 'Aborted; the kernel was restarted.', figures: [] });
       };
       const done = (r: CellResult) => {
+        this.waiting.delete(id);
         clearTimeout(t);
         signal?.removeEventListener('abort', onAbort);
         resolve(r);

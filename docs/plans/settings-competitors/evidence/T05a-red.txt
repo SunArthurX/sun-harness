@@ -1,0 +1,25 @@
+
+ RUN  v5.1.0 /Users/sunqingguang/Downloads/06.code/sun-harness
+
+ ❯ packages/core/test/settings-preferences.test.ts (0 test)
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/core/test/settings-preferences.test.ts [ packages/core/test/settings-preferences.test.ts ]
+Error: Cannot find module '../src/settings/preferences.js' imported from /Users/sunqingguang/Downloads/06.code/sun-harness/packages/core/test/settings-preferences.test.ts
+ ❯ packages/core/test/settings-preferences.test.ts:7:1
+      5| import { HarnessHost } from '../src/host.js';
+      6| import { MockProvider } from '../src/providers/mock.js';
+      7| import { isQuietAt, shortcutIssues } from '../src/settings/preferences…
+       | ^
+      8|
+      9| let home: string;
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  no tests
+   Start at  19:42:20
+   Duration  288ms (worker 97%, environment 3%)
+

@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>46 — Full product verification</title>
+<body>
+<p><a href="index.html">Teaching index</a></p>
+<h1>Full product verification</h1>
+<p>The same feature can fail at different boundaries. The runtime test
+can confirm an approval is pending while a renderer test reveals that a
+pinned plan intercepts the click. The command-line process can hang after
+the runtime returned if a connection timer still owns the event loop.</p>
+<pre class="mermaid">flowchart LR
+  A[Numbered specs and public behavior] --> B[Feature ledger]
+  B --> C[Offline assertion]
+  B --> D[Real local surface]
+  B --> E[Signed app and OS policy]
+  C --> F[Captured result]
+  D --> F
+  E --> F
+  F --> G{Matches the contract?}
+  G -->|No| H[Keep reproduction and repair]
+  H --> B
+  G -->|Yes| I[Record evidence and limitations]
+</pre>
+<h2>Why run the program as a process?</h2>
+<p>A scripted HTTP provider returns a recoverable quota error or a terminal
+failure. The built CLI must propagate different exit codes. The gateway
+fixture closes stdin before attachment completes so buffered lines must
+survive connection setup. A real MCP server verifies both discovered
+tools and that the process exits after it closes the transport.</p>
+<h2>How do we prove callback routing stays isolated?</h2>
+<p>Hold a model response while a second signed or authenticated request
+arrives. Use different loopback reply addresses and record their actual
+payloads. A denied caller receives its own identity message. The delayed
+authorized reply goes only to the original destination. A concurrent
+authorized generic webhook receives an explicit same-chat conflict while
+the synchronous collector owns that chat.</p>
+<h2>Why did a JSON <code>null</code> break an image?</h2>
+<p>The desktop calls <code>readAttachment(path)</code> with one argument. The
+gateway sends arguments as a JSON array, where an omitted trailing argument
+becomes <code>null</code>. The host treated any non-<code>undefined</code>
+value as Appshot metadata, so an ordinary PNG failed the Appshot digest
+check. The fix normalizes <code>null</code> only at the gateway boundary.
+The host's validation of real Appshot metadata is unchanged.</p>
+<pre class="mermaid">sequenceDiagram
+  participant R as Renderer
+  participant G as Gateway JSON
+  participant H as Host
+  R->>G: readAttachment(path)
+  G->>H: [path, null]
+  Note over H: before: null is "metadata present"
+  G->>H: [path, undefined] after normalization
+  H-->>R: original PNG bytes
+</pre>
+<h2>When is a failure the fixture's fault?</h2>
+<p>The Electron fixture isolates <code>HOME</code>. Headless Chrome then
+had no login keychain and waited before its first network request. A probe
+outside the fixture separated the variables. With the real
+<code>HOME</code>, navigation took milliseconds. With an empty
+<code>HOME</code>, it timed out. With <code>--use-mock-keychain</code>, it
+worked again. The flag belongs in the test launcher only, because real
+profiles need encrypted cookies.</p>
+<h2>Why must quit wait?</h2>
+<p>Electron does not terminate child processes on macOS. The quit handler
+started an asynchronous disposal without waiting, so the app could exit
+before the browser was told to stop. Even when the stop signal was sent,
+disposal released the profile while Chromium was still writing to it. Two
+cleanup failures (<code>ENOTEMPTY</code>) and an orphaned process under
+<code>launchd</code> revealed this. A test now checks the process list for
+the profile after quit and after disposal.</p>
+<pre class="mermaid">flowchart TD
+  Q[before-quit] --> P{disposal done?}
+  P -->|no| W[preventDefault, dispose host, max 5 s]
+  W --> T[close tabs, SIGTERM Chromium]
+  T --> X{exited within 5 s?}
+  X -->|no| K[SIGKILL]
+  X -->|yes| L[release profile]
+  K --> L
+  L --> A[app.quit]
+  P -->|yes| A
+</pre>
+<p>The first version of that fix caused its own regression. The final
+package was still running after the Computer Use fixture had sent it one
+<code>SIGTERM</code>. Logging inside <code>before-quit</code> showed that a
+quit requested in the same task as the signal's quit closed the windows
+but produced <code>window-all-closed</code>, which does not quit on macOS.
+Deferring the second quit by one task fixed it. A process-level check now
+sends exactly one signal to a fresh app. A related leak came from launch
+timeouts: a Chrome that missed its startup deadline was abandoned, so
+startup failures now stop the process they spawned.</p>
+<h2>One failing command, one lost session</h2>
+<p>Driving every CLI slash command through one piped session showed that a
+single failing command (<code>/reflect</code> with a non-JSON reply) ended
+the whole process. Only a test that issues later commands after the failure
+can catch this. The loop now reports the failure and continues.</p>
+<p><a href="../plans/full-product-test/report.md">Verification report</a> ·
+<a href="../plans/full-product-test/plan.md">Verification plan</a> ·
+<a href="../plans/full-product-test/feature-ledger.md">Feature ledger</a> ·
+<a href="../plans/full-product-test/run-log.md">Run log</a></p>
+<script type="module">import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';mermaid.initialize({startOnLoad:true});</script>
+</body>
+</html>

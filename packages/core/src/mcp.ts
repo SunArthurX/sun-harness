@@ -67,8 +67,8 @@ export class McpManager {
         const state: McpServerState = { name, source, config, status: config.disabled ? 'disabled' : 'connecting', tools: [] };
         this.servers.set(name, state);
         if (config.disabled) return;
+        const client = new Client({ name: 'sun-harness', version: '0.1.0' });
         try {
-          const client = new Client({ name: 'sun-harness', version: '0.1.0' });
           const transport = config.url
             ? config.type === 'sse'
               ? new SSEClientTransport(new URL(config.url), { requestInit: { headers: config.headers } })
@@ -80,11 +80,15 @@ export class McpManager {
                 cwd: config.cwd ?? cwd,
                 stderr: 'ignore',
               });
-          await Promise.race([
-            client.connect(transport),
-            new Promise((_, rej) => setTimeout(() => rej(new Error('connect timeout (30s)')), 30_000)),
-          ]);
-          this.clients.set(name, client);
+          let deadline: ReturnType<typeof setTimeout> | undefined;
+          try {
+            await Promise.race([
+              client.connect(transport),
+              new Promise((_, reject) => { deadline = setTimeout(() => reject(new Error('connect timeout (30s)')), 30_000); }),
+            ]);
+          } finally {
+            clearTimeout(deadline);
+          }
           const { tools } = await client.listTools();
           for (const t of tools) {
             this.tools.push({
@@ -104,8 +108,10 @@ export class McpManager {
             });
             state.tools.push(t.name);
           }
+          this.clients.set(name, client);
           state.status = 'ready';
         } catch (e) {
+          await client.close().catch(() => undefined);
           state.status = 'error';
           state.error = (e as Error).message;
         }

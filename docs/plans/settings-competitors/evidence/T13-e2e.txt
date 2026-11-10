@@ -1,0 +1,2 @@
+macOS Keychain-backed encryption persisted across Electron restart. Private HTTPS sign-in filled only on request and did not auto-submit.
+Cross-origin access, gateway calls, agent observations, Appshots, exports, and logs revealed no synthetic password. Closing cleared the private login.

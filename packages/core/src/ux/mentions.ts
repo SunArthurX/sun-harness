@@ -1,7 +1,10 @@
 import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
-import { extname, join, relative } from 'node:path';
+import { basename, extname, join, relative } from 'node:path';
 import { resolveIn } from '../policy.js';
+import { findProjectRoot, loadProjectContext } from '../rules.js';
+import { searchCodebase } from './codebase.js';
+import { isIgnored } from './ignore.js';
 
 const IMAGE_MIME: Record<string, string> = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.webp': 'image/webp' };
 const MAX_FILE = 200_000;
@@ -22,16 +25,62 @@ export interface MentionResult {
  * Cursor/Claude Code-style @mentions: `@src/app.ts` attaches the file, `@src/` a listing, `@shot.png` the image.
  * Only tokens that resolve to an existing path inside cwd count; emails and @handles are left alone.
  */
+function gitContext(cwd: string): string {
+  const status = spawnSync('git', ['status', '-sb'], { cwd, encoding: 'utf8' });
+  if (status.status !== 0) return '<attached git>(not a git repository)</attached>';
+  const diff = spawnSync('git', ['diff', '--stat'], { cwd, encoding: 'utf8' });
+  const body = [status.stdout.trim(), diff.stdout.trim()].filter(Boolean).join('\n').slice(0, 8000);
+  return `<attached git>\n${body || '(clean)'}\n</attached>`;
+}
+
+function ruleContext(cwd: string, name: string): string {
+  const ctx = loadProjectContext(cwd);
+  const all = [...ctx.fileRules, ...ctx.manualRules, ...ctx.rules.map((r) => ({ source: r.source, text: r.text, globs: undefined as string | undefined }))];
+  const hit = all.find((r) => basename(r.source).replace(/\.(mdc|md)$/, '') === name || r.source.endsWith(`/${name}`) || r.source.endsWith(`/${name}.md`) || r.source.endsWith(`/${name}.mdc`));
+  return hit ? `<attached rule="${hit.source}">\n${hit.text}\n</attached>` : `<attached rule="${name}">(no rule named ${name})</attached>`;
+}
+
+function codebaseContext(cwd: string, query: string): string {
+  const q = query.trim();
+  if (!q) return '<attached codebase>(write a query after @codebase)</attached>';
+  const hits = searchCodebase(cwd, q, 6);
+  if (!hits.length) return `<attached codebase query="${q}">(no matches)</attached>`;
+  return `<attached codebase query="${q}">\n${hits.map((h) => `${h.path}:${h.line}\n${h.text}`).join('\n---\n')}\n</attached>`;
+}
+
+/**
+ * Cursor-style mentions that are not files: `@git`, `@codebase <query>`, `@rule <name>`.
+ * Returns the text with those tokens removed and the attached blocks.
+ */
+export function expandCursorMentions(text: string, cwd: string): { text: string; blocks: string[] } {
+  const blocks: string[] = [];
+  const next = text.replace(/(^|\s)@(git)\b|(^|\s)@(rule)\s+([\w.-]+)|(^|\s)@(codebase)\s+([^\n]+)/g, (full, _a, git, _b, rule, ruleName, _c, codebase, query) => {
+    const lead = full.match(/^\s*/)?.[0] ?? '';
+    if (git) blocks.push(gitContext(cwd));
+    else if (rule) blocks.push(ruleContext(cwd, ruleName));
+    else if (codebase) blocks.push(codebaseContext(cwd, query));
+    return lead;
+  });
+  return { text: next, blocks };
+}
+
 export function expandMentions(text: string, cwd: string): MentionResult {
+  const special = expandCursorMentions(text, cwd);
   const files: string[] = [];
   const images: string[] = [];
-  const blocks: string[] = [];
-  for (const m of text.matchAll(/(?:^|\s)@((?:[\w.~-]+\/)*[\w.~-]+\/?)/g)) {
+  const blocks: string[] = [...special.blocks];
+  const root = findProjectRoot(cwd);
+  for (const m of special.text.matchAll(/(?:^|\s)@((?:[\w.~-]+\/)*[\w.~-]+\/?)/g)) {
     // Sentence punctuation right after a path ("see @src/a.ts.") is not part of it.
     let rel = m[1];
     if (!existsSync(resolveIn(cwd, rel))) rel = rel.replace(/[.,;:!?]+$/, '');
     const abs = resolveIn(cwd, rel);
     if (!existsSync(abs) || relative(cwd, abs).startsWith('..') || files.includes(abs) || images.includes(abs)) continue;
+    if (isIgnored(root, abs)) {
+      blocks.push(`<attached file="${rel}">(ignored by .cursorignore or .sunignore)</attached>`);
+      files.push(abs);
+      continue;
+    }
     const st = statSync(abs);
     if (st.isDirectory()) {
       const list = readdirSync(abs, { withFileTypes: true })
@@ -52,7 +101,7 @@ export function expandMentions(text: string, cwd: string): MentionResult {
       files.push(abs);
     }
   }
-  return { text: blocks.length ? `${text}\n\n${blocks.join('\n\n')}` : text, images, files };
+  return { text: blocks.length ? `${special.text.trimEnd()}\n\n${blocks.join('\n\n')}` : special.text, images, files };
 }
 
 /** Path completion for the composer: tracked files (git) or a bounded walk, filtered by a fuzzy prefix. */

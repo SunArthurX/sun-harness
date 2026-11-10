@@ -1,0 +1,19 @@
+✔ defaults, UI labels, boundary validation and shared revision (1.163042ms)
+✔ pageSize schema: default 25 and inclusive integer range 10..100 (0.999708ms)
+✔ host exposes pageSize with default provenance and user provenance (0.18ms)
+✔ IPC surface reads and writes pageSize through the existing revision check (0.449ms)
+✔ gateway surface serializes pageSize through the existing transport (0.121ms)
+✔ renderer labels are Page size and 每页数量 and values flow through form (0.166166ms)
+✔ CLI accepts decimal digit strings for pageSize (0.166125ms)
+✔ CLI refuses partial numbers and out-of-range values, leaving state intact (0.30225ms)
+✔ CLI updates coexist with verbose and do not regress existing verbose behavior (0.081291ms)
+✔ persistence keeps verbose, pageSize and unknown saved keys (0.099375ms)
+✔ verbose remains editable (0.467209ms)
+ℹ tests 11
+ℹ suites 0
+ℹ pass 11
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 47.460208

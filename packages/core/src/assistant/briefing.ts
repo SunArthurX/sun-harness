@@ -1,5 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs';
+import { intelReportFile } from '../intel.js';
 import { homePath } from '../paths.js';
+import { requireCalendarDate } from '../util/date.js';
 
 export interface BriefingConfig {
   enabled: boolean;
@@ -14,12 +16,12 @@ export interface BriefingConfig {
 export const DEFAULT_BRIEFING: BriefingConfig = { enabled: false, hour: 8, minute: 30, chats: [] };
 
 export function briefingFile(date: string): string {
-  return homePath('briefings', `${date}.md`);
+  return homePath('briefings', `${requireCalendarDate(date)}.md`);
 }
 
 /** The prompt for one day's briefing; sections are skipped when their source is missing. */
 export function briefingPrompt(date: string, o: { dingtalk: boolean; intelDate?: string; extra?: string }): string {
-  const intel = o.intelDate ? homePath('intel', o.intelDate, 'report.md') : undefined;
+  const intel = o.intelDate ? intelReportFile(o.intelDate) : undefined;
   const parts = [
     `Prepare my daily briefing for ${date}. Be brief and concrete; lead with what needs my attention today.`,
     '',

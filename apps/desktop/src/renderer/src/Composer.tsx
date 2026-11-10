@@ -1,14 +1,18 @@
+import { t, tk } from './i18n';
 import { useEffect, useRef, useState } from 'react';
-import { api } from './api';
+import type { CapabilityStatus, PreparedAppshot } from '@sun/core';
+import { api, type AppshotDispatch } from './api';
+import { AppshotButton, appshotError } from './Appshot';
 
 type Image = { data: string; mime: string; name: string };
 type Suggestion = { label: string; insert: string; hint?: string };
 
 /** Desktop-only actions offered in the / menu next to custom commands. */
 const LOCAL_COMMANDS: Suggestion[] = [
-  { label: '/compact', insert: '/compact', hint: 'summarize older history now' },
-  { label: '/cost', insert: '/cost', hint: 'tokens and estimated cost' },
-  { label: '/export', insert: '/export', hint: 'download as Markdown' },
+  { label: '/compact', insert: '/compact', hint: tk("summarize older history now") },
+  { label: '/cost', insert: '/cost', hint: tk("tokens and estimated cost") },
+  { label: '/export', insert: '/export', hint: tk("download as Markdown") },
+  { label: '/review', insert: '/review', hint: tk("review this session's edits for bugs and missing tests") },
 ];
 
 const toBase64 = (f: Blob) =>
@@ -31,6 +35,10 @@ function activeToken(text: string, caret: number): { kind: '@' | '/'; query: str
 
 export function Composer({
   cwd,
+  sessionId,
+  appshotCapability,
+  shortcutAppshot,
+  onShortcutAppshot,
   placeholder,
   running,
   inject,
@@ -41,11 +49,15 @@ export function Composer({
   lastMessage,
 }: {
   cwd: string;
+  sessionId: string;
+  appshotCapability?: CapabilityStatus;
+  shortcutAppshot?: AppshotDispatch;
+  onShortcutAppshot(): void;
   placeholder: string;
   running: boolean;
   /** Text pushed in from outside (voice, rewind); a new `n` applies it once. */
   inject?: { text: string; n: number; replace?: boolean };
-  onSend: (text: string, images: { data: string; mime: string }[]) => Promise<void>;
+  onSend: (text: string, images: { data: string; mime: string }[], appshot?: string) => Promise<void>;
   /** Handle /compact, /cost, /export; return true when handled. */
   onLocalCommand: (cmd: string) => Promise<boolean>;
   onAbort: () => void;
@@ -55,12 +67,27 @@ export function Composer({
 }) {
   const [input, setInput] = useState(inject?.replace ? inject.text : '');
   const [images, setImages] = useState<Image[]>([]);
+  const [appshot, setAppshot] = useState<PreparedAppshot>();
+  const [appshotNotice, setAppshotNotice] = useState('');
+  const [sendingAppshot, setSendingAppshot] = useState(false);
+  const pendingAppshot = useRef<string | undefined>(undefined);
+  const appshotSending = useRef(false);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [sel, setSel] = useState(0);
   const [commands, setCommands] = useState<Suggestion[]>([]);
   const [drag, setDrag] = useState(false);
   const ta = useRef<HTMLTextAreaElement>(null);
   const token = useRef<ReturnType<typeof activeToken>>(undefined);
+
+  useEffect(() => () => {
+    if (pendingAppshot.current) void api.cancelAppshot(sessionId, pendingAppshot.current).catch(() => undefined);
+  }, [sessionId]);
+
+  const clearAppshot = () => {
+    if (pendingAppshot.current) void api.cancelAppshot(sessionId, pendingAppshot.current).catch(() => undefined);
+    pendingAppshot.current = undefined;
+    setAppshot(undefined);
+  };
 
   useEffect(() => {
     api.listCommands(cwd).then(
@@ -112,7 +139,27 @@ export function Composer({
 
   const submit = async () => {
     const text = input.trim();
-    if (!text && !images.length) return;
+    if (!text && !images.length && !appshot || appshotSending.current) return;
+    if (appshot) {
+      if (running) { setAppshotNotice(appshotError('APPSHOT_SESSION_BUSY')); return; }
+      appshotSending.current = true;
+      setSendingAppshot(true);
+      setAppshotNotice('');
+      try {
+        await onSend(text || t('Look at the attached Appshot.'), images.map(({ data, mime }) => ({ data, mime })), appshot.id);
+        pendingAppshot.current = undefined;
+        setAppshot(undefined);
+        setInput('');
+        setImages([]);
+        setSuggestions([]);
+      } catch (error) {
+        setAppshotNotice(appshotError(String(error)));
+      } finally {
+        appshotSending.current = false;
+        setSendingAppshot(false);
+      }
+      return;
+    }
     if (/^\/(compact|cost|export)\b/.test(text) && (await onLocalCommand(text))) {
       setInput('');
       return;
@@ -145,13 +192,17 @@ export function Composer({
           {suggestions.map((s, i) => (
             <button key={s.label} className={i === sel ? 'on' : ''} onMouseDown={(e) => (e.preventDefault(), accept(s))}>
               <span className="mono">{s.label}</span>
-              {s.hint && <span className="muted small">{s.hint}</span>}
+              {s.hint && <span className="muted small">{t(s.hint)}</span>}
             </button>
           ))}
         </div>
       )}
-      {images.length > 0 && (
+      {(images.length > 0 || appshot) && (
         <div className="thumbs">
+          {appshot && <span className="thumb" title={appshot.metadata.title}>
+            <img src={`data:${appshot.mime};base64,${appshot.data}`} alt={t('Prepared Appshot')} />
+            <button type="button" className="thumb-x" aria-label={t('Remove Appshot')} disabled={sendingAppshot} onClick={clearAppshot}>✕</button>
+          </span>}
           {images.map((im, i) => (
             <span key={i} className="thumb" title={im.name}>
               <img src={`data:${im.mime};base64,${im.data}`} alt={im.name} />
@@ -209,18 +260,26 @@ export function Composer({
         rows={Math.min(8, Math.max(2, input.split('\n').length))}
       />
       <div className="composer-actions">
-        <label className="btn-ghost small attach" title="Attach images (or paste / drop them)">
+        <label className="btn-ghost small attach" title={t("Attach images (or paste / drop them)")}>
           ⊕
           <input type="file" accept="image/*" multiple hidden onChange={(e) => e.target.files && void addFiles(e.target.files)} />
         </label>
+        <AppshotButton sessionId={sessionId} capability={appshotCapability} attached={!!appshot}
+          shortcut={shortcutAppshot} onShortcut={onShortcutAppshot}
+          onPrepared={value => {
+            pendingAppshot.current = value.id;
+            setAppshot(value);
+            setAppshotNotice('');
+          }} />
+        {appshotNotice && <span className="small" role="status">{appshotNotice}</span>}
         {extra}
         {running ? (
           <button className="btn-danger" onClick={onAbort}>
-            ■ Stop
+            {t("■ Stop")}
           </button>
         ) : (
-          <button className="btn-primary" onClick={() => void submit()} disabled={!input.trim() && !images.length}>
-            Send ↵
+          <button className="btn-primary" onClick={() => void submit()} disabled={sendingAppshot || (!input.trim() && !images.length && !appshot)}>
+            {t("Send ↵")}
           </button>
         )}
       </div>

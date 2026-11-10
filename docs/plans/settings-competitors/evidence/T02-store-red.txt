@@ -1,0 +1,25 @@
+
+ RUN  v5.1.0 /Users/sunqingguang/Downloads/06.code/sun-harness
+
+ ❯ packages/core/test/settings-store.test.ts (0 test)
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/core/test/settings-store.test.ts [ packages/core/test/settings-store.test.ts ]
+Error: Cannot find module '../src/settings/store.js' imported from /Users/sunqingguang/Downloads/06.code/sun-harness/packages/core/test/settings-store.test.ts
+ ❯ packages/core/test/settings-store.test.ts:9:1
+      7| import { buildSync } from 'esbuild';
+      8| import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+      9| import { readSettingsFile, transactSettingsFile } from '../src/setting…
+       | ^
+     10|
+     11| const runNode = promisify(execFile);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  no tests
+   Start at  18:54:50
+   Duration  109ms (worker 96%, environment 4%)
+

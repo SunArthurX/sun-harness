@@ -1,0 +1,120 @@
+diff --git a/src/replay.mjs b/src/replay.mjs
+index c831dac..d6421a9 100644
+--- a/src/replay.mjs
++++ b/src/replay.mjs
+@@ -3,12 +3,18 @@ export function replay(events, readAttachment) {
+   for (const event of events) {
+     if (event.type === 'assistant') messages.push({ role: 'assistant', text: event.text, images: [] });
+     if (event.type !== 'user') continue;
+-    try {
+-      const images = (event.attachments ?? []).map(path => readAttachment(path));
+-      messages.push({ role: 'user', text: event.text, images });
+-    } catch (error) {
+-      if (error.code !== 'ENOENT') throw error;
++    const images = [];
++    let missing = 0;
++    for (const path of event.attachments ?? []) {
++      try {
++        images.push(readAttachment(path));
++      } catch (error) {
++        if (error.code !== 'ENOENT') throw error;
++        missing += 1;
++      }
+     }
++    const text = missing === 0 ? event.text : `${event.text}\n[Missing attachments: ${missing}]`;
++    messages.push({ role: 'user', text, images });
+   }
+   return messages;
+ }
+diff --git a/test/additions.test.mjs b/test/additions.test.mjs
+new file mode 100644
+index 0000000..9505929
+--- /dev/null
++++ b/test/additions.test.mjs
+@@ -0,0 +1,86 @@
++import { test } from 'node:test';
++import assert from 'node:assert/strict';
++import { replay } from '../src/replay.mjs';
++
++const enoent = path => Object.assign(new Error(`ENOENT: ${path}`), { code: 'ENOENT' });
++
++function readerWithMissing(missing) {
++  return path => {
++    if (missing.includes(path)) throw enoent(path);
++    return `image:${path}`;
++  };
++}
++
++test('user and assistant events replay in order', () => {
++  const events = [
++    { type: 'user', text: 'first', attachments: [] },
++    { type: 'assistant', text: 'reply', attachments: ['ignored'] },
++    { type: 'user', text: 'second' },
++  ];
++  assert.deepEqual(replay(events, () => 'x'), [
++    { role: 'user', text: 'first', images: [] },
++    { role: 'assistant', text: 'reply', images: [] },
++    { role: 'user', text: 'second', images: [] },
++  ]);
++});
++
++test('one missing attachment keeps the message and appends a marker', () => {
++  const events = [{ type: 'user', text: 'hello', attachments: ['a', 'b'] }];
++  assert.deepEqual(replay(events, readerWithMissing(['b'])), [
++    { role: 'user', text: 'hello\n[Missing attachments: 1]', images: ['image:a'] },
++  ]);
++});
++
++test('missing attachment does not drop the message or paths', () => {
++  const events = [{ type: 'user', text: 'hello', attachments: ['gone'] }];
++  const [message] = replay(events, readerWithMissing(['gone']));
++  assert.deepEqual(message, { role: 'user', text: 'hello\n[Missing attachments: 1]', images: [] });
++  assert.equal(message.text.includes('gone'), false);
++});
++
++test('successful images keep original order around missing ones', () => {
++  const events = [{ type: 'user', text: 'hi', attachments: ['a', 'b', 'c', 'd'] }];
++  assert.deepEqual(replay(events, readerWithMissing(['b', 'd'])), [
++    { role: 'user', text: 'hi\n[Missing attachments: 2]', images: ['image:a', 'image:c'] },
++  ]);
++});
++
++test('counts every missing attachment across events', () => {
++  const events = [
++    { type: 'user', text: 'one', attachments: ['a', 'b'] },
++    { type: 'user', text: 'two', attachments: ['c', 'd', 'e'] },
++  ];
++  assert.deepEqual(replay(events, readerWithMissing(['b', 'c', 'e'])), [
++    { role: 'user', text: 'one\n[Missing attachments: 1]', images: ['image:a'] },
++    { role: 'user', text: 'two\n[Missing attachments: 2]', images: ['image:d'] },
++  ]);
++});
++
++test('other reader errors propagate', () => {
++  const failure = Object.assign(new Error('permission denied'), { code: 'EACCES' });
++  assert.throws(
++    () => replay([{ type: 'user', text: 'x', attachments: ['a'] }], () => { throw failure; }),
++    error => error === failure,
++  );
++});
++
++test('unrelated event types are ignored', () => {
++  let calls = 0;
++  const events = [
++    { type: 'tool', text: 't', attachments: ['a'] },
++    { type: 'system', text: 's' },
++    { type: 'user', text: 'u', attachments: ['b'] },
++  ];
++  const result = replay(events, () => { calls += 1; return 'image'; });
++  assert.deepEqual(result, [{ role: 'user', text: 'u', images: ['image'] }]);
++  assert.equal(calls, 1);
++});
++
++test('does not mutate the event array or its events', () => {
++  const events = [{ type: 'user', text: 'x', attachments: ['a', 'b'] }];
++  const snapshot = structuredClone(events);
++  const imagesRef = events[0].attachments;
++  replay(events, readerWithMissing(['b']));
++  assert.deepEqual(events, snapshot);
++  assert.equal(events[0].attachments, imagesRef);
++});

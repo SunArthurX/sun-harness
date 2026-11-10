@@ -1,0 +1,1 @@
+Signed macOS Appshot captures one fixture window, applies an opaque crop and mask, cancels without persistence, and sends only the prepared attachment.

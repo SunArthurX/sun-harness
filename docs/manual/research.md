@@ -25,13 +25,16 @@ Pages that need JavaScript, a login or clicking go through the [browser](browser
 
 The agent has a persistent Python session (like a notebook): data stays loaded between steps, the last expression is shown, and matplotlib charts are saved to `figures/` in the workspace. Install the libraries you want it to use (`pip install pandas matplotlib`). It runs in the [shell sandbox](sandbox.md).
 
+Cancelling a queued cell preserves the kernel state. Cancelling a running
+cell or reaching its timeout starts a fresh kernel for the next cell.
+
 ## Parallel subagents
 
 For broad questions the agent splits the work: several `task` calls in one step run at the same time, each in its own child session (shown nested in the sidebar). At most 6 tool calls run at once (`maxParallelTools`).
 
 ## Deliverables
 
-The session header shows **▤ Files** once the agent has written something: every file it created or changed, plus screenshots and figures. Click a file to open it.
+**Deliverables** in the session bar lists files the session created or changed, plus `screenshots/`, `figures/`, `slides/`, and `research/`. Click a file to open it. **▤ Changes** is the review of edits (diff and revert).
 
 ## Safety: content from the web is data
 

@@ -1,0 +1,5 @@
+/private/var/folders/4c/_fqg96ms18dc7mrmk9dfq32c0000gp/T/sun-computer-e2e-tINKDm/Sun Computer Fixture.app: replacing existing signature
+Accessibility authorized for signed desktop: true. Native helper: true.
+The signed desktop observed a real AX window, waited for runtime approval, pressed its button once, edited its text field, persisted receipts, and stopped the lease.
+The signed desktop dispatched no native input after a stale observation, foreground change, emergency stop, or app-grant revocation.
+Opening the private sign-in window revoked the existing lease and blocked new native ownership.

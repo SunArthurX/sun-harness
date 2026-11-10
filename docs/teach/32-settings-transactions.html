@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>32 — Settings transactions</title>
+<body>
+<p><a href="index.html">Teaching index</a></p>
+<h1>Settings transactions</h1>
+<p>Settings used to return the whole configuration and overwrite it without checking the revision.
+The settings service now exposes a field allowlist and serializes writes across processes.</p>
+<pre class="mermaid">flowchart LR
+  A[Desktop, web or CLI] --> B[Redacted snapshot and revision]
+  B --> C[Scoped edit with expected revision]
+  C --> D{Lock and compare}
+  D -->|Stale| E[Reload and review pending edit]
+  D -->|Current| F[Validate and prepare audit]
+  F --> G[Flush and replace config]
+  G --> H[Record outcome and apply at safe boundary]
+</pre>
+<h2>Why separate the file from the settings view?</h2>
+<p>The runtime still needs credential values and extension data. The renderer gets a DTO
+constructed from explicit fields. Old gateway method names return a protocol mismatch.</p>
+<h2>What happens if a process dies?</h2>
+<p>Write the full replacement privately, flush it, then rename it. The old or new JSON survives
+depending on the crash point. Recovery can remove a dead process's unique lock marker.
+The prepare record remains available when a crash interrupts the audit outcome.</p>
+<h2>How is the behavior checked?</h2>
+<p>The offline suite races real processes and injects write failures. The desktop smoke test
+uses a temporary data directory and exercises stale-state recovery through Electron,
+then connects the same renderer to the gateway over HTTP.</p>
+<p><a href="../plans/settings-competitors/evidence/T02.json">T02 evidence</a></p>
+<script type="module">import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';mermaid.initialize({startOnLoad:true});</script>
+</body>
+</html>

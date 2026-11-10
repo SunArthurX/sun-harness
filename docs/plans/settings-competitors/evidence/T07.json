@@ -1,0 +1,53 @@
+{
+  "task": "T07",
+  "result": "pass",
+  "acceptance": ["AC-07", "AC-16"],
+  "commands": [
+    { "command": "pnpm test", "exitCode": 0, "outputFile": "docs/plans/settings-competitors/evidence/T07-test.txt" },
+    { "command": "pnpm build", "exitCode": 0, "outputFile": "docs/plans/settings-competitors/evidence/T07-build.txt" },
+    { "command": "pnpm typecheck", "exitCode": 0, "outputFile": "docs/plans/settings-competitors/evidence/T07-typecheck.txt" },
+    { "command": "node apps/desktop/e2e/settings.mjs", "exitCode": 0, "outputFile": "docs/plans/settings-competitors/evidence/T07-e2e.txt" },
+    { "command": "node apps/desktop/e2e/hooks-docker.mjs", "exitCode": 0, "outputFile": "docs/plans/settings-competitors/evidence/T07-docker.txt" }
+  ],
+  "artifacts": [
+    "packages/core/src/hooks.ts",
+    "packages/core/src/hook-config.ts",
+    "packages/core/src/hook-process.ts",
+    "packages/core/src/plugins.ts",
+    "packages/core/src/plugin-runtime.ts",
+    "packages/core/src/host.ts",
+    "packages/core/src/gateway.ts",
+    "packages/core/test/settings-hooks.test.ts",
+    "packages/core/test/settings-capabilities.test.ts",
+    "packages/core/test/edit.test.ts",
+    "packages/core/test/verify.test.ts",
+    "apps/desktop/src/renderer/src/settings/HooksPanel.tsx",
+    "apps/desktop/src/renderer/src/settings/PluginsPanel.tsx",
+    "apps/desktop/src/renderer/src/locale-zh-CN.ts",
+    "apps/desktop/e2e/settings.mjs",
+    "apps/desktop/e2e/hooks-docker.mjs",
+    "docs/plans/settings-competitors/evidence/T07b-cli.txt",
+    "specs/002-extensions.md",
+    "specs/032-settings-and-capability-management.md",
+    "docs/adr/0010-settings-capability-boundaries.md",
+    "docs/manual/extensions.md",
+    "docs/manual/cli.md",
+    "docs/manual/desktop.md",
+    "docs/teach/37-hook-plugin-governance.html",
+    "docs/teach/index.html",
+    "docs/plan.md",
+    "CHANGELOG.md"
+  ],
+  "manualChecks": [
+    "Focused tests verify edited and unreviewed hooks cannot dispatch, malformed matchers are visible, policy hooks fail closed, output stays bounded, known credentials are scrubbed, and the exact hook text supplied to the provider can be replayed from durable events.",
+    "Electron and gateway web showed diagnostics, previewed without side effects, ran a reviewed fixture, rejected a changed digest, and cancelled the process before its child could write. A real Docker invocation preserved exit status, protected settings, and removed containers after both timeout and cancellation.",
+    "Static plugin inspection returned only the declared actions and typed state, excluded private manifest and configuration fields, and avoided importing disabled or malformed fixtures. CLI inspection and local edits left the module untouched.",
+    "A real gateway request disabled a plugin during active work. A stale revision failed, a queued approval could not dispatch, and the active call finished. Tools, knowledge, modes, prompt sections and listeners stopped dispatching. A second plugin stayed loaded and the disabled preference survived a new host instance.",
+    "Desktop IPC and the served web renderer enabled and disabled the fixture. The web renderer showed one draining call and then Disabled after the gateway streamed settlement. Audit records contained only lifecycle metadata."
+  ],
+  "limitations": [
+    "Electron, the gateway renderer, and Docker were exercised on macOS. One pre-existing test remained skipped in the full suite.",
+    "The drain count covers work entered through the plugin API. Enabled plugin JavaScript runs with host privileges, and work detached by plugin code has its own lifecycle."
+  ],
+  "rollback": "Disable a plugin on the owning host or preserve its name in plugins.disabled before restarting. Revoke reviewed hook entries through Settings or sun hooks revoke. Preserve the settings audit for inspection."
+}

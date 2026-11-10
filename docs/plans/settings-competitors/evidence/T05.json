@@ -1,0 +1,65 @@
+{
+  "task": "T05",
+  "result": "pass",
+  "acceptance": [
+    "AC-05",
+    "AC-16"
+  ],
+  "commands": [
+    {
+      "command": "pnpm test",
+      "exitCode": 0,
+      "outputFile": "docs/plans/settings-competitors/evidence/T05-test.txt"
+    },
+    {
+      "command": "pnpm build",
+      "exitCode": 0,
+      "outputFile": "docs/plans/settings-competitors/evidence/T05-build.txt"
+    },
+    {
+      "command": "pnpm typecheck",
+      "exitCode": 0,
+      "outputFile": "docs/plans/settings-competitors/evidence/T05-typecheck.txt"
+    },
+    {
+      "command": "node apps/desktop/e2e/settings.mjs",
+      "exitCode": 0,
+      "outputFile": "docs/plans/settings-competitors/evidence/T05-e2e.txt"
+    }
+  ],
+  "artifacts": [
+    "packages/core/src/settings/preferences.ts",
+    "packages/core/src/settings/capabilities.ts",
+    "packages/core/src/memory.ts",
+    "packages/core/test/settings-preferences.test.ts",
+    "apps/desktop/src/main/index.ts",
+    "apps/desktop/src/renderer/src/Mini.tsx",
+    "apps/desktop/src/renderer/src/settings/personal.tsx",
+    "apps/desktop/src/renderer/src/locale-zh-CN.ts",
+    "apps/desktop/test/settings-navigation.test.ts",
+    "apps/desktop/e2e/settings.mjs",
+    "specs/030-manus-and-assistants.md",
+    "specs/032-settings-and-capability-management.md",
+    "docs/adr/0010-settings-capability-boundaries.md",
+    "docs/manual/assistant.md",
+    "docs/manual/configuration.md",
+    "docs/manual/desktop.md",
+    "docs/teach/35-personal-controls.html",
+    "docs/teach/index.html",
+    "docs/plan.md",
+    "CHANGELOG.md"
+  ],
+  "manualChecks": [
+    "Electron forms persisted appearance and default mode, guarded unsaved profile text, and rejected a stale profile save. A fresh Electron process attached to the gateway restored the saved mode and instructions.",
+    "Offline tests exercised overnight and DST quiet hours, reserved or conflicting shortcuts, and restoration from disk. A real Electron shortcut registration collision left the previous binding and saved config intact.",
+    "The gateway renderer requested notification permission only after the explicit action, deduplicated a replayed completion, and left text input usable after denied microphone access. Cancelled audio tracks stopped without upload.",
+    "Usage showed an unknown model price without a total and a priced subtotal when a priced model was added to the same session.",
+    "The always-on-top Mini opened the active chat and stopped a live request on the attached gateway. The provider observed the abort signal and the durable session reached aborted. Disabling Mini closed it. Web and CLI reported the unsupported-surface reason.",
+    "The durable request header matched the model-visible system prompt with standing instructions. Disabling memory kept the instructions and profile and omitted memory recall. Extracted core facts went to MEMORY.md."
+  ],
+  "limitations": [
+    "Electron and the Chromium gateway renderer were exercised on macOS. Microphone denial and provider behavior used offline fixtures. One existing unrelated test was skipped.",
+    "Usage is per session and includes copies of historical usage present in that session. Existing USER.md entries lack authorship metadata and remain in the profile."
+  ],
+  "rollback": "Disable Mini and clear its shortcut in Settings. The previously supported preferences and profile are still readable. INSTRUCTIONS.md remains a separate user-owned file on downgrade."
+}

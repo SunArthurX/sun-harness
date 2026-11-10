@@ -1,4 +1,5 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { inspectHooks, reviewHookTrust } from '../src/hooks.js';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -11,6 +12,7 @@ import {
   addProposal,
   addSchedule,
   dueTasks,
+  deriveMessages,
   homePath,
   listProposals,
   loadPlugins,
@@ -233,6 +235,7 @@ describe('hooks', () => {
         postToolUse: [{ matcher: 'list_dir', command: 'echo checked-by-hook' }],
       }),
     );
+    reviewHookTrust(ws, inspectHooks(ws).hooks.map(({ id, digest }) => ({ id, digest, trust: true })));
     const provider = new MockProvider([
       { text: '', toolCalls: [call('bash', { command: 'rm -rf /tmp/nothing' }), call('list_dir', {})] },
       { text: 'ok', toolCalls: [] },
@@ -245,6 +248,11 @@ describe('hooks', () => {
     const results = host.getEvents(s.id).filter((e) => e.type === 'tool/result') as any[];
     expect(results[0].output).toContain('Blocked by hook: dangerous command');
     expect(results[1].output).toContain('checked-by-hook');
+    const log = host.getEvents(s.id);
+    const final = log.findLast(event => event.type === 'assistant/message')!;
+    expect(log.some(event => event.type === 'hook/run' && event.event === 'postToolUse')).toBe(true);
+    expect(provider.requests[1].messages).toEqual(deriveMessages(log.filter(event => event.seq < final.seq)));
+    await host.dispose();
   });
 
   it('onFailure "block" makes a crashing policy hook fail closed; default ignores it', async () => {
@@ -260,6 +268,7 @@ describe('hooks', () => {
       }),
     );
     writeFileSync(join(ws, 'a.txt'), 'A');
+    reviewHookTrust(ws, inspectHooks(ws).hooks.map(({ id, digest }) => ({ id, digest, trust: true })));
     const provider = new MockProvider([{ text: '', toolCalls: [call('list_dir', {}), call('read_file', { path: 'a.txt' })] }, { text: 'ok', toolCalls: [] }]);
     const host = new HarnessHost({ config: testConfig(), providerFactory: () => ({ provider, model: 'm' }), connectMcp: false, loadPlugins: false });
     await host.init();

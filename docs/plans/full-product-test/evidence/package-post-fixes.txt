@@ -1,0 +1,58 @@
+$ electron-vite build && node scripts/build-appshot.mjs
+vite v8.3.6 building ssr environment for production...
+transforming...
+✓ 377 modules transformed.
+rendering chunks...
+out/main/index.js  1,441.00 kB
+
+✓ built in 233ms
+vite v8.3.6 building ssr environment for production...
+transforming...
+✓ 2 modules transformed.
+rendering chunks...
+out/preload/index.cjs  1.03 kB
+
+✓ built in 7ms
+vite v8.3.6 building client environment for production...
+transforming...
+✓ 58 modules transformed.
+rendering chunks...
+out/renderer/index.html                                                       0.48 kB
+out/renderer/assets/jetbrains-mono-vietnamese-wght-normal-Bt-aOZkq.woff2      7.50 kB
+out/renderer/assets/jetbrains-mono-greek-wght-normal-Bw9x6K1M.woff2           9.00 kB
+out/renderer/assets/hanken-grotesk-vietnamese-wght-normal-CHiFlh_0.woff2      9.32 kB
+out/renderer/assets/instrument-serif-latin-ext-400-normal-CFCUzsTy.woff       9.86 kB
+out/renderer/assets/instrument-serif-latin-ext-400-normal-C2je3j2s.woff2     11.60 kB
+out/renderer/assets/jetbrains-mono-cyrillic-wght-normal-D73BlboJ.woff2       12.10 kB
+out/renderer/assets/jetbrains-mono-latin-ext-wght-normal-DBQx-q_a.woff2      15.19 kB
+out/renderer/assets/instrument-serif-latin-400-normal-BVbkICAY.woff          18.33 kB
+out/renderer/assets/hanken-grotesk-latin-ext-wght-normal-Dg-wlmqe.woff2      19.58 kB
+out/renderer/assets/instrument-serif-latin-400-normal-DnYpCC2O.woff2         21.03 kB
+out/renderer/assets/hanken-grotesk-latin-wght-normal-CaVRRdDk.woff2          34.70 kB
+out/renderer/assets/jetbrains-mono-latin-wght-normal-B9CIFXIH.woff2          40.40 kB
+out/renderer/assets/index-wkuity3G.css                                       51.23 kB
+out/renderer/assets/index-CDOckljA.js                                     1,146.91 kB
+
+✓ built in 85ms
+  • electron-builder  version=26.18.0 os=24.6.0
+  • loaded configuration  file=package.json ("build" field)
+  • author is missed in the package.json  appPackageFile=/Users/sunqingguang/Downloads/06.code/sun-harness/apps/desktop/package.json
+  • packageManager not detected by file, falling back to environment detection  resolvedPackageManager=pnpm detected=/Users/sunqingguang/Downloads/06.code/sun-harness/apps/desktop
+  • detected workspace root for project using lock file  pm=pnpm config=undefined resolved=/Users/sunqingguang/Downloads/06.code/sun-harness projectDir=/Users/sunqingguang/Downloads/06.code/sun-harness/apps/desktop
+  • skipped dependencies rebuild  reason=npmRebuild is set to false
+  • packaging       platform=darwin arch=arm64 electron=45.2.3 appOutDir=release/full-product-verified/mac-arm64
+  • using custom unpacked Electron distribution  electronDist=node_modules/electron/dist
+  • copying unpacked Electron  source=/Users/sunqingguang/Downloads/06.code/sun-harness/apps/desktop/node_modules/electron/dist/Electron.app destination=/Users/sunqingguang/Downloads/06.code/sun-harness/apps/desktop/release/full-product-verified/mac-arm64/Electron.app
+  • searching for node modules  pm=pnpm searchDir=/Users/sunqingguang/Downloads/06.code/sun-harness/apps/desktop
+  • no node modules found in collection, trying next search directory  pm=pnpm searchDir=/Users/sunqingguang/Downloads/06.code/sun-harness/apps/desktop
+  • searching for node modules  pm=pnpm searchDir=/Users/sunqingguang/Downloads/06.code/sun-harness
+  • no node modules found in collection, trying next search directory  pm=pnpm searchDir=/Users/sunqingguang/Downloads/06.code/sun-harness
+  • searching for node modules  pm=traversal searchDir=/Users/sunqingguang/Downloads/06.code/sun-harness/apps/desktop
+  • using manual traversal of node_modules to build dependency tree
+  • no node modules found in collection, trying next search directory  pm=traversal searchDir=/Users/sunqingguang/Downloads/06.code/sun-harness/apps/desktop
+  • searching for node modules  pm=traversal searchDir=/Users/sunqingguang/Downloads/06.code/sun-harness
+  • using manual traversal of node_modules to build dependency tree
+  • no node modules found in collection, trying next search directory  pm=traversal searchDir=/Users/sunqingguang/Downloads/06.code/sun-harness
+  • no node modules returned while searching directories  searchDirectories=["","/Users/sunqingguang/Downloads/06.code/sun-harness"]
+  • skipped macOS code signing  reason=identity explicitly is set to null
+apps/desktop/release/full-product-verified/mac-arm64/sun-harness.app: replacing existing signature

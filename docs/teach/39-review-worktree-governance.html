@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>39 — Review and worktree safety</title>
+<body>
+<p><a href="index.html">Teaching index</a></p>
+<h1>Review and worktree safety</h1>
+<p>Review began as a one-shot model request over checkpoint diffs. This
+milestone records what the model receives and validates what it cites.
+Worktree operations now check ownership, activity, and checkout state
+before modifying Git state.</p>
+<pre class="mermaid">flowchart TD
+  A[Candidate changes] --> B[Digest all candidate files]
+  B --> C[Select whole diffs within the budget]
+  C --> D[Flush provider request to session log]
+  D --> E[Validate paths, changed lines and evidence]
+  E --> F[Persist findings and omissions]
+  F --> G[Recompute digest before completion]
+  G -->|Current and complete| H[Evaluate completion gate]
+  G -->|Changed or incomplete| I[Pause when the gate is enabled]
+</pre>
+<h2>How can Git inspection include untracked files?</h2>
+<p>A copy of the worktree index receives intent-to-add entries. Diff and
+review use that copy to compare the candidate with the recorded commit.
+The actual index remains available for the user's own staging decisions.</p>
+<pre class="mermaid">flowchart TD
+  J[Select managed worktree] --> K[Check ownership and activity]
+  K --> L[Merge]
+  K --> M[Preview cleanup]
+  K --> N[Review setup command]
+  L --> O[Commit candidate before applying it]
+  O --> P[Preserve branch on conflict]
+  M --> Q[Compare revision and verify clean checkout]
+  N --> R[Flush setup start marker]
+  R --> S[Run once and record outcome]
+  R --> T[Require acknowledgement after interruption]
+</pre>
+<h2>How do merge and discard preserve work?</h2>
+<p>Merge retains the candidate as a branch commit before updating the
+destination. Cleanup requires a clean worktree, including untracked and
+ignored files, and uses Git's ordinary removal command. A branch whose
+commits are still unmerged remains reachable.</p>
+<p><a href="../plans/settings-competitors/evidence/T09.json">T09 evidence</a></p>
+<script type="module">import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';mermaid.initialize({startOnLoad:true});</script>
+</body>
+</html>

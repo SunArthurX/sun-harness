@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" /><meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>26 · English and Simplified Chinese — sun-harness</title>
+<link rel="stylesheet" href="teach.css" />
+<script type="module">import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs'; mermaid.initialize({ startOnLoad: true, theme: 'neutral' });</script>
+</head>
+<body>
+<header class="top"><div class="wrap"><a class="brand" href="index.html">sun<em>harness</em> · teach</a><nav><a href="index.html">All pages</a></nav></div></header>
+<main class="wrap">
+<p class="muted">Release 0.8.0 · spec <code>specs/028-ui-i18n.md</code> · ADR <code>docs/adr/0009-ui-i18n.md</code></p>
+<h1>26 · Pages in <em>English</em> and <em>Simplified Chinese</em></h1>
+<p class="lede">The desktop and the gateway web UI are the same React renderer. They now switch between English and Simplified Chinese. The rule that makes it last: a new screen is not done until both languages are in the same change, and a test fails if they are not.</p>
+
+<h2>English as the key, Chinese as the dictionary</h2>
+<p>Message ids (<code>nav.sessions</code>) need a parallel English file and drift when the copy changes. Two full locale files duplicate every sentence. The cheap durable option is gettext-style: the English sentence <em>is</em> the key. <code>t('Open')</code> is <code>Open</code> in English and the value from <code>locale-zh-CN.ts</code> in Simplified Chinese. A missing translation falls back to English instead of showing <code>nav.open</code>.</p>
+<div class="mermaid">
+flowchart LR
+  JSX["JSX: t('Open')"] --> T[t]
+  T -->|en| EN[Open]
+  T -->|zh-CN| ZH["locale-zh-CN: 打开"]
+  SCAN["i18n.mjs scanner"] --> JSX
+  SCAN --> KEYS[English keys]
+  KEYS --> TEST[i18n.test.ts]
+  ZH --> TEST
+</div>
+<div class="qa"><p class="q">Why not localize the CLI too?</p><p class="a">Scripts and bots parse CLI output. Mixing translated status lines with flags would break that. The pages are for humans; <code>sun</code> stays English, matching specs and docs.</p></div>
+<div class="qa"><p class="q">How does “system” pick a language?</p><p class="a"><code>resolveLang</code> reads <code>navigator.language</code>. Any locale starting with <code>zh</code> becomes Simplified Chinese; everything else becomes English. Settings can lock <code>en</code> or <code>zh-CN</code>. The choice is <code>ui.language</code> in <code>~/.sun/config.json</code>, applied in <code>main.tsx</code> before the first React render so the welcome screen is already in the right language.</p></div>
+
+<h2>A test that outlives the checklist</h2>
+<p>Wrapping strings by hand is easy to skip on the next feature. The scanner walks the renderer AST: JSX text, <code>placeholder</code> / <code>title</code> / <code>aria-label</code>, object fields like <code>label</code> and <code>hint</code>, and <code>confirm</code> / <code>alert</code>. Anything with words that is not inside <code>t()</code> or <code>tk()</code> is a violation. A second check requires every collected key to exist in <code>zhCN</code> with the same <code>{name}</code> placeholders, and to contain Chinese characters unless it is a product name or URL.</p>
+<div class="qa"><p class="q">What about <code>t(status)</code> where the English is a runtime enum?</p><p class="a">The scanner only sees string literals. Session status, tool risk, file change, job state, skill scope and similar values are listed as <code>tk('idle')</code>, <code>tk('running')</code>, … in <code>i18n.ts</code> so they are keys like any other. Context-report suggestions from core are registered the same way in <code>Context.tsx</code>.</p></div>
+<div class="qa"><p class="q">A language switch left the sidebar in English. Why?</p><p class="a"><code>groupSessions</code> was memoized on the session list only. The labels <code>Pinned</code> / <code>Today</code> were captured in the old language. Adding <code>lang</code> to that memo (and remounting the main pane with <code>key={lang}</code>) makes the whole shell follow the setting.</p></div>
+
+<h2>Where the human switches</h2>
+<p>Settings has System / English / 简体中文. The left rail has an <strong>EN</strong> / <strong>中</strong> button at the bottom so the switch is one click from any page. Both write <code>ui.language</code> and call <code>setLang</code>.</p>
+<div class="mermaid">
+sequenceDiagram
+  participant U as User
+  participant Rail as Left rail
+  participant Cfg as config.json
+  participant I18n as setLang
+  participant UI as React tree
+  U->>Rail: EN / 中
+  Rail->>Cfg: ui.language en or zh-CN
+  Rail->>I18n: setLang
+  I18n->>UI: onLangChange, document.lang
+</div>
+
+<h2>Lessons</h2>
+<ul>
+<li>If the English sentence is the key, a copy change is one edit plus one dictionary line, not a hunt for an id.</li>
+<li>“Support Chinese” without a failing test lasts until the next page. The scanner is the policy.</li>
+<li>Memoized labels must list the current language as a dependency, or a switch looks like a no-op.</li>
+</ul>
+</main>
+</body>
+</html>

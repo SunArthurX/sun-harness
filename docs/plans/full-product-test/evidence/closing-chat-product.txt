@@ -1,0 +1,47 @@
+$ node apps/desktop/e2e/chat-product.mjs
+# started 2026-11-10T05:50:21Z
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+locator.click: Timeout 10000ms exceeded.
+Call log:
+  - waiting for locator('.session-row').filter({ hasText: 'Electron audit session' }).getByTitle('Pin to the top')
+    - locator resolved to <button title="Pin to the top">○</button>
+  - attempting click action
+    2 × waiting for element to be visible, enabled and stable
+      - element is not visible
+    - retrying click action
+    - waiting 20ms
+    2 × waiting for element to be visible, enabled and stable
+      - element is not visible
+    - retrying click action
+      - waiting 100ms
+    19 × waiting for element to be visible, enabled and stable
+       - element is not visible
+     - retrying click action
+       - waiting 500ms
+
+    at exerciseChat (/Users/sunqingguang/Downloads/06.code/sun-harness/apps/desktop/e2e/chat-product.mjs:185:42)
+    at async file:///Users/sunqingguang/Downloads/06.code/sun-harness/apps/desktop/e2e/chat-product.mjs:422:46 {
+  log: [
+    "  - waiting for locator('.session-row').filter({ hasText: 'Electron audit session' }).getByTitle('Pin to the top')",
+    '    - locator resolved to <button title="Pin to the top">○</button>',
+    '  - attempting click action',
+    '    2 × waiting for element to be visible, enabled and stable',
+    '      - element is not visible',
+    '    - retrying click action',
+    '    - waiting 20ms',
+    '    2 × waiting for element to be visible, enabled and stable',
+    '      - element is not visible',
+    '    - retrying click action',
+    '      - waiting 100ms',
+    '    19 × waiting for element to be visible, enabled and stable',
+    '       - element is not visible',
+    '     - retrying click action',
+    '       - waiting 500ms'
+  ],
+  name: 'TimeoutError'
+}
+
+Node.js v24.15.0

@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>44 — Execution targets and job recovery</title>
+<body>
+<p><a href="index.html">Teaching index</a></p>
+<h1>Execution targets and job recovery</h1>
+<p>The desktop can review a job for a saved gateway while staying on its
+local execution host. The target ID comes from the gateway installation.
+The session on that target supplies the workspace and sandbox.</p>
+<h2>What happens when the launch reply disappears?</h2>
+<p>The controller saves an operation before dispatch. The provider saves
+its job reservation before spawning a process. Reconnecting queries
+that same operation and updates the original row.</p>
+<pre class="mermaid">flowchart TD
+  A[Review the target and command] --> B[Commit controller operation]
+  B --> C[Verify target identity]
+  C --> D[Reserve provider job ID]
+  D --> E[Launch detached process]
+  E -->|Receipt received| F[Record provider state]
+  E -->|Reply missing| G[Show reconciling]
+  G --> H[Query the original operation]
+  H -->|Matching receipt| F
+  H -->|No verified receipt| G
+</pre>
+<h2>How can a Docker job stop independently?</h2>
+<p>The job starts in a container with the operation ID in its labels.
+The provider saves the cancellation request, checks the container
+identity, and removes that container. The cancellation acknowledgement
+and process outcome are separate fields.</p>
+<pre class="mermaid">flowchart TD
+  I[User requests cancellation] --> J[Persist request]
+  J --> K[Verify process or container identity]
+  K -->|Reachable and verified| L[Deliver cancellation]
+  L --> M[Persist acknowledgement]
+  M --> N[Observe process outcome]
+  K -->|Unavailable| O[Keep pending]
+</pre>
+<p><a href="../manual/execution-targets.md">Execution target manual</a> ·
+<a href="../plans/settings-competitors/evidence/T14.json">T14 evidence</a></p>
+<script type="module">import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';mermaid.initialize({startOnLoad:true});</script>
+</body>
+</html>

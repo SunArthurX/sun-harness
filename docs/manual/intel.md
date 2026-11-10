@@ -12,6 +12,8 @@ sun intel analyze <date> # redo analysis from saved raw items
 ```
 
 Reports: `~/.sun/intel/reports/<date>.md` and `.html`. The desktop **Harness Intel** screen shows the same.
+Use a local calendar date such as `2026-11-07` when showing or re-analyzing a report.
+`sun intel analyze` uses the current local date when called without one.
 
 ## Schedule it (macOS)
 

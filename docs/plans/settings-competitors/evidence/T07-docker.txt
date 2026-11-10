@@ -1,0 +1,1 @@
+Real Docker hooks preserved exit status, masked the protected settings directory, and removed both timed-out and cancelled invocation containers. No delayed descendants wrote files.

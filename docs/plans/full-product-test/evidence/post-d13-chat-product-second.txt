@@ -1,0 +1,21 @@
+$ node apps/desktop/e2e/chat-product.mjs
+Electron: chat streamed and persisted, approvals guarded both actions, dock and context rendered, language switched, provider aborted, search and pin worked, quota recovered, and file/image attachments were replayable.
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: Error: CDP Page.navigate timed out
+
+true !== false
+
+    at exerciseBrowser (file:///Users/sunqingguang/Downloads/06.code/sun-harness/apps/desktop/e2e/chat-product.mjs:250:10)
+    at async file:///Users/sunqingguang/Downloads/06.code/sun-harness/apps/desktop/e2e/chat-product.mjs:414:3 {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: true,
+  expected: false,
+  operator: 'strictEqual',
+  diff: 'simple'
+}
+
+Node.js v24.15.0

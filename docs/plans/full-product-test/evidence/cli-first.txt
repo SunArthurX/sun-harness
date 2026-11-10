@@ -1,0 +1,35 @@
+✔ built and bundled commands expose help and workspace scaffolding (673.267709ms)
+✔ run reads stdin, emits stream JSON and reopens the durable session (2845.30925ms)
+✔ one-shot noninteractive approval denies a write and returns the denial to the model (627.382292ms)
+✔ an approved edit appears in changes and undo restores the workspace (995.908625ms)
+✔ quota pauses with exit 3 and a later process resumes on the selected model (1254.176708ms)
+✖ a terminal provider error returns exit 1 for both run and resume (1217.441708ms)
+✔ CLI image input reaches the provider and a portable bundle restores its attachment (1253.634834ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 6
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 8933.952834
+
+✖ failing tests:
+
+test at packages/cli/e2e/product.mjs:151:1
+✖ a terminal provider error returns exit 1 for both run and resume (1217.441708ms)
+  AssertionError [ERR_ASSERTION]: a terminal error is distinct from a paused run
+  
+  3 !== 1
+  
+      at TestContext.<anonymous> (file:///Users/sunqingguang/Downloads/06.code/sun-harness/packages/cli/e2e/product.mjs:160:12)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1208:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 3,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

@@ -1,0 +1,18 @@
+✔ defaults, UI labels, boundary validation and shared revision (1.23825ms)
+✔ pageSize default and inclusive integer range (0.810542ms)
+✔ pageSize exposed through host with default provenance (0.161375ms)
+✔ pageSize exposed through Electron IPC and gateway (0.151209ms)
+✔ renderer labels and form include pageSize in both locales (0.40675ms)
+✔ CLI accepts decimal digit strings in range (0.147792ms)
+✔ CLI refuses partial numbers and out-of-range values without mutating state (0.106583ms)
+✔ invalid edits through host leave values and revision intact (0.087208ms)
+✔ persistence keeps unknown keys and verbose behavior (0.085125ms)
+✔ verbose remains editable (0.4595ms)
+ℹ tests 10
+ℹ suites 0
+ℹ pass 10
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 52.146125

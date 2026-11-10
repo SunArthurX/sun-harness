@@ -1,0 +1,49 @@
+{
+  "task": "T12",
+  "result": "pass",
+  "acceptance": ["AC-13"],
+  "commands": [
+    { "command": "pnpm test", "exitCode": 0, "outputFile": "docs/plans/settings-competitors/evidence/T12-test.txt" },
+    { "command": "pnpm build", "exitCode": 0, "outputFile": "docs/plans/settings-competitors/evidence/T12-build.txt" },
+    { "command": "pnpm typecheck", "exitCode": 0, "outputFile": "docs/plans/settings-competitors/evidence/T12-types.txt" },
+    { "command": "pnpm --filter @sun/desktop exec electron-builder --mac --dir --publish never --config.directories.output=release/computer-verified && codesign --force --deep --sign - apps/desktop/release/computer-verified/mac-arm64/sun-harness.app && codesign --verify --deep --strict apps/desktop/release/computer-verified/mac-arm64/sun-harness.app", "exitCode": 0, "outputFile": "docs/plans/settings-competitors/evidence/T12-package.txt" },
+    { "command": "node apps/desktop/e2e/computer.mjs --preflight-only", "exitCode": 0, "outputFile": "docs/plans/settings-competitors/evidence/T12-preflight.txt" },
+    { "command": "node apps/desktop/e2e/computer.mjs", "exitCode": 0, "outputFile": "docs/plans/settings-competitors/evidence/T12-native-repeat.txt" },
+    { "command": "node apps/desktop/e2e/settings.mjs", "exitCode": 0, "outputFile": "docs/plans/settings-competitors/evidence/T15-preflight-settings.txt" }
+  ],
+  "artifacts": [
+    "packages/core/src/settings/computer.ts",
+    "packages/core/src/settings/computer-grants.ts",
+    "packages/core/src/host.ts",
+    "packages/core/src/gateway.ts",
+    "packages/core/src/types.ts",
+    "packages/core/test/settings-computer.test.ts",
+    "apps/desktop/native/Computer.swift",
+    "apps/desktop/src/main/computer.ts",
+    "apps/desktop/src/main/credentials.ts",
+    "apps/desktop/src/renderer/src/settings/ComputerPanel.tsx",
+    "apps/desktop/src/renderer/src/Chat.tsx",
+    "apps/desktop/src/renderer/src/locale-zh-CN.ts",
+    "apps/desktop/e2e/computer.mjs",
+    "apps/desktop/e2e/fixtures/ComputerWindow.swift",
+    "specs/032-settings-and-capability-management.md",
+    "docs/adr/0015-native-computer-control.md",
+    "docs/manual/computer-use.md",
+    "docs/teach/42-native-computer-control.html",
+    "docs/teach/index.html",
+    "docs/plan.md",
+    "CHANGELOG.md"
+  ],
+  "manualChecks": [
+    "The signed app refused to start native control before macOS Accessibility authorization. After the exact bundle was added in macOS Settings, both the Electron process and bundled helper reported the permission.",
+    "The signed desktop settings granted an isolated synthetic app and assigned a session. A second session could not take control. The loopback model observed the real AX window and secure field content was excluded. The count stayed at zero before approval and reached one after it. A separately approved edit set the native text field. The session retained dispatch and applied receipts under the same operation ID.",
+    "Fresh signed-app runs rejected a stale snapshot, a different foreground application, an emergency stop, and app-grant revocation before action dispatch. Neither test window received an extra press. Opening a private sign-in window revoked ownership and rejected a new assignment.",
+    "The injected adapter tests verified denial, changed window identity, pre-dispatch durability, a stopped call that ignored cancellation, exclusive drain, late response discard, lease expiry, and refusal to redispatch stale references on restart. A competing host with the same data directory could not acquire ownership. The gateway rejected every native control RPC."
+  ],
+  "limitations": [
+    "The real fixture ran on macOS 15.7.2 arm64 with an ad-hoc signed bundle and a user-granted Accessibility permission. The helper deployment target is macOS 13.",
+    "Native input supports AX press and editable non-secure text, scoped to one foreground window. Supported app controls depend on the app's Accessibility tree. The fake adapter exercises a blocked native call and restart recovery.",
+    "One pre-existing unit test was skipped."
+  ],
+  "rollback": "Stop the active lease and revoke app grants in Settings before reverting. Preserve the session logs and durable action receipts. The gateway and browser ownership paths remain independent."
+}

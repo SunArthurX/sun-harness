@@ -1,6 +1,6 @@
 {
   "name": "sun-harness",
-  "version": "0.7.0",
+  "version": "0.11.0",
   "private": true,
   "type": "module",
   "description": "A personal, first-principles agent harness: coding agent, general agent, and personal assistant.",
@@ -20,6 +20,7 @@
     "desktop:install": "pnpm run desktop:package && rm -rf ~/Applications/sun-harness.app && mkdir -p ~/Applications && cp -R apps/desktop/release/mac-arm64/sun-harness.app ~/Applications/"
   },
   "devDependencies": {
+    "@babel/parser": "^8.1.0",
     "@types/node": "^24.0.0",
     "esbuild": "^0.28.2",
     "typescript": "^7.0.2",

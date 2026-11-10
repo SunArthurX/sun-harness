@@ -1,0 +1,22 @@
+$ node --test scripts/check-settings-plan.test.mjs
+# started 2026-11-10T06:00:13Z
+✔ current plan is coherent (9.608ms)
+✔ missing screenshot entry is rejected (0.374833ms)
+✔ unknown dependency is rejected (0.265667ms)
+✔ dependency cycle is rejected (0.277208ms)
+✔ fake completion without evidence is rejected (0.275375ms)
+✔ unknown acceptance is rejected (0.538125ms)
+✔ unimplemented dependency blocks starting work (0.298208ms)
+✔ unexplained deferral is rejected (0.237ms)
+✔ outside-repository specification is rejected (0.185ms)
+✔ the live prompt includes the full public quote and excludes the separate procedure (1.785583ms)
+✔ release accepts nine distinct first-attempt passes with artifact evidence (0.147458ms)
+✔ release rejects old, repeated, retried, unfinished, or undocumented results (0.199458ms)
+ℹ tests 12
+ℹ suites 0
+ℹ pass 12
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 65.262625

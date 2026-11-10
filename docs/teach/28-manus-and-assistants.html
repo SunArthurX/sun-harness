@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" /><meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>28 · Manus and personal assistants — sun-harness</title>
+<link rel="stylesheet" href="teach.css" />
+<script type="module">import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs'; mermaid.initialize({ startOnLoad: true, theme: 'neutral' });</script>
+</head>
+<body>
+<header class="top"><div class="wrap"><a class="brand" href="index.html">sun<em>harness</em> · teach</a><nav><a href="index.html">All pages</a></nav></div></header>
+<main class="wrap">
+<p class="muted">Release 0.10.0 · spec <code>specs/030-manus-and-assistants.md</code></p>
+<h1>28 · What <em>Manus</em> and a personal assistant still had</h1>
+<p class="lede">Plans, a browser, a sandbox, and schedules were already here. Manus still felt different because a list of items did not share one context, and the result was a file you open. Hermes and OpenClaw still felt different because they know who you are in a few lines, they can be invoked as a skill, and they can find an old conversation without stuffing it into the prompt.</p>
+
+<h2>Fresh context, then one file</h2>
+<div class="mermaid">
+flowchart TD
+  Q["wide_research: question + items"] --> A["subagent: Alpha only"]
+  Q --> B["subagent: Beta only"]
+  A --> F["research/question.md"]
+  B --> F
+  F --> P["parent synthesizes"]
+</div>
+<div class="qa"><p class="q">Why not a hundred subagents?</p><p class="a">Manus rents a cloud computer per item. This harness runs on the laptop that also holds your keys. Eight items, one after another, keeps each note in its own session and leaves a markdown file. The parent still writes the conclusion. Parallel fan-out on one shared model queue would also scramble a scripted test, which is a hint that the provider is a single conversation, not a cluster.</p></div>
+<div class="qa"><p class="q">Why HTML slides?</p><p class="a">The valuable part of Manus Slides is a deck you can present, with notes, not a dependency on PowerPoint or an image model. <code>make_slides</code> writes one HTML file (arrow keys) and one notes file. The Deliverables list is how you find them, next to screenshots, figures, and research notes.</p></div>
+
+<h2>A profile that cannot grow forever</h2>
+<p>OpenClaw and Hermes both refuse to let "memory" mean "the whole transcript." <code>USER.md</code> is capped at 1,375 characters and is its own prompt section. Daily notes take one line per summarized assistant session and stay on disk. <code>session_search</code> is how the agent looks up the rest, the same search the sidebar already used.</p>
+<div class="qa"><p class="q">Why is a skill a slash command?</p><p class="a">Hermes treats every installed skill as <code>/name</code>. Custom commands still win, so a project command is not replaced by a skill of the same name. The logged message contains the skill body. Otherwise the model would see <code>/deploy</code> and the log would not explain what that meant.</p></div>
+
+<h2>Lessons</h2>
+<ul>
+<li>Wide research is a context rule (one item, one session), not a promise of a data center.</li>
+<li>A profile with a hard cap is more useful than a memory file that slowly becomes the prompt.</li>
+<li>Deliverables are a list of paths. A sentence that names a file is not the same thing.</li>
+</ul>
+</main>
+</body>
+</html>

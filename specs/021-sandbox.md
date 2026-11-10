@@ -45,3 +45,7 @@ When a sandbox is active, the system prompt's environment section says which one
 ## Surfaces
 
 `sun sandbox status | test` (self-test: write inside works, write to `~` fails), session flag `--sandbox`, desktop header chip (`⛉ seatbelt` / `no sandbox`), Settings (mode, network, allowlist, auto-approve), gateway method `sandboxInfo`.
+
+Decision — The CLI self-test succeeds only when the shell exits normally
+and reports both probes with the expected result for the selected backend.
+Backend launch failures or missing probes produce a nonzero exit code.

@@ -1,0 +1,20 @@
+# D16 observation, 2026-11-10 ~13:42 Asia/Shanghai, after the A2 run of
+# `node apps/desktop/e2e/chat-product.mjs` (post-d13-chat-product-final) and
+# `node apps/desktop/e2e/settings.mjs` (post-d13-settings, exit 1 at teardown).
+# Command: ps -eo pid,ppid,etime,command | rg "sun-settings-e2e|sun-chat-product"
+# Columns: pid ppid elapsed command (truncated to 200 characters).
+# The managed Chromium of the closed Electron fixture app was re-parented to
+# launchd (ppid 1) and was still running. A second orphan (87300) came from a
+# chat fixture run on 2026-11-09. Both were stopped with `kill` afterwards.
+42871     1       01:51 /Applications/Google Chrome.app/Contents/MacOS/Google Chrome --use-mock-keychain --user-data-dir=/var/folders/4c/_fqg96ms18dc7mrmk9dfq32c0000gp/T/sun-chat-product-Zj3t5e/deskto
+42987 42871       01:48 /Applications/Google Chrome.app/Contents/Frameworks/Google Chrome Framework.framework/Versions/156.0.8078.81/Helpers/Google Chrome Helper.app/Contents/MacOS/Google Chrome Helpe
+87300     1    15:53:22 /Applications/Google Chrome.app/Contents/MacOS/Google Chrome --user-data-dir=/var/folders/4c/_fqg96ms18dc7mrmk9dfq32c0000gp/T/sun-chat-product-HdFkdL/desktop-state/browser/prof
+
+# Settings fixture temp home left behind by the failed teardown (ENOTEMPTY):
+# find sun-settings-e2e-pmOn2K
+sun-settings-e2e-pmOn2K/browser/profiles/default/Default/Cache/Cache_Data/index-dir/the-real-index
+
+# A dedicated rerun with the same pre-fix desktop build passed the new
+# survivor assertion (d16-orphan-chromium-first.txt): the race is intermittent.
+# Electron's `before-quit` started `host.dispose()` without waiting; dispose
+# closes tabs over CDP before it kills the Chromium process.

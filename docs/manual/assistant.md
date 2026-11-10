@@ -4,12 +4,16 @@ How the Assistant mode learns about you, reaches your tools, shows up on its own
 
 ## Memory
 
-Two layers:
+Profile, instructions, and memory have separate sources.
 
-- **Core memory** (`~/.sun/memory/MEMORY.md`): a few lines that matter in every conversation (name, language, time zone). Always shown to the model. Edit it on the Knowledge screen.
+- **User profile** (`~/.sun/memory/USER.md`): who you are (name, role, timezone, how you like to be answered). Loaded every session and capped at 1,375 characters, so it stays small. Edit it in **Settings → User profile**, or add a stable fact with `remember_user`.
+- **Personal instructions** (`~/.sun/memory/INSTRUCTIONS.md`): standing instructions you edit in **Settings → Personal instructions**. They apply to new turns in every mode and are capped at 1,375 characters.
+- **Core memory** (`~/.sun/memory/MEMORY.md`): notes the model receives when memory is enabled. Edit them in **Settings → Memory**.
 - **Long-term memory**: facts, preferences, people, projects, lessons and one-line summaries of past conversations. Only the relevant ones are recalled when you write a message, so it can grow without slowing anything down.
+- **Daily notes** (`~/.sun/memory/daily/YYYY-MM-DD.md`): one line per assistant conversation, written when a session is summarized. Not loaded whole into the prompt.
+- **Past conversations**: the assistant can call `session_search` when you refer to something decided earlier. The sidebar search does the same for you.
 
-After each Assistant conversation, sun extracts what you said or confirmed that is worth remembering (never the assistant's own suggestions). You can also say "remember that …".
+After each Assistant conversation, sun extracts what you said or confirmed that is worth remembering (never the assistant's own suggestions). Newly extracted core facts go into `MEMORY.md`. Existing profile text stays in `USER.md`. **Settings → Memory** turns off automatic recall and extraction without deleting saved data. You can also say "remember that …". A skill is a slash command: `/deploy the api` loads `deploy` when that skill is installed and no custom command uses the name.
 
 ```bash
 sun memory list
@@ -43,6 +47,9 @@ sun briefing show                  # today's
 ```
 
 It covers today's meetings and todos (DingTalk when signed in), open follow-ups from memory, the day's harness intel, and up to three priorities. Briefings are saved in `~/.sun/briefings/`. To also receive it in a chat: `"briefing": { "chats": ["telegram:123456789"] }` (see [Chat bots](bots.md)). Settings → Daily briefing has the same switches.
+
+`sun briefing show 2026-11-07` opens a saved briefing by local calendar date.
+The briefing can use the completed Intel report for that same date.
 
 ## Event triggers
 

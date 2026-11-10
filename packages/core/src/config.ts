@@ -9,12 +9,15 @@ import type { TriggerDef } from './assistant/triggers.js';
 import { DEFAULT_VOICE, type VoiceConfig } from './assistant/voice.js';
 import { DEFAULT_LSP, type LspConfig } from './lsp.js';
 import type { ModelPrice } from './ux/pricing.js';
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
-import { ensureDir, homePath, sunHome } from './paths.js';
+import { homePath } from './paths.js';
+import { record, validateConfigVersion, validateEffectiveSettings, SettingsConfigError } from './settings/schema.js';
+import { DEFAULT_STORAGE, defaultUiPreferences, type DefaultMode, type StoragePreferences, type UiPreferences } from './settings/preferences.js';
+import { readSettingsFile, transactSettingsFile } from './settings/store.js';
 import { AnthropicProvider } from './providers/anthropic.js';
 import { OpenAICompatProvider } from './providers/openai.js';
 import type { Provider } from './providers/types.js';
 import type { BotsConfig } from './bots/adapters.js';
+import { DEFAULT_REVIEW, type ReviewSettings } from './review.js';
 
 export type ApprovalMode = 'suggest' | 'auto-edit' | 'full-auto';
 
@@ -52,6 +55,7 @@ export interface IntelSource {
 export interface SunConfig {
   providers: Record<string, ProviderConfig>;
   defaultModel: string;
+  defaultMode: DefaultMode;
   /** Tried in order when the current model pauses for quota/auth. */
   fallbackModels: string[];
   approval: ApprovalMode;
@@ -78,6 +82,7 @@ export interface SunConfig {
   jobs: { promoteAfterMs: number; killOnExit: boolean };
   /** Done gate for coding runs that edited files: project verify commands (`.sun/project.json` or detected). */
   verify: { enabled: boolean; maxAttempts: number; timeoutMs: number };
+  review: ReviewSettings;
   /** Repository map in the coding prompt (projects with at least minFiles source files). */
   repoMap: { enabled: boolean; budget: number; minFiles: number };
   /** Shell sandbox for bash, background jobs, and verify commands (specs/021). */
@@ -108,6 +113,9 @@ export interface SunConfig {
   titles: 'model' | 'first-message';
   /** Scheduling intent in typed messages ("every weekday at 9 …") becomes a proposal to confirm. */
   automations: { detect: boolean };
+  /** Desktop and web UI language: follow the system, or force English / Simplified Chinese (specs/028). */
+  ui: UiPreferences;
+  storage: StoragePreferences;
   /** USD per million tokens by `provider/model` (prefix* allowed); merged over the built-in table. */
   pricing?: Record<string, ModelPrice>;
   /** Chat bots run inside the gateway (sun serve). Allowlists are platform user ids; empty = nobody. */
@@ -187,6 +195,7 @@ export function defaultConfig(): SunConfig {
   return {
     providers: {},
     defaultModel: '',
+    defaultMode: 'coding',
     fallbackModels: [],
     approval: 'auto-edit',
     denyInsteadOfPrompting: false,
@@ -202,6 +211,7 @@ export function defaultConfig(): SunConfig {
     evolution: { autoReflect: false },
     jobs: { promoteAfterMs: 30000, killOnExit: false },
     verify: { enabled: true, maxAttempts: 2, timeoutMs: 300000 },
+    review: { ...DEFAULT_REVIEW },
     repoMap: { enabled: true, budget: 6000, minFiles: 8 },
     sandbox: structuredClone(DEFAULT_SANDBOX),
     browser: structuredClone(DEFAULT_BROWSER),
@@ -218,6 +228,8 @@ export function defaultConfig(): SunConfig {
     steering: 'immediate',
     titles: 'model',
     automations: { detect: true },
+    ui: defaultUiPreferences(),
+    storage: { ...DEFAULT_STORAGE },
     bots: {
       defaultMode: 'assistant',
       approvals: 'chat',
@@ -231,46 +243,48 @@ export function defaultConfig(): SunConfig {
   };
 }
 
-function configFile(): string {
+export function configFile(): string {
   return homePath('config.json');
 }
 
-function deepMerge<T>(base: T, over: unknown): T {
+export function deepMerge<T>(base: T, over: unknown): T {
   if (!over || typeof over !== 'object' || Array.isArray(over)) return (over ?? base) as T;
   const out: Record<string, unknown> = { ...(base as Record<string, unknown>) };
   for (const [k, v] of Object.entries(over as Record<string, unknown>)) {
-    const b = (base as Record<string, unknown>)?.[k];
-    out[k] = b && typeof b === 'object' && !Array.isArray(b) && v && typeof v === 'object' && !Array.isArray(v) ? deepMerge(b, v) : v;
+    const b = base != null && Object.hasOwn(base, k) ? (base as Record<string, unknown>)[k] : undefined;
+    const value = b && typeof b === 'object' && !Array.isArray(b) && v && typeof v === 'object' && !Array.isArray(v) ? deepMerge(b, v) : v;
+    Object.defineProperty(out, k, { value, enumerable: true, writable: true, configurable: true });
   }
   return out as T;
 }
 
-export function loadConfig(): SunConfig {
-  let user: Partial<SunConfig> = {};
-  if (existsSync(configFile())) {
-    try {
-      user = JSON.parse(readFileSync(configFile(), 'utf8'));
-    } catch (e) {
-      throw new Error(`Invalid JSON in ${configFile()}: ${(e as Error).message}`);
-    }
-  }
+export function resolveConfig(user: Partial<SunConfig>): SunConfig {
+  validateConfigVersion(user as Record<string, unknown>);
+  if (user.providers !== undefined && !record(user.providers)) throw new SettingsConfigError('INVALID_CONFIG', 'Invalid provider configuration.');
   const cfg = deepMerge(defaultConfig(), user);
   cfg.providers = { ...PROVIDER_PRESETS, ...(user.providers ?? {}) };
   for (const [id, p] of Object.entries(user.providers ?? {})) {
-    if (PROVIDER_PRESETS[id]) cfg.providers[id] = { ...PROVIDER_PRESETS[id], ...p };
+    if (Object.hasOwn(PROVIDER_PRESETS, id)) cfg.providers[id] = { ...PROVIDER_PRESETS[id], ...p };
   }
-  if (!cfg.defaultModel) cfg.defaultModel = availableModels(cfg)[0] ?? 'deepseek/deepseek-chat';
+  validateEffectiveSettings(cfg);
+  if (cfg.defaultModel === '') cfg.defaultModel = availableModels(cfg)[0] ?? 'deepseek/deepseek-chat';
   return cfg;
 }
 
+export function loadConfig(): SunConfig {
+  return resolveConfig(readSettingsFile(configFile()).document);
+}
+
 /** Persist only the user-owned part (a partial patch merged over the existing file). */
-export function saveConfig(patch: Partial<SunConfig>): SunConfig {
-  ensureDir(sunHome());
-  let user: Record<string, unknown> = {};
-  if (existsSync(configFile())) user = JSON.parse(readFileSync(configFile(), 'utf8'));
-  const next = deepMerge(user, patch);
-  writeFileSync(configFile(), JSON.stringify(next, null, 2) + '\n');
-  return loadConfig();
+export function saveConfig(patch: Omit<Partial<SunConfig>, 'ui'> & { ui?: Partial<UiPreferences> }): SunConfig {
+  const result = transactSettingsFile(configFile(), undefined, ({ document }) => {
+    resolveConfig(document);
+    const next = deepMerge(document, patch);
+    resolveConfig(next);
+    return { document: next };
+  });
+  if (!result.ok) throw new Error(`Could not save configuration (${result.code})`);
+  return resolveConfig(result.file.document);
 }
 
 export function providerKey(p: ProviderConfig): string | undefined {

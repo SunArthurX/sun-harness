@@ -22,6 +22,8 @@ writeFileSync(
   JSON.stringify({
     defaultModel: process.env.SUN_E2E_MODEL || 'deepseek/deepseek-chat',
     approval: 'suggest',
+    // Screenshots and text selectors are English. A Chinese OS would otherwise translate the chrome.
+    ui: { language: 'en' },
     // A provider with a rejected key, to exercise the paused banner and "Switch & resume".
     providers: { broke: { type: 'openai', baseUrl: 'https://api.deepseek.com/v1', apiKey: 'sk-invalid', models: ['deepseek-chat'] } },
   }),
@@ -32,7 +34,7 @@ writeFileSync(join(home, 'kb', 'harness.md'), '# Harness notes\n\n## Principles\
 const app = await electron.launch({
   executablePath: require('electron'),
   args: [join(here, '..', 'out', 'main', 'index.js')],
-  env: { ...process.env, SUN_HOME: home, SUN_SKIP_SHELL_ENV: '1' },
+  env: { ...process.env, SUN_HOME: home, SUN_SKIP_SHELL_ENV: '1', SUN_NO_GATEWAY: '1' },
 });
 const win = await app.firstWindow();
 await win.setViewportSize?.({ width: 1360, height: 860 }).catch(() => {});
@@ -131,23 +133,29 @@ await win.click('.chat-head .chip:has-text("⑂")');
 await win.waitForSelector('.changes .fs');
 await win.waitForTimeout(300);
 await win.screenshot({ path: join(shots, '11-worktree.png') });
-await win.click('.changes .btn-primary');
-await win.waitForSelector('.changes :text("Squashed")', { timeout: 10_000 });
+await win.click('.changes button[data-action="squash"]');
+try {
+  await win.waitForSelector('.changes[data-worktree="merged"]', { timeout: 10_000 });
+} catch (e) {
+  console.log('worktree-panel', JSON.stringify(await win.locator('.changes').first().innerText().catch(() => '')));
+  throw e;
+}
 const merged = existsSync(join(repo, 'hello.txt'));
 const staged = spawnSync('git', ['status', '--porcelain'], { cwd: repo, encoding: 'utf8' }).stdout;
 console.log('worktree', JSON.stringify({ inMainBefore, merged, staged: staged.trim() }));
 if (inMainBefore || !merged || !/hello\.txt/.test(staged)) process.exitCode = 1;
 
 const pages = [
-  ['Knowledge', '04-knowledge.png'],
-  ['Skills · MCP · Plugins', '05-extensions.png'],
-  ['Evolution', '06-evolution.png'],
-  ['Harness Intel', '07-intel.png'],
-  ['Settings', '08-settings.png'],
+  ['knowledge', '04-knowledge.png'],
+  ['extensions', '05-extensions.png'],
+  ['evolution', '06-evolution.png'],
+  ['intel', '07-intel.png'],
+  ['automations', '12-automations.png'],
+  ['settings', '08-settings.png'],
 ];
-for (const [title, file] of pages) {
-  await win.click(`.rail-btn[title="${title}"]`);
-  if (title === 'Knowledge') {
+for (const [id, file] of pages) {
+  await win.click(`.rail-btn[data-nav="${id}"]`);
+  if (id === 'knowledge') {
     await win.fill('.card input', 'logged principles');
     await win.keyboard.press('Enter');
     await win.waitForSelector('.hit', { timeout: 5000 }).catch(() => {});

@@ -1,0 +1,19 @@
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+locator.waitFor: Error: strict mode violation: locator('.dock').getByText('audit-chat.txt', { exact: true }) resolved to 2 elements:
+    1) <span class="mono small">audit-chat.txt</span> aka getByRole('button', { name: 'A audit-chat.txt +1 −' }).nth(1)
+    2) <span class="mono small">audit-chat.txt</span> aka getByText('audit-chat.txt').nth(3)
+
+Call log:
+[2m  - waiting for locator('.dock').getByText('audit-chat.txt', { exact: true }) to be visible[22m
+
+    at exerciseChat (/Users/sunqingguang/Downloads/06.code/sun-harness/apps/desktop/e2e/chat-product.mjs:82:59)
+    at async file:///Users/sunqingguang/Downloads/06.code/sun-harness/apps/desktop/e2e/chat-product.mjs:137:3 {
+  log: [
+    "  - waiting for locator('.dock').getByText('audit-chat.txt', { exact: true }) to be visible"
+  ]
+}
+
+Node.js v24.15.0

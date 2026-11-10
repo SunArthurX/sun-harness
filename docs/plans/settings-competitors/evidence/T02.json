@@ -1,0 +1,56 @@
+{
+  "task": "T02",
+  "result": "pass",
+  "acceptance": [
+    "AC-01",
+    "AC-02",
+    "AC-03"
+  ],
+  "commands": [
+    {
+      "command": "pnpm test",
+      "exitCode": 0,
+      "outputFile": "docs/plans/settings-competitors/evidence/T02-test.txt"
+    },
+    {
+      "command": "pnpm build",
+      "exitCode": 0,
+      "outputFile": "docs/plans/settings-competitors/evidence/T02-build.txt"
+    },
+    {
+      "command": "pnpm typecheck",
+      "exitCode": 0,
+      "outputFile": "docs/plans/settings-competitors/evidence/T02-typecheck.txt"
+    },
+    {
+      "command": "node apps/desktop/e2e/settings.mjs",
+      "exitCode": 0,
+      "outputFile": "docs/plans/settings-competitors/evidence/T02-e2e.txt"
+    }
+  ],
+  "artifacts": [
+    "packages/core/src/settings/store.ts",
+    "packages/core/src/settings/service.ts",
+    "packages/core/src/settings/schema.ts",
+    "packages/core/test/settings-store.test.ts",
+    "packages/core/test/settings-service.test.ts",
+    "apps/desktop/e2e/settings.mjs",
+    "docs/manual/configuration.md",
+    "docs/teach/32-settings-transactions.html",
+    "docs/teach/index.html",
+    "docs/plan.md",
+    "CHANGELOG.md",
+    "docs/plans/settings-competitors/evidence/T02-progress.md"
+  ],
+  "manualChecks": [
+    "Inspected captured Electron IPC and served web assertions. Stale edits were retained until reload, secrets were absent from snapshots, and web language persisted.",
+    "Inspected the CLI and recovery assertions. Invalid time was rejected before disk mutation, and malformed configuration opened a recovery screen without changing the file.",
+    "Verified cross-process CAS, crash before and after replacement, permission preservation, field validation, audit preparation failures and the old gateway RPC rejection in the focused tests."
+  ],
+  "limitations": [
+    "Local Electron and gateway web were exercised on macOS. Platform-specific directory flush support is surfaced in the write result.",
+    "The current schema is additive and has no legacy file conversion. Standalone remote preferences and capability negotiation are assigned to later tasks.",
+    "The pre-existing skipped test remains outside this acceptance."
+  ],
+  "rollback": "Back up config.json and the audit before downgrading. The file layout is unchanged. Stop clients and the gateway together, then use matching versions. Keep any audit records for diagnosis."
+}

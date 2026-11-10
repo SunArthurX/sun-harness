@@ -1,0 +1,16 @@
+
+ RUN  v5.1.0 /Users/sunqingguang/Downloads/06.code/sun-harness
+
+ ✓ packages/core/test/context.test.ts > context report > keeps project and global rule budgets independent and points to omitted files 1ms
+ ✓ packages/core/test/context.test.ts > context report > breaks the next request into categories and honors compaction 14ms
+ ✓ packages/core/test/context.test.ts > host: context usage, flags, titles > measures a real session, including the system prompt and tools 542ms
+ ✓ packages/core/test/context.test.ts > host: context usage, flags, titles > pins and archives sessions 5ms
+ ✓ packages/core/test/context.test.ts > host: context usage, flags, titles > compacts a smaller model switch with the original model when usable (true) 134ms
+ ✓ packages/core/test/context.test.ts > host: context usage, flags, titles > compacts a smaller model switch with the original model when usable (false) 136ms
+ ✓ packages/core/test/context.test.ts > host: context usage, flags, titles > writes a model title after the first run, but never over a rename 66ms
+
+ Test Files  1 passed (1)
+      Tests  7 passed (7)
+   Start at  21:58:01
+   Duration  1.22s (tests 79%, import 14%, transform 7%)
+

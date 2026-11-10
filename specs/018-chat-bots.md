@@ -25,4 +25,11 @@ Code: `packages/core/src/bots/bridge.ts` (`BotBridge`), `bots/adapters.ts` (`Tel
 
 WeChat-family crypto is verified against the official WXBizMsgCrypt sample vector, Feishu decryption against its documented sample.
 
+Decision — Callback reply ownership. For DingTalk and generic webhooks,
+identification and allowlist denials return only the request's identity
+response. They never expose the existing session ID or change a chat's saved
+reply destination. While a synchronous generic webhook request owns a chat's
+reply collection, other authorized requests for that chat return HTTP 409.
+Requests for other chats continue independently.
+
 Bots whose credentials are missing are reported as skipped at start-up.

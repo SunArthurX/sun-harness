@@ -1,0 +1,16 @@
+✔ both locales use the denied state without exposing the adapter error (1.006083ms)
+✔ denied renders the English denial label and disables the action (0.679ms)
+✔ denied renders the Chinese denial label and disables the action (0.06925ms)
+✔ denied status does not call capture (0.099666ms)
+✔ a PERMISSION_DENIED rejection during capture returns the denial state (0.09225ms)
+✔ other capture failures reject with the original error (0.352667ms)
+✔ available behavior is preserved (0.104084ms)
+✔ unavailable remains disabled (0.378417ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 8
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 47.091

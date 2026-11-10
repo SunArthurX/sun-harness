@@ -60,3 +60,8 @@ curl -s "http://127.0.0.1:4471/bots/webhook?wait=1" -H "Authorization: Bearer $T
 ```
 
 Without `?wait=1` the call returns `202` and replies are POSTed to `replyUrl` (`{chatId, text}`) if you passed one.
+
+While a synchronous request is collecting replies, other authorized requests
+for the same chat get `409`. Retry after the first request returns. Other
+chats continue independently. An identity lookup or allowlist denial can
+answer the requesting caller without changing the saved reply address.

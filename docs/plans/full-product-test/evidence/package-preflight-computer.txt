@@ -1,0 +1,3 @@
+/private/var/folders/4c/_fqg96ms18dc7mrmk9dfq32c0000gp/T/sun-computer-e2e-UkpSuM/Sun Computer Fixture.app: replacing existing signature
+Accessibility authorized for signed desktop: false. Native helper: false.
+The signed desktop exposes the local Computer Use panel and denies control before Accessibility authorization.

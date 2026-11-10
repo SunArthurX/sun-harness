@@ -1,0 +1,17 @@
+✔ both locales use the denied state without exposing the adapter error (1.043917ms)
+✔ denied status renders disabled denial state in English (0.725416ms)
+✔ denied status renders disabled denial state in Chinese (0.0685ms)
+✔ capture does not call adapter when status is denied (0.10325ms)
+✔ capture denial during capture after available probe returns denial state (0.529292ms)
+✔ available probe with successful capture stays available (0.122625ms)
+✔ other adapter failures keep rejecting (0.273583ms)
+✔ unavailable status stays disabled and never captures (0.087416ms)
+✔ unavailable remains disabled (0.378958ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 9
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 47.006959

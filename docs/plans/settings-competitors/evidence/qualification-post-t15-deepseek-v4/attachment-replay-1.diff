@@ -1,0 +1,106 @@
+diff --git a/src/replay.mjs b/src/replay.mjs
+index c831dac..d6421a9 100644
+--- a/src/replay.mjs
++++ b/src/replay.mjs
+@@ -3,12 +3,18 @@ export function replay(events, readAttachment) {
+   for (const event of events) {
+     if (event.type === 'assistant') messages.push({ role: 'assistant', text: event.text, images: [] });
+     if (event.type !== 'user') continue;
+-    try {
+-      const images = (event.attachments ?? []).map(path => readAttachment(path));
+-      messages.push({ role: 'user', text: event.text, images });
+-    } catch (error) {
+-      if (error.code !== 'ENOENT') throw error;
++    const images = [];
++    let missing = 0;
++    for (const path of event.attachments ?? []) {
++      try {
++        images.push(readAttachment(path));
++      } catch (error) {
++        if (error.code !== 'ENOENT') throw error;
++        missing += 1;
++      }
+     }
++    const text = missing === 0 ? event.text : `${event.text}\n[Missing attachments: ${missing}]`;
++    messages.push({ role: 'user', text, images });
+   }
+   return messages;
+ }
+diff --git a/test/additions.test.mjs b/test/additions.test.mjs
+new file mode 100644
+index 0000000..be45eaa
+--- /dev/null
++++ b/test/additions.test.mjs
+@@ -0,0 +1,72 @@
++import { test } from 'node:test';
++import assert from 'node:assert/strict';
++import { replay } from '../src/replay.mjs';
++
++const enoent = path => {
++  const error = new Error(`ENOENT: no such file or directory, '${path}'`);
++  error.code = 'ENOENT';
++  throw error;
++};
++
++test('missing attachment keeps user message with a missing-attachments note', () => {
++  const events = [{ type: 'user', text: 'hello', attachments: ['missing'] }];
++  assert.deepEqual(replay(events, enoent), [
++    { role: 'user', text: 'hello\n[Missing attachments: 1]', images: [] },
++  ]);
++});
++
++test('missing attachments are counted and successful images keep original order', () => {
++  const events = [
++    { type: 'user', text: 'hi', attachments: ['ok-1', 'missing-1', 'ok-2', 'missing-2', 'missing-3'] },
++  ];
++  const read = path => (path.startsWith('ok') ? `image:${path}` : enoent(path));
++  assert.deepEqual(replay(events, read), [
++    {
++      role: 'user',
++      text: 'hi\n[Missing attachments: 3]',
++      images: ['image:ok-1', 'image:ok-2'],
++    },
++  ]);
++});
++
++test('user and assistant events replay in order across missing attachments', () => {
++  const events = [
++    { type: 'user', text: 'first', attachments: ['missing'] },
++    { type: 'assistant', text: 'reply' },
++    { type: 'user', text: 'second', attachments: ['ok'] },
++    { type: 'system', text: 'ignored' },
++    { type: 'user', text: 'third' },
++  ];
++  const read = path => (path === 'ok' ? 'image' : enoent(path));
++  assert.deepEqual(replay(events, read), [
++    { role: 'user', text: 'first\n[Missing attachments: 1]', images: [] },
++    { role: 'assistant', text: 'reply', images: [] },
++    { role: 'user', text: 'second', images: ['image'] },
++    { role: 'user', text: 'third', images: [] },
++  ]);
++});
++
++test('missing attachment output does not leak paths or substitute bytes', () => {
++  const result = replay([{ type: 'user', text: 'x', attachments: ['secret/path.png'] }], enoent);
++  assert.equal(result[0].text, 'x\n[Missing attachments: 1]');
++  assert.deepEqual(result[0].images, []);
++  assert.ok(!JSON.stringify(result).includes('secret/path.png'));
++});
++
++test('non-ENOENT reader errors propagate', () => {
++  const failure = new Error('permission denied');
++  failure.code = 'EACCES';
++  assert.throws(
++    () => replay([{ type: 'user', text: 'x', attachments: ['locked'] }], () => { throw failure; }),
++    error => error === failure,
++  );
++});
++
++test('intact replay and event array are unchanged', () => {
++  const events = [{ type: 'user', text: 'hello', attachments: ['a'] }];
++  const snapshot = structuredClone(events);
++  assert.deepEqual(replay(events, () => 'image'), [
++    { role: 'user', text: 'hello', images: ['image'] },
++  ]);
++  assert.deepEqual(events, snapshot);
++});

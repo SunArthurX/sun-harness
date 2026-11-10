@@ -1,0 +1,31 @@
+✖ serve owns CLI sessions, isolates local routing, and creates removable launch-agent metadata (1246.088333ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1308.444042
+
+✖ failing tests:
+
+test at packages/cli/e2e/product.mjs:249:1
+✖ serve owns CLI sessions, isolates local routing, and creates removable launch-agent metadata (1246.088333ms)
+  AssertionError [ERR_ASSERTION]: [31mreadline was closed[0m
+  
+  
+  1 !== 0
+  
+      at succeed (file:///Users/sunqingguang/Downloads/06.code/sun-harness/packages/cli/e2e/product.mjs:88:10)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async TestContext.<anonymous> (file:///Users/sunqingguang/Downloads/06.code/sun-harness/packages/cli/e2e/product.mjs:282:24)
+      at async Test.run (node:internal/test_runner/test:1208:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:385:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

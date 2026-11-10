@@ -1,0 +1,37 @@
+✔ missing attachments keep the turn and healthy images in order (0.918208ms)
+✔ single missing attachment keeps user message with note (0.7735ms)
+✔ successful images are kept in original order around a missing one (0.092ms)
+✔ multiple missing attachments are counted (0.093417ms)
+✔ note never includes paths (0.114166ms)
+✔ user and assistant events replay in order (0.109ms)
+✖ non-ENOENT reader errors propagate (0.371ms)
+✔ unrelated event types are ignored (0.068125ms)
+✔ event array and intact replay are unchanged (0.111ms)
+✔ intact attachment replay (0.710667ms)
+ℹ tests 10
+ℹ suites 0
+ℹ pass 9
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 48.532917
+
+✖ failing tests:
+
+test at test/additions.test.mjs:55:1
+✖ non-ENOENT reader errors propagate (0.371ms)
+  AssertionError [ERR_ASSERTION]: Missing expected exception.
+      at TestContext.<anonymous> (file:///private/var/folders/4c/_fqg96ms18dc7mrmk9dfq32c0000gp/T/sun-eval-attachment-replay-9SgPTc/test/additions.test.mjs:57:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1201:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:831:18)
+      at Test.postRun (node:internal/test_runner/test:1330:19)
+      at Test.run (node:internal/test_runner/test:1258:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    operator: 'throws',
+    diff: 'simple'
+  }

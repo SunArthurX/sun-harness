@@ -1,0 +1,1 @@
+PythonKernel rendered a 18984-byte PNG with real Matplotlib 3.11.2.

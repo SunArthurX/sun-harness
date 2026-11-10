@@ -1,0 +1,17 @@
+✔ defaults, UI labels, boundary validation and shared revision (1.110208ms)
+✔ pageSize defaults to 25 with default provenance (0.460834ms)
+✔ pageSize is exposed through ipc and gateway (0.572667ms)
+✔ renderer renders Page size and 每页数量 (0.476625ms)
+✔ cli accepts inclusive and digit strings (0.185416ms)
+✔ cli rejects partial numbers and out-of-range values without mutating state (0.184167ms)
+✔ rejection surfaces the error thrown by the injected host (0.221333ms)
+✔ verbose and unknown persisted keys are preserved (0.08575ms)
+✔ verbose remains editable (0.540084ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 9
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 52.884667

@@ -1,5 +1,9 @@
 import type { Tool, ToolContext, ToolServices } from './types.js';
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { buildRepoMap } from '../repomap.js';
+import { searchCodebase } from '../ux/codebase.js';
+import { renderSlides, speakerNotes, type SlideInput } from '../ux/slides.js';
 
 function need<K extends keyof ToolServices>(ctx: ToolContext, k: K): NonNullable<ToolServices[K]> {
   const fn = ctx.services[k];
@@ -71,6 +75,78 @@ export const SERVICE_TOOLS: Tool[] = [
     execute: (a, ctx) => need(ctx, 'loadSkill')(String(a.name)),
   },
   {
+    name: 'wide_research',
+    description:
+      'Research several independent items without mixing them in one context (Manus wide research, bounded). Pass a question and 2–8 items. Each item runs in a fresh subagent. Writes research/<question>.md and returns the combined notes for you to synthesize.',
+    parameters: {
+      type: 'object',
+      properties: {
+        question: { type: 'string' },
+        items: { type: 'array', items: { type: 'string' }, description: 'Independent subjects, one each.' },
+      },
+      required: ['question', 'items'],
+    },
+    risk: 'read',
+    source: 'builtin',
+    modes: ['agent'],
+    execute: (a, ctx) => need(ctx, 'wideResearch')(String(a.question ?? ''), Array.isArray(a.items) ? a.items.map(String) : []),
+  },
+  {
+    name: 'make_slides',
+    description:
+      'Write a presentation the user can open: an HTML deck (arrow keys) and a speaker-notes markdown file under slides/. Pass a title and slides with title, bullets, and notes. Use this when the user wants a deck, not a prose outline.',
+    parameters: {
+      type: 'object',
+      properties: {
+        title: { type: 'string' },
+        slides: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              title: { type: 'string' },
+              bullets: { type: 'array', items: { type: 'string' } },
+              notes: { type: 'string' },
+            },
+            required: ['title'],
+          },
+        },
+      },
+      required: ['title', 'slides'],
+    },
+    risk: 'write',
+    source: 'builtin',
+    modes: ['agent', 'assistant'],
+    async execute(a, ctx) {
+      const title = String(a.title ?? 'Slides').slice(0, 120);
+      const slides = (Array.isArray(a.slides) ? a.slides : []) as SlideInput[];
+      const slug = title.toLowerCase().replace(/[^a-z0-9\u3400-\u9fff]+/g, '-').replace(/^-|-$/g, '').slice(0, 60) || 'slides';
+      const dir = join(ctx.cwd, 'slides');
+      mkdirSync(dir, { recursive: true });
+      const htmlPath = join(dir, `${slug}.html`);
+      const notesPath = join(dir, `${slug}-notes.md`);
+      writeFileSync(htmlPath, renderSlides(title, slides));
+      writeFileSync(notesPath, speakerNotes(title, slides));
+      return `Wrote ${htmlPath} (${slides.length} slides) and ${notesPath}. Open the HTML in a browser; arrow keys change slides.`;
+    },
+  },
+  {
+    name: 'session_search',
+    description: 'Search past conversations by words in titles and messages. Use this when the user refers to something decided earlier and it is not in memory.',
+    parameters: { type: 'object', properties: { query: { type: 'string' } }, required: ['query'] },
+    risk: 'read',
+    source: 'builtin',
+    execute: (a, ctx) => need(ctx, 'searchSessions')(String(a.query ?? '')),
+  },
+  {
+    name: 'remember_user',
+    description: 'Save one stable fact about the user (name, role, timezone, communication style, a lasting preference) into the user profile, which is loaded every session. One short sentence.',
+    parameters: { type: 'object', properties: { fact: { type: 'string' } }, required: ['fact'] },
+    risk: 'write',
+    source: 'builtin',
+    execute: (a, ctx) => need(ctx, 'rememberUser')(String(a.fact ?? '')),
+  },
+  {
     name: 'task',
     description:
       'Delegate a self-contained sub-task to a fresh subagent with its own context. Give a complete prompt; it returns a final report. Use for research or parallelizable work.',
@@ -94,6 +170,26 @@ export const SERVICE_TOOLS: Tool[] = [
     async execute(a, ctx) {
       if (!ctx.services.exitPlanMode) throw new Error('Plan mode is not available here.');
       return ctx.services.exitPlanMode(String(a.plan ?? ''));
+    },
+  },
+  {
+    name: 'codebase_search',
+    description:
+      'Search the repository by meaning or by a symbol name (functions, classes, types). Returns file:line snippets. Use this before reading whole files. Respects .cursorignore and .sunignore.',
+    parameters: {
+      type: 'object',
+      properties: {
+        query: { type: 'string', description: 'Words, a phrase, or a symbol name.' },
+        k: { type: 'number', description: 'How many snippets (default 8).' },
+      },
+      required: ['query'],
+    },
+    risk: 'read',
+    source: 'builtin',
+    async execute(a, ctx) {
+      const hits = searchCodebase(ctx.cwd, String(a.query ?? ''), Number(a.k) || 8);
+      if (!hits.length) return 'No matches.';
+      return hits.map((h) => `${h.path}:${h.line} (score ${h.score})\n${h.text}`).join('\n---\n');
     },
   },
   {

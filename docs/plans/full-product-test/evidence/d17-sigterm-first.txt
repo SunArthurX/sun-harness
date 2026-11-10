@@ -1,0 +1,32 @@
+# D17 first observation, 2026-11-10. Introduced by the first D16 fix.
+# After `node apps/desktop/e2e/computer.mjs <final-app> --preflight-only`
+# (complete-computer-preflight.txt, exit 0), the signed final app was still
+# running. The fixture had sent one SIGTERM through stopFixture():
+#   66784     1   01:34 .../full-product-d16/mac-arm64/sun-harness.app/Contents/MacOS/sun-harness --user-data-dir=/private/var/folders/.../sun-computer-e2e-pNrEYF/electron ...
+# A second manual SIGTERM ended it (the first signal resets the handler).
+# Reproduced: a rerun of the preflight left pid 67498 running. The pre-D16
+# package release/full-product-latest exited after the same fixture.
+#
+# Probe (/tmp/sigterm-probe.mjs): launch the dev Electron with out/main/index.js,
+# wait 5 s, send one SIGTERM, wait 10 s.
+# Current build (before-quit: preventDefault, dispose, then app.quit() in the promise):
+still running 10 s after one SIGTERM
+# Same build with quit-path logging added to out/main/index.js (temporary):
+1794290825939 before-quit disposing=false
+1794290825940 disposed, calling app.quit
+1794290825940 before-quit disposing=true
+1794290826042 app.quit returned
+1794290826049 event
+window-all-closed
+# The re-requested quit closed the windows but Electron emitted
+# window-all-closed (no quit on macOS) instead of will-quit.
+# Same build with the re-quit deferred by setTimeout(..., 0):
+exited 163 ms after one SIGTERM
+1794290854899 before-quit disposing=false
+1794290854910 disposed, calling app.quit
+1794290854910 app.quit returned
+1794290854912 before-quit disposing=true
+1794290855017 event
+will-quit
+1794290855017 event
+quit

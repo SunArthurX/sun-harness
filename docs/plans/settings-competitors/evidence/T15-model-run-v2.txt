@@ -1,0 +1,13 @@
+Fixture attachment-replay: untouched fails=true, reference passes=true
+Fixture permission-denial: untouched fails=true, reference passes=true
+Fixture validated-setting: untouched fails=true, reference passes=true
+permission-denial-1: PASS (idle, 19287 ms)
+attachment-replay-1: FAIL (paused, 23391 ms)
+validated-setting-1: PASS (idle, 24106 ms)
+permission-denial-2: PASS (idle, 13123 ms)
+attachment-replay-2: PASS (idle, 18900 ms)
+validated-setting-2: PASS (idle, 23634 ms)
+attachment-replay-3: PASS (idle, 13382 ms)
+permission-denial-3: PASS (idle, 19005 ms)
+validated-setting-3: PASS (idle, 22767 ms)
+Qualification: 8/9 passed.

@@ -1,5 +1,39 @@
 # Changelog
 
+## 0.11.0 — 2026-11-07
+
+A Cursor-style workspace column on the right of a session (`specs/031`, teaching page 29).
+
+- Switcher: **Changes** (with +/−), **Browser**, **Terminal**, **Files**. Click to open, click again to close. Panes are registered in `DOCK_PANES`.
+- Terminal shows the bash commands this session ran and their output. Files lists the workspace (`listWorkspace`) and opens a file in the pane.
+- The session-bar Changes and Browser chips open the same panes.
+
+## 0.10.0 — 2026-11-07
+
+Manus-style research output, and the personal-assistant habits from Hermes and OpenClaw (`specs/030`, teaching page 28).
+
+- `wide_research`: 2–8 independent items, each in its own subagent, written to `research/<question>.md`.
+- `make_slides`: an HTML deck (arrow keys) and speaker notes under `slides/`. **Deliverables** in the session bar opens those files, plus screenshots, figures, and edits.
+- User profile `~/.sun/memory/USER.md` (1,375 characters, every session) and `remember_user`. Daily notes under `~/.sun/memory/daily/`. Knowledge screen edits the profile.
+- `/skill-name` loads an installed skill when no custom command uses that name. `session_search` finds past conversations.
+
+## 0.9.0 — 2026-11-07
+
+Cursor-grade coding, after a pass over each competitor's strongest points (`specs/029`, teaching page 27).
+
+- `codebase_search`: local symbol lookup plus BM25 over source chunks. `@codebase <query>` attaches the hits. No network index.
+- `.cursorignore` and `.sunignore`: `read_file`, `grep`, `glob`, listings, and `@file` refuse matching paths.
+- Rules: `globs` on `.cursor/rules` and `.sun/rules` are included after a matching file is read, edited, or attached. `@rule <name>` and `@git` (status and diff stat).
+- `/review`: the session diff is reviewed by the session model and logged as `review/report` (desktop Review button, CLI, bots). No file changes means no model call.
+
+## 0.8.0 — 2026-11-07
+
+Desktop and web UI in English and Simplified Chinese (`specs/028`, teaching page 26).
+
+- Every page (Welcome, Sessions, Chat, Composer, Context, Changes, Browser, Knowledge, Extensions, Evolution, Intel, Settings, Automations, ⌘K palette) goes through `t()` / `tk()`. Simplified Chinese lives in `locale-zh-CN.ts`; missing keys fall back to English.
+- Language: `ui.language` `system` | `en` | `zh-CN` (default system: OS/browser `zh*` → Simplified Chinese). Settings segmented control; **EN** / **中** on the left rail.
+- Policy: new UI copy ships in both languages in the same change. `apps/desktop/test/i18n.test.ts` fails on unwrapped strings, missing Chinese, or drifted `{placeholders}`. `AGENTS.md` and `apps/desktop/AGENTS.md` record the rule.
+
 ## 0.7.0 — 2026-11-07
 
 Automations and changed files, after a competitor analysis (`specs/027`, teaching page 25).
@@ -165,3 +199,51 @@ Optimization plan, measured with a new eval suite. Teaching pages 17–22.
 ### Verification fixes
 - CLI: agent/assistant sessions default to `~/.sun/workspace` (specs/007) instead of the current folder.
 - CLI chat: buffered line input, so piped and fast-typed messages are not dropped.
+
+## Unreleased — Settings design and execution harness
+
+- Added source-backed project/competitor research, full 29-entry screenshot mapping, spec 032, ADR 0010 and 15 bounded implementation tasks.
+- Added offline plan-integrity checks with negative tests and Vitest integration; documented configuration/replay/native capability contracts and fresh-model handoff.
+- T01 added offline fixtures for legacy config, malformed data, synthetic credentials, attachment replay and simulated native capture failures.
+- T02 added revisioned settings with atomic replacement, a redacted field allowlist, recovery diagnostics, and a private audit. Desktop, web, and CLI use the validated save path.
+- T03 added versioned capability discovery across desktop, web, and CLI. Plugin reload now revokes stale tool registrations and failed activation leaves no partial contributions.
+- T04 added searchable English and Simplified Chinese settings sections, deep links, draft guards, and explicit section saves. The translation scanner now includes nested renderer files.
+- Added isolated settings qualification fixtures and captured the post-T04 live runs. DeepSeek passed eight of nine attempts.
+- T05a added the everyday preference schema, persisted defaults, host mode selection, and memory and voice switches.
+- T05b applied appearance and startup preferences, remapped app shortcuts, deduplicated live notifications, and added cancellable voice input. Global shortcut writes preserve the previous binding if the OS rejects a replacement.
+- T05c exposed bilingual personal settings and separated standing instructions from learned core memory. Desktop Mini opens or stops the active run through the host, and session usage distinguishes priced estimates from unknown prices.
+- T06a made HTML transcripts inert and added credential redaction to Markdown, HTML, and JSONL exports.
+- T06b added portable session bundles with streamed validation, atomic import, image replay, and CLI and gateway transfer. Imported history retains its transcript without inheriting execution grants or pending actions.
+- T06c added bilingual archive and data controls, categorized storage, revision-checked cleanup, recoverable trash, and opt-in retention. Active work and shared attachments remain protected.
+- T07a and T07b added digest-reviewed shell hooks, bounded and cancellable execution, redacted diagnostics, and CLI fixture preview and execution. Existing hooks require review.
+- T07c added bilingual hook diagnostics, batch trust review, and fixture preview, execution, and cancellation in desktop and web settings.
+- T07c also added static plugin manifest inspection, revision-checked enable and disable, live drain state, and lifecycle audit records across desktop, web, and CLI.
+- T08 added gateway identity and protocol handshake, live device revocation, bounded retry receipts, and HttpOnly browser sessions.
+- T08 added a bilingual desktop connection picker with certificate confirmation and separate local preference writes. Desktop and web pause host mutations until a disconnected client refreshes.
+- T09 added durable structured review requests and findings, a configurable completion gate, and read-only worktree inspection using a temporary Git index.
+- T09 added explicit worktree bases, clean-only discard and cleanup previews, merge recovery, and reviewed one-time worktree setup.
+- T10 added browser origin review in Settings and CLI, exclusive profile ownership, and single-viewer takeover with tab and frame generation checks. One-time upload approval and bounded downloads work with local, Docker, and explicitly delegated external Chromium.
+- T11 adds opt-in macOS Appshots with a private capture preview, opaque redaction, a global shortcut, and digest-verified session replay. Signed macOS acceptance verified capture, cancellation, and persistence of only the prepared image.
+- T12 adds scoped native macOS Computer Use. App grants, an exclusive session lease, runtime approval, durable dispatch receipts, and emergency stop govern native Accessibility observations and actions.
+- T13 adds Keychain-backed website passwords on macOS. The private sign-in window binds fill to the reviewed HTTPS origin and keeps credentials and login state outside agent browsing and gateway views.
+- T14 adds reviewed shell jobs on the current host, Local Docker, and pinned gateways. Durable provider receipts recover job state after a lost reply or restart, and output stays bound to its original target.
+- T15 records cross-surface and signed macOS acceptance. The release checker requires nine first-attempt passes against the current public handoff prompt and frozen fixtures. The final DeepSeek trial passed all nine attempts.
+
+## Unreleased — Product verification fixes
+
+- The app icon is a playful sun face, rendered from `apps/desktop/scripts/make-icon.cjs`.
+
+- `sun resume` uses the same exit codes as `sun run` for success, pause, and failure.
+- MCP inspection releases the handshake deadline and closes failed connections so the CLI exits promptly after listing tools.
+- A long task plan scrolls independently above the chat transcript, keeping approval controls reachable in short desktop and web windows.
+- DingTalk and generic webhook callbacks keep denied requests from overwriting an authorized chat's reply address. Concurrent synchronous webhook callers receive an explicit same-chat conflict.
+- CLI chat buffers piped input and observes end-of-file before connecting to a gateway.
+- Intel and briefing lookups accept only valid calendar dates. Briefings reference the completed Intel report from the correct directory.
+- The chat header wraps session controls to keep worktree actions reachable in narrow windows.
+- Python cells cancelled before dispatch leave the workspace and kernel state untouched.
+- `sun sandbox test` returns failure when its shell fails or either required probe produces an unexpected result.
+- Ordinary image thumbnails render on gateway web. The gateway treats a JSON `null` metadata argument as absent; Appshot digest checks are unchanged.
+- A failing CLI chat slash command, such as `/reflect` without proposals, prints the error and keeps the session open.
+- Quitting the desktop app waits for host disposal. The managed Chromium exits before its profile is released, so it no longer outlives the app. A single `SIGTERM` still quits the app after disposal.
+- A managed Chromium that misses the DevTools startup deadline is stopped before the error is reported, instead of being left running.
+- New regression coverage: every CLI slash command and management command, persisted eval telemetry, every bot command, compatibility skill precedence, and renderer Deny, Always allow, Deliverables, Review and Undo. The [verification report](docs/plans/full-product-test/report.md) lists the results.

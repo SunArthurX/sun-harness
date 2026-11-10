@@ -1,0 +1,2 @@
+$ ps -axo pid,ppid,etime,command | rg "full-product-d17|sun-chat-product|sun-chat-signal|sun-settings-e2e|sun-computer-e2e|sun-appshot" | rg -v "rg " ; test -z "$(ps -axo command | rg "full-product-d17/mac-arm64/sun-harness.app/Contents/MacOS|sun-chat-product|sun-chat-signal|sun-settings-e2e|sun-computer-e2e" | rg -v "rg ")"
+# started 2026-11-10T06:16:22Z

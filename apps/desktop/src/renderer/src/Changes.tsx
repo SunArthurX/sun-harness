@@ -1,3 +1,4 @@
+import { t, tk } from './i18n';
 import { useEffect, useMemo, useState } from 'react';
 import type { FileChange } from '@sun/core';
 import { api } from './api';
@@ -46,8 +47,8 @@ function FileView({ sessionId, path }: { sessionId: string; path: string }) {
     api.readSessionFile(sessionId, path).then(setF, (e) => setErr(errText(e)));
   }, [sessionId, path]);
   if (err) return <p className="muted small">{err}</p>;
-  if (!f) return <p className="muted small">Loading…</p>;
-  if (f.binary) return <p className="muted small">Binary file ({Math.round(f.size / 1000)} kB).</p>;
+  if (!f) return <p className="muted small">{t("Loading…")}</p>;
+  if (f.binary) return <p className="muted small">{t('Binary file ({n} kB).', { n: Math.round(f.size / 1000) })}</p>;
   return (
     <div className="difflines file">
       {f.content.split('\n').map((l, i) => (
@@ -56,7 +57,7 @@ function FileView({ sessionId, path }: { sessionId: string; path: string }) {
           <span className="tx">{l}</span>
         </div>
       ))}
-      {f.truncated && <p className="muted small">… truncated (file over 1 MB)</p>}
+      {f.truncated && <p className="muted small">{t("… truncated (file over 1 MB)")}</p>}
     </div>
   );
 }
@@ -64,27 +65,27 @@ function FileView({ sessionId, path }: { sessionId: string; path: string }) {
 function FileActions({ sessionId, c, fromSeq, onChanged, onMsg }: { sessionId: string; c: FileChange; fromSeq?: number; onChanged: () => void; onMsg: (m: string) => void }) {
   return (
     <span className="file-actions">
-      <button className="btn-ghost small" title="Open in the default app" onClick={() => void api.openPath(c.abs)} disabled={c.status === 'deleted'}>
-        Open
+      <button className="btn-ghost small" title={t("Open in the default app")} onClick={() => void api.openPath(c.abs)} disabled={c.status === 'deleted'}>
+        {t("Open")}
       </button>
-      <button className="btn-ghost small" title="Copy the path" onClick={() => void navigator.clipboard?.writeText(c.abs).then(() => onMsg('Path copied.'))}>
-        Copy path
+      <button className="btn-ghost small" title={t("Copy the path")} onClick={() => void navigator.clipboard?.writeText(c.abs).then(() => onMsg(t('Path copied.')))}>
+        {t("Copy path")}
       </button>
       <button
         className="btn-ghost small"
-        title={fromSeq !== undefined ? 'Restore the file as it was before this turn' : 'Restore the file as it was before this session'}
+        title={fromSeq !== undefined ? t("Restore the file as it was before this turn") : t("Restore the file as it was before this session")}
         onClick={async () => {
-          if (!confirm(`Revert ${c.path}${fromSeq !== undefined ? ' to before this turn' : ' to before this session'}? (Undo can bring the change back.)`)) return;
+          if (!confirm(fromSeq !== undefined ? t('Revert {path} to before this turn? (Undo can bring the change back.)', { path: c.path }) : t('Revert {path} to before this session? (Undo can bring the change back.)', { path: c.path }))) return;
           try {
             await api.revertFile(sessionId, c.path, fromSeq);
-            onMsg(`Reverted ${c.path}.`);
+            onMsg(t('Reverted {path}.', { path: c.path }));
             onChanged();
           } catch (e) {
             onMsg(errText(e));
           }
         }}
       >
-        Revert
+        {t("Revert")}
       </button>
     </span>
   );
@@ -107,7 +108,7 @@ export function TurnChanges({ sessionId, fromSeq, toSeq, running }: { sessionId:
     <div className="turn-changes">
       <div className="tc-head">
         <strong>
-          {changes.length} file{changes.length > 1 ? 's' : ''} changed
+          {changes.length === 1 ? t('1 file changed') : t('{n} files changed', { n: changes.length })}
         </strong>{' '}
         <span className="add">+{add}</span> <span className="del">−{del}</span>
         {msg && <span className="muted small"> · {msg}</span>}
@@ -118,7 +119,7 @@ export function TurnChanges({ sessionId, fromSeq, toSeq, running }: { sessionId:
             <span className={`st ${STATUS[c.status].cls}`}>{STATUS[c.status].letter}</span>
             <span className="mono small tc-path">{c.path}</span>
             <span className="small">
-              {c.binary ? <span className="muted">binary</span> : <><span className="add">+{c.additions}</span> <span className="del">−{c.deletions}</span></>}
+              {c.binary ? <span className="muted">{t("binary")}</span> : <><span className="add">+{c.additions}</span> <span className="del">−{c.deletions}</span></>}
             </span>
           </button>
           {open === c.abs && (
@@ -126,15 +127,15 @@ export function TurnChanges({ sessionId, fromSeq, toSeq, running }: { sessionId:
               <div className="row-between">
                 <span className="segmented small-seg">
                   <button className={view === 'diff' ? 'on' : ''} onClick={() => setView('diff')}>
-                    Diff
+                    {t("Diff")}
                   </button>
                   <button className={view === 'file' ? 'on' : ''} onClick={() => setView('file')} disabled={c.status === 'deleted'}>
-                    File
+                    {t("File")}
                   </button>
                 </span>
                 {!running && <FileActions sessionId={sessionId} c={c} fromSeq={fromSeq} onChanged={() => setV((x) => x + 1)} onMsg={setMsg} />}
               </div>
-              {view === 'diff' ? c.diff ? <DiffLines diff={c.diff} /> : <p className="muted small">No text diff ({c.binary ? 'binary' : c.status}).</p> : <FileView sessionId={sessionId} path={c.path} />}
+              {view === 'diff' ? c.diff ? <DiffLines diff={c.diff} /> : <p className="muted small">{t('No text diff ({why}).', { why: c.binary ? t('binary') : t(c.status) })}</p> : <FileView sessionId={sessionId} path={c.path} />}
             </div>
           )}
         </div>
@@ -222,12 +223,12 @@ export function ChangesView({ sessionId, version, running, onClose }: { sessionI
     <div className="changes changes-view">
       <div className="row-between">
         <strong>
-          Changes in this session · {changes.length} file{changes.length === 1 ? '' : 's'} <span className="add">+{add}</span> <span className="del">−{del}</span>
+          {t('Changes in this session')} · {changes.length === 1 ? t('1 file') : t('{n} files', { n: changes.length })} <span className="add">+{add}</span> <span className="del">−{del}</span>
         </strong>
         <span className="row">
           {msg && <span className="muted small">{msg}</span>}
           <button className="btn-ghost small" onClick={() => setV((x) => x + 1)}>
-            Refresh
+            {t("Refresh")}
           </button>
           <button className="btn-ghost small" onClick={onClose}>
             ✕
@@ -235,7 +236,7 @@ export function ChangesView({ sessionId, version, running, onClose }: { sessionI
         </span>
       </div>
       {!changes.length ? (
-        <p className="muted small">No file changes yet.</p>
+        <p className="muted small">{t("No file changes yet.")}</p>
       ) : (
         <div className="cv-body">
           <div className="cv-tree">{tree.children.map((c) => renderNode(c, 0))}</div>
@@ -247,16 +248,16 @@ export function ChangesView({ sessionId, version, running, onClose }: { sessionI
                   <span className="row">
                     <span className="segmented small-seg">
                       <button className={view === 'diff' ? 'on' : ''} onClick={() => setView('diff')}>
-                        Diff
+                        {t("Diff")}
                       </button>
                       <button className={view === 'file' ? 'on' : ''} onClick={() => setView('file')} disabled={current.status === 'deleted'}>
-                        File
+                        {t("File")}
                       </button>
                     </span>
                     {!running && <FileActions sessionId={sessionId} c={current} onChanged={() => setV((x) => x + 1)} onMsg={setMsg} />}
                   </span>
                 </div>
-                {view === 'diff' ? current.diff ? <DiffLines diff={current.diff} /> : <p className="muted small">No text diff ({current.binary ? 'binary' : current.status}).</p> : <FileView sessionId={sessionId} path={current.path} />}
+                {view === 'diff' ? current.diff ? <DiffLines diff={current.diff} /> : <p className="muted small">{t('No text diff ({why}).', { why: current.binary ? t('binary') : t(current.status) })}</p> : <FileView sessionId={sessionId} path={current.path} />}
               </>
             )}
           </div>

@@ -1,0 +1,16 @@
+✔ both locales use the denied state without exposing the adapter error (0.988334ms)
+✔ denied renders the bilingual denial state (0.72625ms)
+✔ denied status does not call capture (0.127ms)
+✔ available behavior is preserved and captures (0.099375ms)
+✔ unavailable behavior is preserved and does not capture (0.569708ms)
+✔ PERMISSION_DENIED during capture returns the denial state without raw error text (0.206375ms)
+✔ other adapter failures still reject (0.346625ms)
+✔ unavailable remains disabled (0.369208ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 8
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 46.91125

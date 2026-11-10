@@ -1,0 +1,75 @@
+✖ intel defaults to the local calendar day for listing, showing, and retrying saved analysis (202.900375ms)
+error: unknown switch `b'
+usage: git init [-q | --quiet] [--bare] [--template=<template-directory>] [--shared[=<permissions>]] [<directory>]
+
+    --template <template-directory>
+                          directory from which templates will be used
+    --bare                create a bare repository
+    --shared[=<permissions>]
+                          specify that the git repository is to be shared amongst several users
+    -q, --quiet           be quiet
+    --separate-git-dir <gitdir>
+                          separate git dir from working tree
+
+✖ worktree commands isolate an edit, report its diff, squash it, and clean a separate worktree (41.420583ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 0
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 305.181
+
+✖ failing tests:
+
+test at packages/cli/e2e/product.mjs:318:1
+✖ intel defaults to the local calendar day for listing, showing, and retrying saved analysis (202.900375ms)
+  AssertionError [ERR_ASSERTION]: [31mENOENT: no such file or directory, open '/var/folders/4c/_fqg96ms18dc7mrmk9dfq32c0000gp/T/sun-cli-product-jG4OoB/intel/raw/2026-11-07.json'[0m
+  
+  
+  1 !== 0
+  
+      at succeed (file:///Users/sunqingguang/Downloads/06.code/sun-harness/packages/cli/e2e/product.mjs:100:10)
+      at async TestContext.<anonymous> (file:///Users/sunqingguang/Downloads/06.code/sun-harness/packages/cli/e2e/product.mjs:334:18)
+      at async Test.run (node:internal/test_runner/test:1208:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:385:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at packages/cli/e2e/product.mjs:345:1
+✖ worktree commands isolate an edit, report its diff, squash it, and clean a separate worktree (41.420583ms)
+  Error: Command failed: git init -q -b main
+  error: unknown switch `b'
+  usage: git init [-q | --quiet] [--bare] [--template=<template-directory>] [--shared[=<permissions>]] [<directory>]
+  
+      --template <template-directory>
+                            directory from which templates will be used
+      --bare                create a bare repository
+      --shared[=<permissions>]
+                            specify that the git repository is to be shared amongst several users
+      -q, --quiet           be quiet
+      --separate-git-dir <gitdir>
+                            separate git dir from working tree
+  
+  
+      at genericNodeError (node:internal/errors:985:15)
+      at wrappedFn (node:internal/errors:539:14)
+      at checkExecSyncError (node:child_process:925:11)
+      at execFileSync (node:child_process:961:15)
+      at git (file:///Users/sunqingguang/Downloads/06.code/sun-harness/packages/cli/e2e/product.mjs:348:28)
+      at TestContext.<anonymous> (file:///Users/sunqingguang/Downloads/06.code/sun-harness/packages/cli/e2e/product.mjs:349:3)
+      at async Test.run (node:internal/test_runner/test:1208:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {
+    status: 129,
+    signal: null,
+    output: [ null, '', "error: unknown switch `b'\nusage: git init [-q | --quiet] [--bare] [--template=<template-directory>] [--shared[=<permissions>]] [<directory>]\n\n    --template <template-directory>\n                          directory from which templates will be used\n    --bare                create a bare repository\n    --shared[=<permissions>]\n                          specify that the git repository is to be shared amongst several users\n    -q, --quiet           be quiet\n    --separate-git-dir <gitdir>\n                          separate git dir from working tree\n\n" ],
+    pid: 81834,
+    stdout: '',
+    stderr: "error: unknown switch `b'\nusage: git init [-q | --quiet] [--bare] [--template=<template-directory>] [--shared[=<permissions>]] [<directory>]\n\n    --template <template-directory>\n                          directory from which templates will be used\n    --bare                create a bare repository\n    --shared[=<permissions>]\n                          specify that the git repository is to be shared amongst several users\n    -q, --quiet           be quiet\n    --separate-git-dir <gitdir>\n                          separate git dir from working tree\n\n"
+  }

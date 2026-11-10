@@ -2,6 +2,7 @@ import { existsSync, readFileSync, readdirSync, realpathSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
 import { homedir } from 'node:os';
 import { homePath } from './paths.js';
+import { ruleGlobsMatch } from './ux/ignore.js';
 
 export interface RuleSection {
   source: string;
@@ -39,12 +40,31 @@ export function applyRuleBudgets(rules: RuleSection[], budgets: RuleBudgets): Ru
   return out;
 }
 
+/** A rule that is not always in the prompt: attached by glob, by description, or only when @mentioned. */
+export interface NamedRule {
+  source: string;
+  text: string;
+  description?: string;
+  /** Cursor `globs`: attached when a file in the conversation matches. */
+  globs?: string;
+}
+
 export interface ProjectContext {
   root: string;
   rules: RuleSection[];
   /** Rules that apply on demand (description only, the agent reads the file if relevant). */
   optionalRules: { source: string; description: string }[];
+  /** `globs` rules. Included once a matching file has been read or edited. */
+  fileRules: NamedRule[];
+  /** No description and no globs: only when the user writes `@rule <name>`. */
+  manualRules: NamedRule[];
   specs: { path: string; title: string }[];
+}
+
+/** File-scoped rules whose globs match any of `rels` (paths relative to the project root). */
+export function rulesForFiles(rules: NamedRule[], rels: string[]): NamedRule[] {
+  const norm = rels.map((r) => r.replace(/\\/g, '/'));
+  return rules.filter((rule) => rule.globs && norm.some((rel) => ruleGlobsMatch(rule.globs!, rel)));
 }
 
 const MAX_RULE_CHARS = 24_000;
@@ -94,7 +114,27 @@ export function loadProjectContext(cwd: string, budgets: RuleBudgets = DEFAULT_R
   const root = findProjectRoot(cwd);
   const rules: RuleSection[] = [];
   const optionalRules: ProjectContext['optionalRules'] = [];
+  const fileRules: NamedRule[] = [];
+  const manualRules: NamedRule[] = [];
   const seen = new Set<string>();
+  const classify = (src: string, data: Record<string, string>, body: string) => {
+    const text = body.trim();
+    if (data.alwaysApply === 'true') {
+      if (!seen.has(src)) {
+        seen.add(src);
+        rules.push({ source: src, text, scope: 'project' });
+      }
+      return;
+    }
+    if (data.globs) fileRules.push({ source: src, text, description: data.description, globs: data.globs });
+    if (data.description) optionalRules.push({ source: src, description: data.globs ? `${data.description} (files: ${data.globs})` : data.description });
+    else if (!data.globs && data.alwaysApply !== 'false') {
+      if (!seen.has(src)) {
+        seen.add(src);
+        rules.push({ source: src, text, scope: 'project' });
+      }
+    } else if (!data.globs) manualRules.push({ source: src, text });
+  };
   const add = (p: string, label: string, scope: RuleSection['scope'] = 'project') => {
     if (!existsSync(p)) return false;
     const r = real(p);
@@ -121,12 +161,7 @@ export function loadProjectContext(cwd: string, budgets: RuleBudgets = DEFAULT_R
     if (existsSync(sunRules)) {
       for (const f of readdirSync(sunRules).filter((f) => f.endsWith('.md')).sort()) {
         const { data, body } = parseFrontmatter(readFileSync(join(sunRules, f), 'utf8'));
-        const src = relative(root, join(sunRules, f));
-        if (data.alwaysApply === 'false' && data.description) optionalRules.push({ source: src, description: data.description });
-        else if (!seen.has(real(join(sunRules, f)))) {
-          seen.add(real(join(sunRules, f)));
-          rules.push({ source: src, text: body.trim(), scope: 'project' });
-        }
+        classify(relative(root, join(sunRules, f)), data, body);
       }
     }
   }
@@ -135,9 +170,7 @@ export function loadProjectContext(cwd: string, budgets: RuleBudgets = DEFAULT_R
   if (existsSync(cursorRules)) {
     for (const f of readdirSync(cursorRules).filter((f) => f.endsWith('.mdc') || f.endsWith('.md')).sort()) {
       const { data, body } = parseFrontmatter(readFileSync(join(cursorRules, f), 'utf8'));
-      const src = `.cursor/rules/${f}`;
-      if (data.alwaysApply === 'true') rules.push({ source: src, text: body.trim(), scope: 'project' });
-      else if (data.description) optionalRules.push({ source: src, description: data.description });
+      classify(`.cursor/rules/${f}`, data, body);
     }
   }
 
@@ -149,5 +182,5 @@ export function loadProjectContext(cwd: string, budgets: RuleBudgets = DEFAULT_R
       specs.push({ path: `specs/${f}`, title: first?.replace(/^#+\s*/, '') ?? f });
     }
   }
-  return { root, rules: applyRuleBudgets(rules, budgets), optionalRules, specs };
+  return { root, rules: applyRuleBudgets(rules, budgets), optionalRules, fileRules, manualRules, specs };
 }

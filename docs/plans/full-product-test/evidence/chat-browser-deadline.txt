@@ -1,0 +1,4 @@
+Electron: chat streamed and persisted, reviewable approvals guarded both actions, dock and context rendered, language switched, provider aborted, and main navigation retained the session.
+Electron: the managed Chromium live view displayed a real frame, forwarded keyboard input only under control, and returned ownership.
+Gateway: chat streamed and persisted, reviewable approvals guarded both actions, dock and context rendered, language switched, provider aborted, and main navigation retained the session.
+Gateway: the managed Chromium live view displayed a real frame, forwarded keyboard input only under control, and returned ownership.

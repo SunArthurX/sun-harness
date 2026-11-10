@@ -1,96 +1,124 @@
-import { spawn } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { runHook, type HookRunOptions, type HookRunResult } from './hook-process.js';
 import type { AgentHooks } from './agent.js';
-import { homePath } from './paths.js';
-import { findProjectRoot } from './rules.js';
+import { HOOK_TOOL_NAME_LIMIT, hookMatches, inspectHooks, type HookDefinition, type HookEntry, type HookEvent, type HooksConfig } from './hook-config.js';
 
-export interface HookEntry {
-  /** Regex on tool name (tool hooks only). */
-  matcher?: string;
-  command: string;
-  timeoutMs?: number;
-  /** preToolUse only: "block" makes a crashed/timed-out hook veto the call (fail-closed). Default "ignore". */
-  onFailure?: 'ignore' | 'block';
-}
-
-export interface HooksConfig {
-  sessionStart?: HookEntry[];
-  preToolUse?: HookEntry[];
-  postToolUse?: HookEntry[];
-  stop?: HookEntry[];
-}
+export { runHook } from './hook-process.js';
+export type { HookRunOptions, HookRunResult, HookRunState } from './hook-process.js';
+export { HOOK_EVENTS, inspectHooks, reviewHookTrust } from './hook-config.js';
+export type { HookDefinition, HookDiagnostic, HookEntry, HookEvent, HookInspection, HooksConfig, HookTrustChange } from './hook-config.js';
 
 export function loadHooks(cwd: string): HooksConfig {
-  const out: HooksConfig = {};
-  for (const f of [homePath('hooks.json'), join(findProjectRoot(cwd), '.sun', 'hooks.json')]) {
-    if (!existsSync(f)) continue;
-    try {
-      const data = JSON.parse(readFileSync(f, 'utf8')) as HooksConfig;
-      for (const k of ['sessionStart', 'preToolUse', 'postToolUse', 'stop'] as const) {
-        if (data[k]) out[k] = [...(out[k] ?? []), ...data[k]!];
-      }
-    } catch {
-      // Invalid hooks file is ignored (reported by doctor).
-    }
-  }
-  return out;
-}
-
-/**
- * Run a hook command with the event JSON on stdin.
- * Exit 0 = ok (stdout is extra context); exit 2 = block (stderr/stdout is the reason); other = ignored warning.
- */
-export function runHook(entry: HookEntry, payload: unknown, cwd: string): Promise<{ code: number; stdout: string; stderr: string }> {
-  return new Promise((resolve) => {
-    const child = spawn('bash', ['-c', entry.command], { cwd, env: { ...process.env, SUN_HOOK: '1' } });
-    let stdout = '';
-    let stderr = '';
-    child.stdout.on('data', (d) => (stdout += d));
-    child.stderr.on('data', (d) => (stderr += d));
-    const t = setTimeout(() => child.kill('SIGKILL'), entry.timeoutMs ?? 30_000);
-    child.on('close', (code, sig) => {
-      clearTimeout(t);
-      resolve({ code: code ?? 1, stdout: stdout.trim(), stderr: (sig ? `killed by ${sig} (timeout)` : stderr).trim() });
+  const config: HooksConfig = {};
+  for (const hook of inspectHooks(cwd).hooks) {
+    (config[hook.event] ??= []).push({
+      id: hook.explicitId, enabled: hook.status !== 'disabled', command: hook.command, matcher: hook.matcher,
+      timeoutMs: hook.timeoutMs, onFailure: hook.onFailure,
     });
-    child.on('error', () => resolve({ code: 1, stdout: '', stderr: 'spawn failed' }));
-    child.stdin.on('error', () => undefined);
-    child.stdin.end(JSON.stringify(payload));
-  });
+  }
+  return config;
 }
 
-export function createShellHooks(cwd: string): AgentHooks & { sessionStart(sessionId: string): Promise<string> } {
-  const cfg = loadHooks(cwd);
-  const match = (entries: HookEntry[] | undefined, tool?: string) =>
-    (entries ?? []).filter((h) => !h.matcher || !tool || new RegExp(h.matcher).test(tool));
+export const HOOK_FIXTURES = ['read', 'shell', 'edit'] as const;
+export type HookFixture = typeof HOOK_FIXTURES[number];
+
+export interface HookFixtureRequest {
+  cwd: string;
+  id: string;
+  digest: string;
+  fixture: HookFixture;
+  execute?: boolean;
+  requestId?: string;
+}
+
+export interface HookFixtureResult {
+  hook: HookDefinition;
+  sandbox: string;
+  payload: Record<string, unknown>;
+  matches: boolean;
+  execution?: HookRunResult;
+}
+
+export function hookFixturePayload(event: HookEvent, fixture: HookFixture, cwd: string): Record<string, unknown> {
+  const base = { event, sessionId: 'hook-fixture', cwd };
+  if (event === 'sessionStart') return base;
+  if (event === 'stop') return { ...base, lastText: 'Synthetic fixture response.' };
+  const tool = fixture === 'shell' ? { tool: 'bash', args: { command: 'printf "fixture"' } }
+    : fixture === 'edit' ? { tool: 'write_file', args: { path: 'fixture.txt', content: 'synthetic fixture' } }
+    : { tool: 'list_dir', args: { path: '.' } };
+  return { ...base, ...tool, ...(event === 'postToolUse' ? { output: 'Synthetic fixture tool output.' } : {}) };
+}
+
+export interface ShellHookOptions {
+  runOptions?: () => HookRunOptions;
+  onRun?: (hook: HookDefinition, result: HookRunResult) => void;
+}
+
+export function createShellHooks(cwd: string, options: ShellHookOptions = {}): AgentHooks & { sessionStart(sessionId: string, signal?: AbortSignal): Promise<string> } {
+  const invoke = async (hook: HookDefinition, payload: unknown, signal?: AbortSignal) => {
+    const result = await runHook(hook, payload, cwd, { ...options.runOptions?.(), signal });
+    options.onRun?.(hook, result);
+    return result;
+  };
+  const initial = inspectHooks(cwd).hooks.filter(hook =>
+    hook.event === 'preToolUse' && hook.onFailure === 'block' && hook.status !== 'disabled');
+  const trusted = (event: HookEvent, tool?: string) => inspectHooks(cwd).hooks.filter(hook =>
+    hook.event === event && !hook.worktreeSetup && hook.status === 'trusted' && (tool === undefined || hookMatches(hook.matcher, tool)));
+  const stillTrusted = (hook: HookDefinition) => inspectHooks(cwd).hooks.some(current =>
+    current.id === hook.id && current.digest === hook.digest && current.status === 'trusted');
+  const matchesPolicy = (matcher: string | undefined, tool: string) => tool.length > HOOK_TOOL_NAME_LIMIT || hookMatches(matcher, tool);
   return {
-    async sessionStart(sessionId) {
+    async sessionStart(sessionId, signal) {
       const outs: string[] = [];
-      for (const h of match(cfg.sessionStart)) {
-        const r = await runHook(h, { event: 'sessionStart', sessionId, cwd }, cwd);
+      for (const h of trusted('sessionStart')) {
+        if (signal?.aborted) break;
+        if (!stillTrusted(h)) continue;
+        const r = await invoke(h, { event: 'sessionStart', sessionId, cwd }, signal);
         if (r.code === 0 && r.stdout) outs.push(r.stdout);
       }
       return outs.join('\n');
     },
-    async preToolUse(e) {
-      for (const h of match(cfg.preToolUse, e.tool)) {
-        const r = await runHook(h, { event: 'preToolUse', ...e }, e.cwd);
+    async preToolUse(e, signal) {
+      const current = inspectHooks(cwd);
+      if (current.diagnostics.some(issue => issue.policy && matchesPolicy(issue.matcher, e.tool))) {
+        return { block: 'Policy hook configuration is invalid; failing closed.' };
+      }
+      const active = current.hooks.filter(hook => hook.event === 'preToolUse' && hook.status !== 'disabled');
+      if (initial.some(prior => matchesPolicy(prior.matcher, e.tool)
+        && !active.some(hook => hook.id === prior.id && hook.digest === prior.digest))) {
+        return { block: 'Policy hook configuration changed during the run; failing closed.' };
+      }
+      for (const h of active) {
+        if (signal?.aborted) break;
+        if (h.onFailure === 'block' && matchesPolicy(h.matcher, e.tool)
+          && (h.status !== 'trusted' || (h.matcher && e.tool.length > HOOK_TOOL_NAME_LIMIT))) {
+          return { block: 'Policy hook is not trusted or its matcher cannot be evaluated; failing closed.' };
+        }
+        if (h.status !== 'trusted' || !hookMatches(h.matcher, e.tool)) continue;
+        if (!stillTrusted(h)) {
+          if (h.onFailure === 'block') return { block: 'Policy hook trust changed during dispatch; failing closed.' };
+          continue;
+        }
+        const r = await invoke(h, { event: 'preToolUse', ...e }, signal);
         if (r.code === 2) return { block: r.stderr || r.stdout || 'blocked' };
-        if (r.code !== 0 && h.onFailure === 'block') return { block: `policy hook failed (exit ${r.code}${r.stderr ? `: ${r.stderr.slice(0, 200)}` : ''}); failing closed` };
+        if (r.code !== 0 && h.onFailure === 'block') return { block: `policy hook failed (exit ${r.code}, ${r.state}${r.stderr ? `: ${r.stderr.slice(0, 200)}` : ''}); failing closed` };
       }
     },
-    async postToolUse(e) {
+    async postToolUse(e, signal) {
       const outs: string[] = [];
-      for (const h of match(cfg.postToolUse, e.tool)) {
-        const r = await runHook(h, { event: 'postToolUse', ...e, output: e.output.slice(0, 20_000) }, e.cwd);
+      for (const h of trusted('postToolUse', e.tool)) {
+        if (signal?.aborted) break;
+        if (!stillTrusted(h)) continue;
+        const r = await invoke(h, { event: 'postToolUse', ...e, output: e.output.slice(0, 20_000) }, signal);
         if (r.code === 0 && r.stdout) outs.push(r.stdout);
         if (r.code === 2) outs.push(`Hook feedback: ${r.stderr || r.stdout}`);
       }
       return outs.join('\n') || undefined;
     },
-    async stop(e) {
-      for (const h of match(cfg.stop)) {
-        const r = await runHook(h, { event: 'stop', ...e }, e.cwd);
+    async stop(e, signal) {
+      for (const h of trusted('stop')) {
+        if (signal?.aborted) break;
+        if (!stillTrusted(h)) continue;
+        const r = await invoke(h, { event: 'stop', ...e }, signal);
         if (r.code === 2) return r.stderr || r.stdout || 'A stop hook asked you to continue.';
       }
     },

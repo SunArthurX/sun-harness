@@ -1,0 +1,2 @@
+Electron: chat streamed and persisted, reviewable approvals guarded both actions, dock and context rendered, language switched, provider aborted, and main navigation retained the session.
+Gateway: chat streamed and persisted, reviewable approvals guarded both actions, dock and context rendered, language switched, provider aborted, and main navigation retained the session.

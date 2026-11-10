@@ -1,0 +1,10 @@
+✔ interactive command loop buffers piped follow-ups and applies mode and model switches (701.692708ms)
+✔ serve owns CLI sessions, isolates local routing, and creates removable launch-agent metadata (7026.703334ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 7790.547542

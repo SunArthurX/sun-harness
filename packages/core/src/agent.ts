@@ -17,10 +17,10 @@ export interface ApprovalRequest {
 }
 
 export interface AgentHooks {
-  preToolUse?(e: { sessionId: string; tool: string; args: unknown; cwd: string }): Promise<{ block?: string } | void>;
-  postToolUse?(e: { sessionId: string; tool: string; args: unknown; output: string; cwd: string }): Promise<string | void>;
+  preToolUse?(e: { sessionId: string; tool: string; args: unknown; cwd: string }, signal?: AbortSignal): Promise<{ block?: string } | void>;
+  postToolUse?(e: { sessionId: string; tool: string; args: unknown; output: string; cwd: string }, signal?: AbortSignal): Promise<string | void>;
   /** Return text to continue the run with a new user message (e.g. a verification gate). */
-  stop?(e: { sessionId: string; cwd: string; lastText: string }): Promise<string | void>;
+  stop?(e: { sessionId: string; cwd: string; lastText: string }, signal?: AbortSignal): Promise<string | void>;
 }
 
 export interface AgentDeps {
@@ -33,6 +33,7 @@ export interface AgentDeps {
   approvalMode(): ApprovalMode;
   /** Done gate: verify commands for the session's cwd (empty = none), run when a coding run ends after edits. */
   verify?: { commands(cwd: string): string[]; maxAttempts: number; timeoutMs: number; sandbox?(): import('./sandbox.js').ExecSandbox | undefined };
+  reviewGate?(signal: AbortSignal): Promise<boolean>;
   /** User messages sent while this run is active; taken at the next step boundary. */
   drainSteer?(): SessionEventBody[];
   /** Whether a model accepts images; when absent every model is assumed to. */
@@ -138,12 +139,13 @@ export class Agent {
             const v = await this.verifyGate(signal, ++verifyAttempts);
             if (v === 'failed' && this.owesRequest()) continue;
           }
-          const stopText = await this.d.hooks?.stop?.({ sessionId: this.id, cwd: this.cwd(), lastText: this.lastAssistantText() });
+          const stopText = await this.d.hooks?.stop?.({ sessionId: this.id, cwd: this.cwd(), lastText: this.lastAssistantText() }, signal);
+          if (signal.aborted) return this.setStatus('aborted', 'user');
           if (stopText && stopContinues++ < 3) {
             this.emit({ type: 'user/message', text: stopText, source: 'hook' });
             continue;
           }
-          return this.setStatus('idle');
+          return await this.finish(signal);
         }
 
         const modelRef = this.d.routeModel?.(this.d.log.currentModel()) ?? this.d.log.currentModel();
@@ -184,11 +186,18 @@ export class Agent {
         });
         this.maybeTitle();
       }
-      if (!pendingToolCalls(this.d.log.all()).length && !this.owesRequest()) return this.setStatus('idle');
+      if (!pendingToolCalls(this.d.log.all()).length && !this.owesRequest()) return await this.finish(signal);
       return this.setStatus('paused', 'max_steps', `Reached ${this.d.config.maxSteps} steps. Resume to continue.`);
     } catch (e) {
       return this.setStatus('error', 'internal', (e as Error).stack?.slice(0, 1500) ?? String(e));
     }
+  }
+
+  private async finish(signal: AbortSignal): Promise<RunResult> {
+    const passed = await this.d.reviewGate?.(signal);
+    if (signal.aborted) return this.setStatus('aborted', 'user');
+    if (passed === false) return this.setStatus('paused', 'review_required', 'A current, complete review with no findings is required.');
+    return this.setStatus('idle');
   }
 
   private cwd(): string {
@@ -212,13 +221,14 @@ export class Agent {
     const { provider, model } = this.d.resolveModel(modelRef);
     const tools = this.d.tools();
     const system = this.d.systemPrompt(modelRef);
+    const vision = this.d.vision?.(modelRef);
     const header = this.d.log.last('request/header');
     const names = tools.map((t) => t.name);
-    if (!header || header.systemPrompt !== system || header.model !== modelRef || header.tools.join() !== names.join()) {
-      this.emit({ type: 'request/header', model: modelRef, systemPrompt: system, tools: names });
+    if (!header || header.systemPrompt !== system || header.model !== modelRef || header.tools.join() !== names.join() || header.vision !== vision) {
+      this.emit({ type: 'request/header', model: modelRef, systemPrompt: system, tools: names, ...(vision !== undefined ? { vision } : {}) });
     }
     let messages = deriveMessages(this.d.log.all());
-    if (this.d.vision && !this.d.vision(modelRef)) {
+    if (vision === false) {
       // A text-only model gets a note instead of the image (deterministic from the log and the model ref).
       messages = messages.map((m) =>
         m.role === 'user' && m.images?.length ? { role: 'user', content: `${m.content}\n[${m.images.length} image(s) attached; ${modelRef} cannot see images — switch to a vision model to use them]` } : m,
@@ -270,8 +280,12 @@ export class Agent {
       const started = Date.now();
       if (p.error) return { output: p.error, isError: true, ms: 0 };
       const { call, tool, args } = p as Required<Pick<Prepared, 'call' | 'tool' | 'args'>>;
-      const pre = await this.d.hooks?.preToolUse?.({ sessionId: this.id, tool: call.name, args, cwd });
+      const pre = await this.d.hooks?.preToolUse?.({ sessionId: this.id, tool: call.name, args, cwd }, signal);
+      if (signal.aborted) return 'aborted';
       if (pre && pre.block) return { output: `Blocked by hook: ${pre.block}`, isError: true, ms: Date.now() - started };
+      if (tool.isRegistered?.() === false) {
+        return { output: 'CAPABILITY_DISABLED: The tool registration was revoked.', isError: true, ms: Date.now() - started };
+      }
       if (!p.parallel && needsApproval(tool, args, this.d.approvalMode(), cwd, this.d.policy?.()) && !this.alwaysAllowed().has(tool.name)) {
         const already = this.d.log.all().some((e) => e.type === 'approval/request' && e.callId === call.id);
         if (!already) this.emit({ type: 'approval/request', callId: call.id, name: call.name, arguments: call.arguments, risk: tool.risk });
@@ -285,7 +299,7 @@ export class Agent {
       try {
         const display: { diff?: string } = {};
         let output = await tool.execute(args, { cwd, sessionId: this.id, signal, services: this.d.services, display });
-        const extra = await this.d.hooks?.postToolUse?.({ sessionId: this.id, tool: call.name, args, output, cwd });
+        const extra = await this.d.hooks?.postToolUse?.({ sessionId: this.id, tool: call.name, args, output, cwd }, signal);
         if (extra) output += `\n\n[hook] ${extra}`;
         return { output: this.guardUntrusted(tool, truncate(output)), isError: false, ms: Date.now() - started, diff: display.diff };
       } catch (e) {

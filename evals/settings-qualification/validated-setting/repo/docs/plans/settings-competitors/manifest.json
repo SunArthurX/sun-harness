@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "tasks": [
+    {
+      "id": "validated-setting",
+      "title": "Add a validated setting through all surfaces",
+      "status": "planned",
+      "dependsOn": []
+    }
+  ]
+}

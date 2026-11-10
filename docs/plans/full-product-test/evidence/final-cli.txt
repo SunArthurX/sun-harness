@@ -1,0 +1,29 @@
+✔ built and bundled commands expose help and workspace scaffolding (665.775792ms)
+✔ run reads stdin, emits stream JSON and reopens the durable session (2914.298375ms)
+✔ one-shot noninteractive approval denies a write and returns the denial to the model (714.013958ms)
+✔ a real terminal ignores an early approval and applies a later denial (1599.88425ms)
+✔ an approved edit appears in changes and undo restores the workspace (948.958333ms)
+✔ quota pauses with exit 3 and a later process resumes on the selected model (1204.935042ms)
+✔ a terminal provider error returns exit 1 for both run and resume (1396.598416ms)
+✔ CLI image input reaches the provider and a portable bundle restores its attachment (1179.523417ms)
+✔ MCP inspection exits after closing a successfully connected stdio server (280.380167ms)
+✔ interactive command loop buffers piped follow-ups and applies mode and model switches (10736.180917ms)
+✔ CLI lists project commands and skills, expands arguments, and attaches a mentioned file (1013.933625ms)
+✔ knowledge and memory commands persist and retrieve distinct CJK content (1321.225167ms)
+✔ configured company knowledge sends a bearer token and keeps local search on a remote denial (608.144167ms)
+✔ mail and calendar presets update isolated MCP and untrusted-tool settings without opening accounts (1360.146334ms)
+✔ voice transcribe and record use a controlled audio source and the configured ASR provider (655.027125ms)
+✔ sandbox self-test succeeds for completed probes and fails when the shell cannot run (830.047667ms)
+✔ automation commands preview, persist, edit, pause, run, track history and delete (2203.345583ms)
+✔ intel defaults to the local calendar day for listing, showing, and retrying saved analysis (728.117542ms)
+✔ worktree commands isolate an edit, report its diff, squash it, and clean a separate worktree (8095.3175ms)
+✔ eval runs a hidden check and compares a passing scripted run with a regression (2441.41425ms)
+✔ serve owns CLI sessions, isolates local routing, and creates removable launch-agent metadata (7107.521916ms)
+ℹ tests 21
+ℹ suites 0
+ℹ pass 21
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 48078.026042

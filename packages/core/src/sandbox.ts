@@ -1,10 +1,10 @@
-import { spawnSync } from 'node:child_process';
-import { createHash } from 'node:crypto';
+import { execFile, spawnSync } from 'node:child_process';
+import { createHash, randomUUID } from 'node:crypto';
 import { existsSync, realpathSync, statSync, writeFileSync } from 'node:fs';
 import { createServer, request as httpRequest, type Server } from 'node:http';
 import { connect, type AddressInfo } from 'node:net';
 import { homedir, platform, tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { CREDENTIAL_NAME, RC_FILES } from './env.js';
 import { ensureDir, homePath, sunHome } from './paths.js';
 
@@ -52,6 +52,8 @@ export interface ExecSandbox {
   shell(command: string, cwd: string): string;
   /** Environment for the sandboxed process. */
   env(base: NodeJS.ProcessEnv): NodeJS.ProcessEnv;
+  /** Hook invocations may need a dedicated sandbox with its own cancellation cleanup. */
+  prepareHook?(command: string, cwd: string): { shell: string; cleanup?: (env: NodeJS.ProcessEnv) => Promise<boolean> };
   dispose?(): void;
 }
 
@@ -106,7 +108,7 @@ function baseEnv(base: NodeJS.ProcessEnv, scrub: string[], proxy?: string): Node
 
 // ---------------- macOS seatbelt ----------------
 
-export function seatbeltProfile(cwd: string, cfg: SandboxConfig): string {
+export function seatbeltProfile(cwd: string, cfg: SandboxConfig, protectedPaths: string[] = []): string {
   const q = (p: string) => JSON.stringify(p);
   const sun = real(sunHome());
   const lines = [
@@ -122,6 +124,10 @@ export function seatbeltProfile(cwd: string, cfg: SandboxConfig): string {
   // Re-allow what under ~/.sun is not secret, and the workspace if it lives there (the last matching rule wins).
   const allowBack = [...SUN_READABLE.map((d) => join(sun, d)), ...writableRoots(cwd, cfg).filter((p) => p.startsWith(sun + '/'))];
   if (allowBack.length) lines.push(`(allow file-read-data ${allowBack.map((p) => `(subpath ${q(p)})`).join(' ')})`);
+  if (protectedPaths.length) {
+    const paths = protectedPaths.map(expand).map(real).map(p => `(subpath ${q(p)})`).join(' ');
+    lines.push(`(deny file-read-data ${paths})`, `(deny file-write* ${paths})`);
+  }
   if (cfg.network !== 'on') {
     lines.push('(deny network*)', '(allow network* (remote unix-socket))');
     // Loopback stays reachable (local test servers, and the allowlist proxy).
@@ -130,12 +136,12 @@ export function seatbeltProfile(cwd: string, cfg: SandboxConfig): string {
   return lines.join('\n') + '\n';
 }
 
-function seatbelt(cfg: SandboxConfig, scrub: string[], proxy?: () => number | undefined): ExecSandbox {
+function seatbelt(cfg: SandboxConfig, scrub: string[], proxy?: () => number | undefined, protectedPaths: string[] = []): ExecSandbox {
   return {
     kind: 'seatbelt',
     describe: () => `seatbelt (writes: workspace + caches; network ${cfg.network})`,
     shell(command, cwd) {
-      const profile = seatbeltProfile(cwd, cfg);
+      const profile = seatbeltProfile(cwd, cfg, protectedPaths);
       const file = join(ensureDir(homePath('sandbox')), `${createHash('sha1').update(profile).digest('hex').slice(0, 16)}.sb`);
       if (!existsSync(file)) writeFileSync(file, profile);
       return `sandbox-exec -f ${shq(file)} bash -c ${shq(command)}`;
@@ -152,7 +158,7 @@ function emptyFile(): string {
   return f;
 }
 
-export function bwrapArgs(cwd: string, cfg: SandboxConfig): string[] {
+export function bwrapArgs(cwd: string, cfg: SandboxConfig, protectedPaths: string[] = []): string[] {
   const args = ['--ro-bind', '/', '/', '--dev', '/dev', '--proc', '/proc', '--tmpfs', '/tmp'];
   // Hide credentials first; writable binds come after so a workspace under ~/.sun is mounted on top.
   for (const p of cfg.denyRead.map(expand)) {
@@ -167,23 +173,29 @@ export function bwrapArgs(cwd: string, cfg: SandboxConfig): string[] {
     for (const d of SUN_READABLE) if (existsSync(join(sun, d))) args.push('--ro-bind', join(sun, d), join(sun, d));
   }
   for (const p of writableRoots(cwd, cfg)) if (existsSync(p)) args.push('--bind', p, p);
+  for (const path of protectedPaths.map(expand).map(real)) {
+    // Mask private directories after writable mounts. If an earlier mount already hid them, access is denied there.
+    if (!existsSync(path)) continue;
+    if (statSync(path).isDirectory()) args.push('--tmpfs', path);
+    else args.push('--ro-bind', emptyFile(), path);
+  }
   if (cfg.network === 'off') args.push('--unshare-net');
   args.push('--die-with-parent', '--chdir', real(cwd));
   return args;
 }
 
-function bwrap(cfg: SandboxConfig, scrub: string[], proxy?: () => number | undefined): ExecSandbox {
+function bwrap(cfg: SandboxConfig, scrub: string[], proxy?: () => number | undefined, protectedPaths: string[] = []): ExecSandbox {
   return {
     kind: 'bwrap',
     describe: () => `bubblewrap (writes: workspace + caches; network ${cfg.network})`,
-    shell: (command, cwd) => `bwrap ${bwrapArgs(cwd, cfg).map(shq).join(' ')} bash -c ${shq(command)}`,
+    shell: (command, cwd) => `bwrap ${bwrapArgs(cwd, cfg, protectedPaths).map(shq).join(' ')} bash -c ${shq(command)}`,
     env: (base) => baseEnv(base, scrub, cfg.network === 'allowlist' && proxy?.() ? `http://127.0.0.1:${proxy()}` : undefined),
   };
 }
 
 // ---------------- Docker (one container per session) ----------------
 
-export function dockerSandbox(sessionId: string, cwd: string, cfg: SandboxConfig, scrub: string[]): ExecSandbox {
+export function dockerSandbox(sessionId: string, cwd: string, cfg: SandboxConfig, scrub: string[], protectedPaths: string[] = []): ExecSandbox {
   const name = `sun-sb-${sessionId.replace(/[^\w-]/g, '')}`;
   const root = real(cwd);
   let started = false;
@@ -208,9 +220,90 @@ export function dockerSandbox(sessionId: string, cwd: string, cfg: SandboxConfig
       const inside = real(dir).startsWith(root) ? real(dir) : root;
       return `docker exec -i -w ${shq(inside)} -e PAGER=cat -e CI=\${CI:-} ${name} bash -c ${shq(command)}`;
     },
+    prepareHook(command, dir) {
+      const hook = `sun-hook-${randomUUID()}`;
+      const child = real(dir);
+      const offset = relative(root, child);
+      const inside = isAbsolute(offset) || offset === '..' || offset.startsWith(`..${sep}`) ? root : child;
+      const user = platform() === 'linux' && process.getuid
+        ? ['--user', `${process.getuid()}:${process.getgid?.() ?? process.getuid()}`] : [];
+      const masks = protectedPaths.map(expand).map(real).flatMap(path => {
+        const location = relative(root, path);
+        return location && !isAbsolute(location) && location !== '..' && !location.startsWith(`..${sep}`)
+          ? ['--tmpfs', `${path}:ro`] : [];
+      });
+      const args = [
+        'create', '--rm', '--init', '--interactive', '--pull=never', '--name', hook, '--label', 'sun-harness=hook',
+        '--network', cfg.network === 'on' ? 'bridge' : 'none', ...user, '-v', `${root}:${root}`, '-w', inside,
+        ...masks, '-e', 'SUN_HOOK=1', '--entrypoint', 'bash', cfg.docker.image, '-c', command,
+      ];
+      return {
+        shell: `docker ${args.map(shq).join(' ')} >/dev/null && exec docker start --attach --interactive ${shq(hook)}`,
+        cleanup: env => new Promise(resolve => {
+          execFile('docker', ['rm', '-f', hook], { env, timeout: 3000, maxBuffer: 16 * 1024, windowsHide: true }, (error, _stdout, stderr) => {
+            resolve(!error || (error as NodeJS.ErrnoException).code === 'ENOENT' || /No such (?:object|container)/i.test(stderr));
+          });
+        }),
+      };
+    },
     env: (base) => baseEnv(base, scrub),
     dispose: () => void spawnSync('docker', ['rm', '-f', name]),
   };
+}
+
+const executionContainerName = (operationId: string) => `sun-exec-${operationId}`;
+
+const localSocket = (value: unknown): value is string => typeof value === 'string' && /^unix:\/\/\/[^\0\r\n]+$/.test(value);
+const dockerEnv = (base: NodeJS.ProcessEnv) => {
+  const env = { ...base };
+  delete env.DOCKER_HOST;
+  delete env.DOCKER_CONTEXT;
+  return env;
+};
+
+export function executionDockerEndpoint(image: string): string | undefined {
+  const selection = !process.env.DOCKER_CONTEXT && process.env.DOCKER_HOST ? process.env.DOCKER_HOST : undefined;
+  const endpoint = selection ?? spawnSync('docker', ['context', 'inspect', '--format', '{{.Endpoints.docker.Host}}'], {
+    encoding: 'utf8', timeout: 1000, maxBuffer: 4096,
+  }).stdout?.trim();
+  if (localSocket(endpoint) && spawnSync('docker', ['--host', endpoint, 'image', 'inspect', image], {
+    env: dockerEnv(process.env), stdio: 'ignore', timeout: 1500,
+  }).status === 0) return endpoint;
+}
+
+export function prepareDockerExecution(operationId: string, command: string, cwd: string, cfg: SandboxConfig,
+  endpoint: string, secretEnv: string[]): { shell: string; env: NodeJS.ProcessEnv } {
+  if (!localSocket(endpoint)) throw new Error('EXECUTION_CONTAINER_UNAVAILABLE');
+  const root = real(cwd);
+  const name = executionContainerName(operationId);
+  const user = platform() === 'linux' && process.getuid
+    ? ['--user', `${process.getuid()}:${process.getgid?.() ?? process.getuid()}`] : [];
+  const args = ['create', '--rm', '--init', '--interactive', '--pull=never', '--name', name,
+    '--label', 'sun-harness=execution', '--label', `sun-execution-operation=${operationId}`,
+    '--network', cfg.network === 'on' ? 'bridge' : 'none', ...user, '-v', `${root}:${root}`, '-w', root,
+    '--entrypoint', 'bash', cfg.docker.image, '-c', command];
+  const docker = `docker --host ${shq(endpoint)}`;
+  const shell = `${docker} ${args.map(shq).join(' ')} >/dev/null || exit $?; `
+    + 'if [ -e "$SUN_JOB_CANCEL" ]; then printf stopped >"$SUN_JOB_CANCELLED"; exit 125; fi; '
+    + `exec ${docker} start --attach --interactive ${shq(name)}`;
+  return { shell, env: dockerEnv(baseEnv(process.env, cfg.scrubEnv ? secretEnv : [])) };
+}
+
+/** Stop only a container created by this operation. Local Docker ownership is checked before removal. */
+export function stopDockerExecution(operationId: string, endpoint?: string, beforeStop?: () => void): 'stopped' | 'absent' | 'unavailable' {
+  if (!localSocket(endpoint)) return 'unavailable';
+  const env = dockerEnv(process.env);
+  const probe = spawnSync('docker', ['--host', endpoint, 'container', 'inspect', '--format',
+    '{{.Id}} {{index .Config.Labels "sun-harness"}} {{index .Config.Labels "sun-execution-operation"}}',
+    executionContainerName(operationId)], { env, encoding: 'utf8', timeout: 1500, maxBuffer: 4096 });
+  if (probe.status !== 0) return /No such (?:object|container)/i.test(probe.stderr ?? '') ? 'absent' : 'unavailable';
+  const [id, owner, operation] = probe.stdout.trim().split(/\s+/);
+  if (!/^[a-f0-9]{64}$/.test(id) || owner !== 'execution' || operation !== operationId) return 'unavailable';
+  beforeStop?.();
+  const stop = spawnSync('docker', ['--host', endpoint, 'container', 'rm', '--force', id], {
+    env, encoding: 'utf8', timeout: 5000, maxBuffer: 4096,
+  });
+  return stop.status === 0 || /No such (?:object|container)/i.test(stop.stderr ?? '') ? 'stopped' : 'unavailable';
 }
 
 // ---------------- selection ----------------
@@ -235,12 +328,12 @@ export function resolveSandboxKind(mode: SandboxMode): ExecSandbox['kind'] {
   return mode;
 }
 
-export function createSandbox(o: { mode: SandboxMode; cfg: SandboxConfig; sessionId: string; cwd: string; secretEnv: string[]; proxyPort?: () => number | undefined }): ExecSandbox {
+export function createSandbox(o: { mode: SandboxMode; cfg: SandboxConfig; sessionId: string; cwd: string; secretEnv: string[]; proxyPort?: () => number | undefined; protectedPaths?: string[]; hook?: boolean }): ExecSandbox {
   const scrub = o.cfg.scrubEnv ? o.secretEnv : [];
-  const kind = resolveSandboxKind(o.mode);
-  if (kind === 'seatbelt') return seatbelt(o.cfg, scrub, o.proxyPort);
-  if (kind === 'bwrap') return bwrap(o.cfg, scrub, o.proxyPort);
-  if (kind === 'docker') return dockerSandbox(o.sessionId, o.cwd, o.cfg, scrub);
+  const kind = o.hook && o.mode === 'docker' ? 'docker' : resolveSandboxKind(o.mode);
+  if (kind === 'seatbelt') return seatbelt(o.cfg, scrub, o.proxyPort, o.protectedPaths);
+  if (kind === 'bwrap') return bwrap(o.cfg, scrub, o.proxyPort, o.protectedPaths);
+  if (kind === 'docker') return dockerSandbox(o.sessionId, o.cwd, o.cfg, scrub, o.protectedPaths);
   return { kind: 'none', describe: () => 'none (commands run as you)', shell: (c) => c, env: (base) => baseEnv(base, scrub) };
 }
 

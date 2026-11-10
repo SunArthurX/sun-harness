@@ -8,7 +8,7 @@ Status: implemented (iteration 7). Code: `apps/desktop/package.json` (`build`), 
 - The main process bundles `@sun/core` and the MCP SDK, so the app contains only `out/**` (no `node_modules`); its imports are Node built-ins and `electron`.
 - electron-builder reuses the local Electron binary (`electronDist`), so packaging works where GitHub release downloads are blocked.
 - Signing: `identity: null` skips Developer ID signing; `scripts/adhoc-sign.mjs` ad-hoc signs (`codesign --force --deep --sign -`) and verifies, which is enough to run on the build machine (Apple Silicon requires a signature). Distribution to other Macs needs a Developer ID and notarization (not automated).
-- Icon: `build/icon.png` (1024², rendered from SVG by `scripts/make-icon.cjs`); electron-builder converts it to `.icns`.
+- Icon: `build/icon.png` (1024², rendered from SVG by `scripts/make-icon.cjs`); electron-builder converts it to `.icns`. The mark is a playful sun face on the ink background.
 
 ## Runtime environment
 

@@ -1,7 +1,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { HarnessHost, MockProvider, detectVerifyCommands } from '../src/index.js';
+import { HarnessHost, MockProvider, detectVerifyCommands, homePath } from '../src/index.js';
 import { call, mockHost, tempHome, tempWorkspace, testConfig } from './helpers.js';
 
 describe('verify loop (done gate)', () => {
@@ -80,16 +80,17 @@ describe('parallel read-only tool calls', () => {
   beforeEach(() => tempHome());
   it('runs consecutive read calls concurrently and logs them in order', async () => {
     const provider = new MockProvider([{ text: '', toolCalls: [call('slow_read', { n: 1 }), call('slow_read', { n: 2 }), call('slow_read', { n: 3 })] }, { text: 'ok', toolCalls: [] }]);
-    const host = new HarnessHost({ config: testConfig(), providerFactory: () => ({ provider, model: 'm' }), loadPlugins: false, connectMcp: false, shellHooks: false });
+    const plugin = homePath('plugins', 'parallel-fixture');
+    mkdirSync(plugin, { recursive: true });
+    writeFileSync(join(plugin, 'index.mjs'), `export default api => api.registerTool({
+      name: 'slow_read', description: 'Fixture', parameters: { type: 'object' }, risk: 'read',
+      execute: async ({ n }) => {
+        await new Promise(resolve => setTimeout(resolve, 250 - n * 50));
+        return 'r' + n;
+      },
+    });`);
+    const host = new HarnessHost({ config: testConfig(), providerFactory: () => ({ provider, model: 'm' }), connectMcp: false, shellHooks: false });
     await host.init();
-    (host as any).pluginTools.push({
-      name: 'slow_read',
-      description: 'd',
-      parameters: { type: 'object' },
-      risk: 'read',
-      source: 'plugin:t',
-      execute: async (a: { n: number }) => (await new Promise((r) => setTimeout(r, 250 - a.n * 50)), `r${a.n}`),
-    });
     const s = host.createSession({ cwd: tempWorkspace() });
     const t0 = Date.now();
     await host.send(s.id, 'go');

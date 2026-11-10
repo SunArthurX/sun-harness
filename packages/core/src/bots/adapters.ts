@@ -92,7 +92,11 @@ export class DingTalkBot implements BotTransport {
   async send(chatId: string, text: string): Promise<void> {
     const w = this.webhooks.get(chatId);
     if (!w || w.expires < Date.now()) throw new Error(`No live DingTalk session webhook for ${chatId}`);
-    const r = await fetch(w.url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ msgtype: 'markdown', markdown: { title: 'sun-harness', text } }) });
+    await this.deliver(w.url, text);
+  }
+
+  private async deliver(url: string, text: string): Promise<void> {
+    const r = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ msgtype: 'markdown', markdown: { title: 'sun-harness', text } }) });
     if (!r.ok) throw new Error(`dingtalk webhook ${r.status}`);
   }
 
@@ -109,11 +113,22 @@ export class DingTalkBot implements BotTransport {
     } catch {
       return json(res, 400, { error: 'invalid JSON' });
     }
-    const chatId = String(m.conversationId ?? '');
-    if (m.sessionWebhook) this.webhooks.set(chatId, { url: m.sessionWebhook, expires: Number(m.sessionWebhookExpiredTime ?? Date.now() + 3_600_000) });
+    if (!m || typeof m !== 'object') return json(res, 400, { error: 'invalid callback' });
+    const message = {
+      chatId: String(m.conversationId ?? ''), userId: String(m.senderStaffId ?? m.senderId ?? ''),
+      userName: m.senderNick, text: String(m.text?.content ?? '').trim(),
+    };
+    const webhook = typeof m.sessionWebhook === 'string' && m.sessionWebhook
+      ? { url: m.sessionWebhook, expires: Number(m.sessionWebhookExpiredTime ?? Date.now() + 3_600_000) }
+      : undefined;
+    const identityReply = this.bridge.identityReply(message);
+    if (!identityReply && webhook) this.webhooks.set(message.chatId, webhook);
     json(res, 200, {});
-    const text = String(m.text?.content ?? '').trim();
-    await this.bridge.handle({ chatId, userId: String(m.senderStaffId ?? m.senderId ?? ''), userName: m.senderNick, text }).catch(() => undefined);
+    if (identityReply) {
+      if (webhook && webhook.expires >= Date.now()) await this.deliver(webhook.url, identityReply).catch(() => undefined);
+      return;
+    }
+    await this.bridge.handle(message).catch(() => undefined);
   };
 
   start(): void {
@@ -149,7 +164,11 @@ export class WebhookBot implements BotTransport {
     const c = this.collectors.get(chatId);
     if (c) return void c.push(text);
     const url = this.replyUrls.get(chatId);
-    if (url) await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ chatId, text }) });
+    if (url) await this.deliver(url, chatId, text);
+  }
+
+  private async deliver(url: string, chatId: string, text: string): Promise<void> {
+    await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ chatId, text }) });
   }
 
   route: RouteHandler = async (req, res, { authorized, body }) => {
@@ -160,11 +179,20 @@ export class WebhookBot implements BotTransport {
     } catch {
       return json(res, 400, { error: 'invalid JSON' });
     }
-    if (!m.chatId || typeof m.text !== 'string') return json(res, 400, { error: 'chatId and text are required' });
+    if (!m?.chatId || typeof m.text !== 'string') return json(res, 400, { error: 'chatId and text are required' });
+    if (m.replyUrl !== undefined && typeof m.replyUrl !== 'string') return json(res, 400, { error: 'replyUrl must be a string' });
     m.chatId = String(m.chatId);
     m.userId = String(m.userId ?? '');
-    if (m.replyUrl) this.replyUrls.set(m.chatId, m.replyUrl);
     const wait = new URL(req.url ?? '/', 'http://x').searchParams.get('wait') === '1';
+    const identityReply = this.bridge.identityReply(m);
+    if (identityReply) {
+      if (wait) return json(res, 200, { replies: [identityReply] });
+      json(res, 202, { accepted: true });
+      if (m.replyUrl) await this.deliver(m.replyUrl, m.chatId, identityReply).catch(() => undefined);
+      return;
+    }
+    if (this.collectors.has(m.chatId)) return json(res, 409, { error: 'A synchronous reply is already pending for this chat' });
+    if (m.replyUrl) this.replyUrls.set(m.chatId, m.replyUrl);
     if (!wait) {
       json(res, 202, { accepted: true });
       await this.bridge.handle(m).catch(() => undefined);

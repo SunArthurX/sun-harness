@@ -15,6 +15,10 @@ export interface ToolServices {
   memorySearch?(query: string): Promise<string>;
   loadSkill?(name: string): Promise<string>;
   runSubagent?(prompt: string, opts: { mode?: string }): Promise<string>;
+  /** Manus-style: one fresh subagent per item, then one combined note. */
+  wideResearch?(question: string, items: string[]): Promise<string>;
+  searchSessions?(query: string): Promise<string>;
+  rememberUser?(fact: string): Promise<string>;
   scheduleTask?(spec: { prompt: string; at?: string; cron?: string; title?: string }): Promise<string>;
   /** Start a background shell job; its result is delivered to the session when it ends. */
   startJob?(command: string, cwd: string): string;
@@ -56,6 +60,8 @@ export interface Tool {
    * Unavailable tools are not offered to the model (a dead tool invites endless retries).
    */
   available?(): Promise<boolean>;
+  /** Rechecked on work prepared before a registration was removed. */
+  isRegistered?(): boolean;
   /** Output is external content (web, browser, …): wrapped as untrusted and scanned for prompt injection. */
   untrusted?: boolean;
 }

@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>41 — Appshot capture and replay</title>
+<body>
+<p><a href="index.html">Teaching index</a></p>
+<h1>Appshot capture and replay</h1>
+<p>Appshots add a user-triggered capture to a chat. The implementation
+started with a fake adapter that could change targets, deny permission,
+and return known bytes. That fixture established the draft and replay
+contract before the macOS adapter was enabled.</p>
+<h2>Which window gets captured?</h2>
+<p>The shortcut selects the foreground window before raising Sun Harness.
+A composer request stays in the desktop app's own process. The helper
+uses a ScreenCaptureKit filter for the selected window, stops after one
+complete frame, and verifies the window remains the foreground target.
+On macOS, the capture indicator briefly appeared as a separate window
+of the same process. A bounded wait lets it clear before the helper
+checks the foreground ID again. The preview shows the target that
+actually supplied the pixels.</p>
+<pre class="mermaid">flowchart TD
+  A[User requests Appshot] --> B[Resolve foreground window]
+  B --> C[Filter capture to one window]
+  C --> D[Read a complete frame and stop]
+  D --> E{Foreground changed?}
+  E -->|Yes| B
+  E -->|No| F[Open private review with actual target]
+</pre>
+<h2>What makes redaction durable?</h2>
+<p>The Electron adapter overwrites the selected pixels before encoding a
+fresh image. Cropping removes pixels outside the rectangle. Image edits
+exclude text extracted from the original window. A prepared draft stays
+in memory until the user sends it.</p>
+<pre class="mermaid">flowchart TD
+  F[Private review] -->|Cancel or expire| G[Discard draft]
+  F -->|Prepare| H[Re-encode edited pixels]
+  H --> I[Show composer attachment]
+  I -->|Send| J[Flush file and attachment receipt]
+  J --> K[Verify digest when projecting history]
+  K -->|Vision model| L[Send approved image and caption]
+  K -->|Text-only model| M[Send approved caption and text]
+  K -->|Missing or changed image| N[Report unavailable attachment]
+</pre>
+<p>The first implementation uses an SCStream to support the macOS 13
+SDK. The fixture checks the app package and actual output pixels.
+See <a href="../manual/appshots.md">the Appshot manual</a> and
+<a href="../plans/settings-competitors/evidence/T11.json">T11 evidence</a>.</p>
+<script type="module">import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';mermaid.initialize({startOnLoad:true});</script>
+</body>
+</html>

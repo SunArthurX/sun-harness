@@ -1,0 +1,42 @@
+
+ RUN  v5.1.0 /Users/sunqingguang/Downloads/06.code/sun-harness
+
+ ↓ packages/core/test/bots.test.ts > chat bots > Telegram: allowlist, one session per chat, approvals answered in the chat, replies sent back
+ ↓ packages/core/test/bots.test.ts > chat bots > a bot only approves its own chats; other sessions still fail closed
+ ↓ packages/core/test/bots.test.ts > chat bots > DingTalk: verifies the callback signature and replies through the session webhook
+ ↓ packages/core/test/bots.test.ts > chat bots > webhook: device-token auth, allowlist, and synchronous replies with ?wait=1
+ ↓ packages/core/test/bots.test.ts > chat bots > isolates a waiting webhook reply from concurrent same-chat requests
+ ↓ packages/core/test/bots.test.ts > chat bots > webhook keeps a denied user from replacing an authorized reply destination
+ × packages/core/test/bots.test.ts > chat bots > dingtalk keeps a denied user from replacing an authorized reply destination 499ms
+   → expected [ …(2) ] to deeply equal [ StringContaining "Not authorized" ]
+ ↓ packages/core/test/bots.test.ts > chat bots > reports bots that cannot start for lack of credentials
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/core/test/bots.test.ts > chat bots > dingtalk keeps a denied user from replacing an authorized reply destination
+AssertionError: expected [ …(2) ] to deeply equal [ StringContaining "Not authorized" ]
+
+- Expected
++ Received
+
+  [
+    "Not authorized. Your user id is denied; the owner can add it to bots.dingtalk.allowedUsers.",
++   "authorized fixture reply",
+  ]
+
+ ❯ packages/core/test/bots.test.ts:246:105
+    244|       release();
+    245|       await until(() => deliveries.some(delivery => delivery.text === …
+    246|       expect(deliveries.filter(delivery => delivery.path === '/denied'…
+       |                                                                                                         ^
+    247|       expect(deliveries).toContainEqual({ path: '/allowed', text: 'aut…
+    248|     } finally {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 7 skipped (8)
+   Start at  21:30:25
+   Duration  807ms (tests 68%, import 20%, transform 11%)
+

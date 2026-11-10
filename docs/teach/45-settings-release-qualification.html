@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>45 — Settings release qualification</title>
+<body>
+<p><a href="index.html">Teaching index</a></p>
+<h1>Settings release qualification</h1>
+<p>The release combines cross-surface behavior, signed native evidence,
+and a live handoff check. A test can prove only the route it exercised.
+Desktop settings, gateway transport, local browser backends, and the
+signed macOS helpers have separate acceptance records.</p>
+<h2>How does the handoff test expose drift?</h2>
+<p>The test freezes a public prompt, three task fixtures, a write scope,
+and the fixed judge. The untouched fixtures fail and the reference
+patches pass before the model runs. Each attempt uses a fresh workspace.
+The report saves the exact prompt and fixture hashes, the diff, the
+run status, and the acceptance output.</p>
+<pre class="mermaid">flowchart TD
+  A[Freeze the public prompt and fixture suite] --> B[Validate untouched and reference outcomes]
+  B --> C[Run three fresh repetitions per fixture]
+  C --> D[Record each attempt and fixed judge output]
+  D --> E{Nine first-attempt passes for these hashes?}
+  E -->|Yes| F[Record live handoff acceptance]
+  E -->|No| G[Preserve the failed report and investigate]
+</pre>
+<h2>Why does a paused run fail even with a passing diff?</h2>
+<p>A useful handoff includes a bounded finish and a final report. In the
+first T15 run, one model attempt produced a passing settings diff but
+reached its step limit before finishing. A second run exposed a test
+stub that returned an error object instead of throwing. The public
+prompt now covers both the test boundary and when to finish. A prompt
+extraction regression test checks that the runner sends the entire
+quote. The final run passed all nine attempts with the same judge,
+fixture scope, model, and step limit.</p>
+<p><a href="../manual/settings-roadmap.md">Settings manual</a> ·
+<a href="../plans/settings-competitors/evidence/T15-preflight.md">Release preflight and earlier outcomes</a> ·
+<a href="../plans/settings-competitors/evidence/T15.json">Final acceptance record</a></p>
+<script type="module">import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';mermaid.initialize({startOnLoad:true});</script>
+</body>
+</html>

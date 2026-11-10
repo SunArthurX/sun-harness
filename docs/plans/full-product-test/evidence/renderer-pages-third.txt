@@ -1,0 +1,70 @@
+Electron: chat streamed and persisted, approvals guarded both actions, dock and context rendered, language switched, provider aborted, search and pin worked, and quota recovered in the same session.
+Electron: the managed Chromium live view displayed a real frame, forwarded keyboard input only under control, and returned ownership.
+Electron: knowledge write and CJK search, memory route, Intel listing and analysis, Evolution accept/reject, and automation create/run/history/delete all passed.
+Electron: the worktree diff was inspected, squash merged to the index, and a separate clean worktree was discarded.
+Gateway: chat streamed and persisted, approvals guarded both actions, dock and context rendered, language switched, provider aborted, search and pin worked, and quota recovered in the same session.
+Gateway: the managed Chromium live view displayed a real frame, forwarded keyboard input only under control, and returned ownership.
+Gateway: knowledge write and CJK search, memory route, Intel listing and analysis, Evolution accept/reject, and automation create/run/history/delete all passed.
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+locator.click: Timeout 10000ms exceeded.
+Call log:
+[2m  - waiting for getByTitle('Worktree changes')[22m
+[2m    - locator resolved to <button title="Worktree changes" class="chip mono branch ">⑂ sun/4e8c8d1e</button>[22m
+[2m  - attempting click action[22m
+[2m    2 × waiting for element to be visible, enabled and stable[22m
+[2m      - element is visible, enabled and stable[22m
+[2m      - scrolling into view if needed[22m
+[2m      - done scrolling[22m
+[2m      - <div class="chat-controls">…</div> intercepts pointer events[22m
+[2m    - retrying click action[22m
+[2m    - waiting 20ms[22m
+[2m    2 × waiting for element to be visible, enabled and stable[22m
+[2m      - element is visible, enabled and stable[22m
+[2m      - scrolling into view if needed[22m
+[2m      - done scrolling[22m
+[2m      - <div class="chat-controls">…</div> intercepts pointer events[22m
+[2m    - retrying click action[22m
+[2m      - waiting 100ms[22m
+[2m    19 × waiting for element to be visible, enabled and stable[22m
+[2m       - element is visible, enabled and stable[22m
+[2m       - scrolling into view if needed[22m
+[2m       - done scrolling[22m
+[2m       - <div class="chat-controls">…</div> intercepts pointer events[22m
+[2m     - retrying click action[22m
+[2m       - waiting 500ms[22m
+
+    at exerciseWorktree (/Users/sunqingguang/Downloads/06.code/sun-harness/apps/desktop/e2e/chat-product.mjs:359:45)
+    at async file:///Users/sunqingguang/Downloads/06.code/sun-harness/apps/desktop/e2e/chat-product.mjs:415:3 {
+  log: [
+    "  - waiting for getByTitle('Worktree changes')",
+    '    - locator resolved to <button title="Worktree changes" class="chip mono branch ">⑂ sun/4e8c8d1e</button>',
+    '  - attempting click action',
+    '    2 × waiting for element to be visible, enabled and stable',
+    '      - element is visible, enabled and stable',
+    '      - scrolling into view if needed',
+    '      - done scrolling',
+    '      - <div class="chat-controls">…</div> intercepts pointer events',
+    '    - retrying click action',
+    '    - waiting 20ms',
+    '    2 × waiting for element to be visible, enabled and stable',
+    '      - element is visible, enabled and stable',
+    '      - scrolling into view if needed',
+    '      - done scrolling',
+    '      - <div class="chat-controls">…</div> intercepts pointer events',
+    '    - retrying click action',
+    '      - waiting 100ms',
+    '    19 × waiting for element to be visible, enabled and stable',
+    '       - element is visible, enabled and stable',
+    '       - scrolling into view if needed',
+    '       - done scrolling',
+    '       - <div class="chat-controls">…</div> intercepts pointer events',
+    '     - retrying click action',
+    '       - waiting 500ms'
+  ],
+  name: 'TimeoutError'
+}
+
+Node.js v24.15.0

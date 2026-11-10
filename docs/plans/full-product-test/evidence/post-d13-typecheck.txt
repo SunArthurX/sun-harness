@@ -1,0 +1,10 @@
+$ pnpm typecheck
+# started 2026-11-10T05:36:56Z
+$ pnpm -r run typecheck
+Scope: 3 of 4 workspace projects
+packages/core typecheck$ tsc -p tsconfig.json --noEmit
+packages/core typecheck: Done
+apps/desktop typecheck$ tsc -p tsconfig.json --noEmit
+packages/cli typecheck$ tsc -p tsconfig.json --noEmit
+packages/cli typecheck: Done
+apps/desktop typecheck: Done

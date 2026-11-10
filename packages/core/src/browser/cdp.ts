@@ -92,6 +92,20 @@ export class CdpConnection {
     }
   }
 
+  async closeAndWait(timeoutMs = 5000): Promise<void> {
+    if (this.closed) return;
+    await new Promise<void>(resolve => {
+      const finish = () => {
+        clearTimeout(timer);
+        off();
+        resolve();
+      };
+      const off = this.on('__close', finish);
+      const timer = setTimeout(finish, timeoutMs);
+      this.close();
+    });
+  }
+
   private emit(method: string, params: any, sessionId?: string): void {
     for (const fn of this.listeners.get(method) ?? []) fn(params, sessionId);
   }

@@ -1,0 +1,20 @@
+✔ current plan is coherent (10.351958ms)
+✔ missing screenshot entry is rejected (0.414958ms)
+✔ unknown dependency is rejected (0.289917ms)
+✔ dependency cycle is rejected (0.294125ms)
+✔ fake completion without evidence is rejected (0.301375ms)
+✔ unknown acceptance is rejected (0.671042ms)
+✔ unimplemented dependency blocks starting work (0.470167ms)
+✔ unexplained deferral is rejected (0.313292ms)
+✔ outside-repository specification is rejected (0.209292ms)
+✔ the live prompt includes the full public quote and excludes the separate procedure (1.93325ms)
+✔ release accepts nine distinct first-attempt passes with artifact evidence (0.176125ms)
+✔ release rejects old, repeated, retried, unfinished, or undocumented results (0.217166ms)
+ℹ tests 12
+ℹ suites 0
+ℹ pass 12
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 67.132041

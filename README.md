@@ -10,7 +10,7 @@ A harness reduces to six parts: **model, context, tools, loop, log, policy**. su
 
 ## Features
 
-- **Desktop app** (Electron + React): streaming sessions, tool cards, approval cards, plan view, paused banner with resume / switch-model, knowledge, extensions, evolution, intel and settings screens.
+- **Desktop app** (Electron + React): streaming sessions, tool cards, approval cards, plan view, paused banner with resume / switch-model, knowledge, extensions, evolution, intel and settings screens. English and Simplified Chinese (rail toggle or Settings). A right dock holds Changes, Browser, Terminal and Files.
 - **CLI** `sun`: interactive chat, one-shot `run` with exit codes, `resume`, `init`, `intel`, `kb`, `evolve`, `doctor`.
 - **Any model**: DeepSeek, OpenAI, Anthropic, GLM, Qwen, Gemini, OpenRouter, Ollama (OpenAI-compatible and Anthropic wire formats), switchable per session.
 - **Durable by design**: every session is an append-only JSONL log; quota or auth failures pause the run, fallback models take over, and resume continues exactly where it stopped.
@@ -30,6 +30,7 @@ A harness reduces to six parts: **model, context, tools, loop, log, policy**. su
 - **Chat bots**: Telegram, DingTalk, Feishu, WeChat Official Account, WeCom and webhook bots with allowlists and approvals in chat.
 - **Durable jobs and safe approvals**: background jobs survive restarts; approvals can't be answered by stray keys or clicks.
 - **Measured coding success**: a validated 36-task eval suite (`sun eval`); tolerant edits and atomic `apply_patch`, a done gate that runs your tests, undo, repository map, plan mode, best-of-N, prompt-cache accounting.
+- **Cursor-grade coding**: local codebase search, glob-scoped rules, `.cursorignore`, and a read-only `/review` of the session diff.
 - **Sandboxed shell**: seatbelt (macOS), bubblewrap (Linux) or Docker; network off / on / allowlist; credentials hidden from commands.
 - **A real browser**: local Chrome or sandboxed Chromium (Xvfb + noVNC + socat) over CDP; accessibility snapshots; live view and takeover in the desktop.
 - **Research agent**: keyless and keyed search providers, readable pages and PDFs, a persistent Python kernel, parallel subagents, deliverables panel, prompt-injection guard.
@@ -37,7 +38,10 @@ A harness reduces to six parts: **model, context, tools, loop, log, policy**. su
 - **See what changed**: every turn lists the files it changed (diff, full file, revert); a session review with a file tree.
 - **Context usage per conversation**: a ring and report showing what fills the context and how to shrink it; steering mid-run; model titles; pins.
 - **Everyday conveniences**: custom `/commands`, `@file` mentions, pasted images, inline diffs, cost, rewind, export/import, ⌘K palette, session search, notifications, `stream-json` output.
-- **Assistant that saves effort**: layered memory with automatic extraction, model routing, DingTalk and email/calendar connectors, daily briefing, file and webhook triggers, voice input and read-aloud, efficiency metrics.
+- **Assistant that saves effort**: layered memory with automatic extraction, a short user profile, daily notes, skill slash commands, model routing, DingTalk and email/calendar connectors, daily briefing, file and webhook triggers, voice input and read-aloud, efficiency metrics.
+- **Wide research and slides**: each item in its own subagent, an HTML deck, and a Deliverables list.
+- **Settings**: revisioned bilingual settings for preferences, storage, hooks, plugins, browser grants and remote connections. Writes keep unknown keys and reject a stale revision.
+- **macOS desktop extras**: Appshots of the front window, Computer Use of a granted app, and Keychain-backed website passwords. Each grant belongs to the signed app you approved.
 
 ## Quick start
 
@@ -58,8 +62,10 @@ Full guide: [docs/manual](docs/manual/README.md).
 ```sh
 pnpm test                          # core unit tests (mock provider, no network)
 pnpm build                         # core, CLI, CLI bundle, desktop
-node apps/desktop/e2e/smoke.mjs    # end-to-end desktop test with a live model
+node apps/desktop/e2e/smoke.mjs    # desktop smoke test against a loopback model
 ```
+
+The full command list, including Docker, the gateway and the signed macOS checks, is in [Verify a local build](docs/manual/verification.md).
 
 Read [`AGENTS.md`](AGENTS.md) first: English-only artifacts, spec-first changes, and the milestone definition of done (tests, manual, teaching page).
 

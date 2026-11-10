@@ -35,6 +35,14 @@ Expansion happens in the host for user messages from every surface: the logged `
 
 `send(id, text, 'user', {images: [{data, mime}]})` (gateway `sendMessage`) copies images to `~/.sun/attachments/<session>/<n>.<ext>` and logs `user/message.images = [{path, mime}]`; `deriveMessages` loads them when the request is built (reconstructable from the log). Wire formats: OpenAI-compatible `image_url` data URLs; Anthropic base64 `image` blocks before the text. Models that cannot see images (`providers.<id>.vision`: `true`, a model list, or a name heuristic) receive a text note instead. `readAttachment(path)` serves thumbnails only from the attachments folder.
 
+Decision — gateway JSON `null` means an absent optional metadata argument.
+A JSON argument array serializes an omitted trailing argument as `null`. The
+gateway `readAttachment` handler normalizes `null` to `undefined` before it
+calls the host, so ordinary images use the owned-attachment path and return
+their original bytes. Present Appshot metadata is forwarded unchanged and
+keeps its digest and file-ownership validation; incorrect metadata is still
+rejected with `APPSHOT_ATTACHMENT_UNAVAILABLE`.
+
 ## Diffs
 
 Edit tools set `ctx.display.diff` (unified diff, context 3; LCS on the changed middle, deletions before insertions); the agent logs it as `tool/result.diff`. It is not part of the model's view.
@@ -59,6 +67,16 @@ Edit tools set `ctx.display.diff` (unified diff, context 3; LCS on the changed m
 - Sidebar search: titles and message text (`searchSessions`), with snippets.
 
 ## CLI and bots
+
+Decision — CLI chat starts buffering input before gateway initialization.
+Piped commands and messages sent during connection setup keep their order
+and are processed even when stdin reaches EOF before the gateway is ready.
+
+Decision — a failing chat slash command does not end the chat. The CLI
+prints `✗ /<command> failed: <message>` and returns to the prompt with the
+same session, so later input (including `/exit`) is still processed. For
+example, `/reflect` reports a model reply without JSON proposals as an
+error instead of exiting the process with status 1.
 
 - Chat: `/compact`, `/cost` (`/status`), `/export [md|html|jsonl] [file]`, `/rewind [n] [files]`, custom commands (listed in `/help`), and a status line after each turn: `model · mode · tokens · cache share · $cost`.
 - `sun run --output stream-json`: every live event for the session as one JSON line, then `{"type": "result", sessionId, status, text, costUsd}`; `--image <file>` (repeatable).

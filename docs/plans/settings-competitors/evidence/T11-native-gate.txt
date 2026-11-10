@@ -1,0 +1,23 @@
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: The packaged app needs Screen Recording access to run this acceptance check.
++ actual - expected
+
++ 'permission-required'
+- 'available'
+
+    at file:///Users/sunqingguang/Downloads/06.code/sun-harness/apps/desktop/e2e/appshot.mjs:131:12
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5) {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: 'permission-required',
+  expected: 'available',
+  operator: 'strictEqual',
+  diff: 'simple'
+}
+
+Node.js v24.15.0
+
+Exit status: 1

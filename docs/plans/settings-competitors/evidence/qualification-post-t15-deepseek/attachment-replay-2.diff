@@ -1,0 +1,102 @@
+diff --git a/src/replay.mjs b/src/replay.mjs
+index c831dac..f4e2ae8 100644
+--- a/src/replay.mjs
++++ b/src/replay.mjs
+@@ -1,14 +1,23 @@
+ export function replay(events, readAttachment) {
+   const messages = [];
+   for (const event of events) {
+-    if (event.type === 'assistant') messages.push({ role: 'assistant', text: event.text, images: [] });
++    if (event.type === 'assistant') {
++      messages.push({ role: 'assistant', text: event.text, images: [] });
++      continue;
++    }
+     if (event.type !== 'user') continue;
+-    try {
+-      const images = (event.attachments ?? []).map(path => readAttachment(path));
+-      messages.push({ role: 'user', text: event.text, images });
+-    } catch (error) {
+-      if (error.code !== 'ENOENT') throw error;
++    const images = [];
++    let missing = 0;
++    for (const path of event.attachments ?? []) {
++      try {
++        images.push(readAttachment(path));
++      } catch (error) {
++        if (error.code !== 'ENOENT') throw error;
++        missing += 1;
++      }
+     }
++    const text = missing > 0 ? `${event.text}\n[Missing attachments: ${missing}]` : event.text;
++    messages.push({ role: 'user', text, images });
+   }
+   return messages;
+ }
+diff --git a/test/additions.test.mjs b/test/additions.test.mjs
+new file mode 100644
+index 0000000..9d713ed
+--- /dev/null
++++ b/test/additions.test.mjs
+@@ -0,0 +1,62 @@
++import { test } from 'node:test';
++import assert from 'node:assert/strict';
++import { replay } from '../src/replay.mjs';
++
++const missing = path => {
++  const error = new Error(`ENOENT: ${path}`);
++  error.code = 'ENOENT';
++  return error;
++};
++
++test('missing attachment keeps user message and appends count', () => {
++  const result = replay(
++    [{ type: 'user', text: 'hello', attachments: ['secret/path.png'] }],
++    path => { throw missing(path); },
++  );
++  assert.deepEqual(result, [{ role: 'user', text: 'hello\n[Missing attachments: 1]', images: [] }]);
++});
++
++test('successful images keep original order and missing ones are counted', () => {
++  const result = replay(
++    [{ type: 'user', text: 'see', attachments: ['a', 'b', 'c', 'd'] }],
++    path => {
++      if (path === 'b' || path === 'd') throw missing(path);
++      return `image:${path}`;
++    },
++  );
++  assert.deepEqual(result, [
++    { role: 'user', text: 'see\n[Missing attachments: 2]', images: ['image:a', 'image:c'] },
++  ]);
++});
++
++test('user and assistant events replay in order without mutation', () => {
++  const events = [
++    { type: 'user', text: 'one', attachments: ['a'] },
++    { type: 'assistant', text: 'two' },
++    { type: 'user', text: 'three', attachments: [] },
++  ];
++  const snapshot = JSON.parse(JSON.stringify(events));
++  const result = replay(events, path => `image:${path}`);
++  assert.deepEqual(result, [
++    { role: 'user', text: 'one', images: ['image:a'] },
++    { role: 'assistant', text: 'two', images: [] },
++    { role: 'user', text: 'three', images: [] },
++  ]);
++  assert.deepEqual(events, snapshot);
++});
++
++test('other reader errors propagate', () => {
++  const failure = Object.assign(new Error('permission denied'), { code: 'EACCES' });
++  assert.throws(
++    () => replay([{ type: 'user', text: 'x', attachments: ['a'] }], () => { throw failure; }),
++    failure,
++  );
++});
++
++test('unrelated event types are ignored', () => {
++  const result = replay(
++    [{ type: 'system', text: 'boot' }, { type: 'user', text: 'hi' }, { type: 'tool', text: 't' }],
++    () => 'image',
++  );
++  assert.deepEqual(result, [{ role: 'user', text: 'hi', images: [] }]);
++});

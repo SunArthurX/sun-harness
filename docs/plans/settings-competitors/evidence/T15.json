@@ -1,0 +1,52 @@
+{
+  "task": "T15",
+  "result": "pass",
+  "acceptance": ["AC-16"],
+  "qualificationReport": "docs/plans/settings-competitors/evidence/qualification-post-t15-deepseek-v4/report.json",
+  "commands": [
+    { "command": "pnpm test", "exitCode": 0, "outputFile": "docs/plans/settings-competitors/evidence/T15-test.txt" },
+    { "command": "pnpm build", "exitCode": 0, "outputFile": "docs/plans/settings-competitors/evidence/T15-build.txt" },
+    { "command": "pnpm typecheck", "exitCode": 0, "outputFile": "docs/plans/settings-competitors/evidence/T15-types.txt" },
+    { "command": "node scripts/check-settings-plan.mjs", "exitCode": 0, "outputFile": "docs/plans/settings-competitors/evidence/T15-plan-check.txt" },
+    { "command": "node --test scripts/check-settings-plan.test.mjs", "exitCode": 0, "outputFile": "docs/plans/settings-competitors/evidence/T15-plan-tests.txt" },
+    { "command": "node apps/desktop/e2e/settings.mjs", "exitCode": 0, "outputFile": "docs/plans/settings-competitors/evidence/T15-settings.txt" },
+    { "command": "node apps/desktop/e2e/settings-remote.mjs", "exitCode": 0, "outputFile": "docs/plans/settings-competitors/evidence/T15-preflight-remote.txt" },
+    { "command": "node apps/desktop/e2e/browser-backends.mjs", "exitCode": 0, "outputFile": "docs/plans/settings-competitors/evidence/T15-preflight-browser.txt" },
+    { "command": "node apps/desktop/e2e/execution-docker.mjs", "exitCode": 0, "outputFile": "docs/plans/settings-competitors/evidence/T15-preflight-docker.txt" },
+    { "command": "node apps/desktop/e2e/appshot.mjs apps/desktop/release/appshot-verified/mac-arm64/sun-harness.app", "exitCode": 0, "outputFile": "docs/plans/settings-competitors/evidence/T11-native-repeat.txt" },
+    { "command": "node apps/desktop/e2e/computer.mjs", "exitCode": 0, "outputFile": "docs/plans/settings-competitors/evidence/T12-native-repeat.txt" },
+    { "command": "node apps/desktop/e2e/credentials.mjs apps/desktop/release/computer-verified/mac-arm64/sun-harness.app", "exitCode": 0, "outputFile": "docs/plans/settings-competitors/evidence/T15-preflight-credentials.txt" },
+    { "command": "node scripts/settings-qualification.mjs --validate", "exitCode": 0, "outputFile": "docs/plans/settings-competitors/evidence/T15-offline-preflight.txt" },
+    { "command": "node scripts/settings-qualification.mjs --model deepseek/deepseek-chat --checkpoint post-t15 --out docs/plans/settings-competitors/evidence/qualification-post-t15-deepseek-v4", "exitCode": 0, "outputFile": "docs/plans/settings-competitors/evidence/T15-model-run-v4.txt" }
+  ],
+  "artifacts": [
+    "specs/032-settings-and-capability-management.md",
+    "docs/plans/settings-competitors/handoff.md",
+    "docs/plans/settings-competitors/evidence/T15-preflight.md",
+    "docs/plans/settings-competitors/evidence/qualification-post-t15-deepseek/report.json",
+    "docs/plans/settings-competitors/evidence/qualification-post-t15-deepseek-v2/report.json",
+    "docs/plans/settings-competitors/evidence/T15-model-run-v3.txt",
+    "docs/plans/settings-competitors/evidence/qualification-post-t15-deepseek-v4/report.json",
+    "scripts/check-settings-plan.mjs",
+    "scripts/check-settings-plan.test.mjs",
+    "scripts/settings-qualification.mjs",
+    "apps/desktop/e2e/settings.mjs",
+    "docs/manual/settings-roadmap.md",
+    "docs/teach/45-settings-release-qualification.html",
+    "docs/teach/index.html",
+    "docs/plan.md",
+    "CHANGELOG.md"
+  ],
+  "manualChecks": [
+    "Electron and gateway Settings exercised bilingual navigation and persistence, recovery from malformed configuration, reviewed actions, browser file transfers, and truthful capability boundaries. The web gateway excludes native computer controls and rejects their RPC.",
+    "The pinned gateway recovered remote jobs and output after disruption and enforced device revocation. Real external Chromium and Docker Chromium exercised browser ownership and approved transfers. The local Docker fixture started and cancelled an isolated job.",
+    "The signed macOS fixtures separately verified Appshot preparation and replay, scoped Accessibility actions and revocation, and Keychain-backed private sign-in. The synthetic password was absent from observations, exports, and logs.",
+    "The offline judge confirmed all three untouched fixtures fail and all frozen references pass. DeepSeek completed the final public handoff on the first attempt in each of nine fresh workspaces, under the same fixed checks and step limit. The earlier complete runs and interrupted prompt-extraction run remain in evidence."
+  ],
+  "limitations": [
+    "The live trial covers the requested deepseek/deepseek-chat model alias and three synthetic tasks. The adapter did not expose an immutable provider revision. This result does not generalize to all models or tasks.",
+    "Native checks used user-authorized ad-hoc signed bundles on macOS arm64. The Appshot and Computer Use checks used their respective authorized bundles.",
+    "One pre-existing unit test was skipped."
+  ],
+  "rollback": "Disable the affected capabilities through Settings, revoke active native and browser grants, and disconnect affected remote devices before reverting. Preserve user data, durable job receipts, and all qualification reports. Requalify any revised public prompt or fixture suite."
+}

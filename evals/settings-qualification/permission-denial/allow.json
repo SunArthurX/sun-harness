@@ -1,0 +1,5 @@
+[
+  "src/panel.mjs",
+  "src/locale.mjs",
+  "test/additions.test.mjs"
+]

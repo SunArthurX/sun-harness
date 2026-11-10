@@ -1,0 +1,10 @@
+$ node apps/desktop/e2e/chat-product.mjs   # desktop out/ built before the D16 fix
+Electron: chat streamed and persisted, approvals guarded both actions, dock and context rendered, language switched, provider aborted, search and pin worked, quota recovered, and file/image attachments were replayable.
+Electron: the managed Chromium live view displayed a real frame, forwarded keyboard input only under control, and returned ownership.
+Electron: knowledge write and CJK search, memory route, Intel listing and analysis, Evolution accept/reject, and automation create/run/history/delete all passed.
+Electron: the worktree diff was inspected, squash merged to the index, and a separate clean worktree was discarded.
+Gateway: chat streamed and persisted, approvals guarded both actions, dock and context rendered, language switched, provider aborted, search and pin worked, quota recovered, and file/image attachments were replayable.
+Gateway: the managed Chromium live view displayed a real frame, forwarded keyboard input only under control, and returned ownership.
+Gateway: knowledge write and CJK search, memory route, Intel listing and analysis, Evolution accept/reject, and automation create/run/history/delete all passed.
+Gateway: the worktree diff was inspected, squash merged to the index, and a separate clean worktree was discarded.
+Electron: quitting the app stopped its managed Chromium.

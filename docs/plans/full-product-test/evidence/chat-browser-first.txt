@@ -1,0 +1,20 @@
+Electron: chat streamed and persisted, reviewable approvals guarded both actions, dock and context rendered, language switched, provider aborted, and main navigation retained the session.
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: Error: BROWSER_PERMISSION_REQUIRED: browse http://127.0.0.1:54559. Review the origin in Browser settings and retry.
+
+true !== false
+
+    at exerciseBrowser (file:///Users/sunqingguang/Downloads/06.code/sun-harness/apps/desktop/e2e/chat-product.mjs:162:10)
+    at async file:///Users/sunqingguang/Downloads/06.code/sun-harness/apps/desktop/e2e/chat-product.mjs:199:3 {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: true,
+  expected: false,
+  operator: 'strictEqual',
+  diff: 'simple'
+}
+
+Node.js v24.15.0

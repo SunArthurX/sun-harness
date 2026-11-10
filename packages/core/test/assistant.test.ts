@@ -12,6 +12,7 @@ import {
   conversationMetrics,
   dingtalkTools,
   dwsIsRead,
+  homePath,
   parseExtraction,
   readBriefing,
   routeTier,
@@ -135,11 +136,15 @@ describe('briefing, triggers, voice, metrics', () => {
   it('builds the briefing prompt and saves the briefing', async () => {
     expect(briefingPrompt('2026-11-07', { dingtalk: true })).toContain('dingtalk_read');
     expect(briefingPrompt('2026-11-07', { dingtalk: false, extra: 'weather in Shanghai' })).toContain('Also: weather in Shanghai');
-    const { host } = await mockHost({ 'mock/a': [{ text: '- 10:00 standup\n- Reply to Alex', toolCalls: [] }] }, { memory: { recallModes: [], extractModes: [], autoExtract: false, recallK: 0 } });
+    const { host, providers } = await mockHost({ 'mock/a': [{ text: '- 10:00 standup\n- Reply to Alex', toolCalls: [] }] }, { memory: { recallModes: [], extractModes: [], autoExtract: false, recallK: 0 } });
+    const intel = homePath('intel', 'reports', '2026-11-07.md');
+    writeFileSync(intel, '# Fixture intel\n');
     const seen: string[] = [];
     host.subscribe((e) => e.kind === 'briefing' && seen.push(e.date));
     const r = await host.runBriefing(new Date('2026-11-07T08:31:00'));
     expect(r.text).toContain('standup');
+    const firstRequest = providers.get('mock/a')!.requests[0];
+    expect(firstRequest.messages.find(message => message.role === 'user')?.content).toContain(intel);
     expect(readBriefing('2026-11-07')).toContain('# Briefing 2026-11-07');
     expect(seen).toEqual(['2026-11-07']);
   });

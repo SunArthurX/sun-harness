@@ -1,0 +1,15 @@
+node:internal/fs/promises:859
+  return await PromisePrototypeThen(
+         ^
+
+Error: EEXIST: file already exists, mkdir '/var/folders/4c/_fqg96ms18dc7mrmk9dfq32c0000gp/T/sun-chat-product-dPbJHn/Electron'
+    at async mkdir (node:internal/fs/promises:859:10)
+    at async exerciseChat (file:///Users/sunqingguang/Downloads/06.code/sun-harness/apps/desktop/e2e/chat-product.mjs:58:3)
+    at async file:///Users/sunqingguang/Downloads/06.code/sun-harness/apps/desktop/e2e/chat-product.mjs:137:3 {
+  errno: -17,
+  code: 'EEXIST',
+  syscall: 'mkdir',
+  path: '/var/folders/4c/_fqg96ms18dc7mrmk9dfq32c0000gp/T/sun-chat-product-dPbJHn/Electron'
+}
+
+Node.js v24.15.0

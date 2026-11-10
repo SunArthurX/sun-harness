@@ -40,15 +40,36 @@ Undo restores the files' previous content (and deletes files the agent created),
 
 ## Plan mode
 
-Pick **Plan** on the welcome screen, `--mode plan`, or `/mode plan`. The agent can only read (files, grep, repo map, web, knowledge base). It ends with a plan, which you review:
+Pick **Plan** on the welcome screen, `--mode plan`, or `/mode plan`. The agent can only read (`codebase_search`, files, grep, repo map, web, knowledge base). It ends with a plan, which you review:
 
 - Desktop: the plan appears as a card. **Approve and start coding** switches the session to Coding mode and turns the plan's steps into the todo list; **Keep planning** sends it back.
 - CLI chat: the same approval prompt (allow / deny).
 - `full-auto` approval approves plans automatically.
 
+## Finding code
+
+`codebase_search` looks through the repository without a network call: a symbol name (`chargeInvoice`) returns the definition, and a phrase returns the matching source. The index is local and refreshes when a file changes. It skips paths in `.cursorignore` and `.sunignore` (gitignore-style patterns). `read_file`, `grep`, `glob`, and `@file` mentions refuse those paths too, so secrets listed there never enter the prompt.
+
+In the composer, `@codebase chargeInvoice` attaches the hits, `@git` attaches `git status` and `git diff --stat`, and `@rule api` attaches `.cursor/rules/api.mdc` (or the same name under `.sun/rules`).
+
+## Rules that follow the files
+
+`.cursor/rules/*.mdc` and `.sun/rules/*.md` use Cursor's frontmatter:
+
+| Frontmatter | When it is included |
+|---|---|
+| `alwaysApply: true` | every request |
+| `globs: src/**/*.ts` | after a matching file is read, edited, or `@`mentioned |
+| `description:` and no globs | listed by description; the agent reads the file if it is relevant |
+| neither, and `alwaysApply: false` | only `@rule <name>` |
+
+## Review
+
+**Review** in the session bar, `/review` in the desktop, the CLI, and chat bots, sends this session's diff to the model and posts the findings in the transcript. Nothing is edited. If the session has not changed files, it says so and does not call a model.
+
 ## Repository map
 
-In Coding and Plan mode, projects with 8 or more source files get a repository outline in the prompt: the most referenced functions, classes, and types with line numbers. It is built once per session so the provider's prompt cache keeps working. The agent can call `repo_map` (optionally with `query` or `path`) for a fresh, filtered view.
+In Coding and Plan mode, projects with 8 or more source files get a repository outline in the prompt: the most referenced functions, classes, and types with line numbers. It is built once per session so the provider's prompt cache keeps working. The agent can call `repo_map` (optionally with `query` or `path`) for a fresh, filtered view. Prefer `codebase_search` when you know a name or a phrase.
 
 ## Best-of-N
 

@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>40 — Browser ownership and file transfers</title>
+<body>
+<p><a href="index.html">Teaching index</a></p>
+<h1>Browser ownership and file transfers</h1>
+<p>The original browser tools shared a persistent profile and identified
+elements by small reference numbers. T10 adds origin review and makes
+each session's tab, document, and controller explicit. It then builds
+upload and download on those boundaries.</p>
+<h2>How do we stop a redirect before the target receives a request?</h2>
+<p>Checking only the URL in the original tool call misses links, iframes
+and redirects. The Fetch domain pauses document requests before
+dispatch. The host checks the scheme, hostname, port, and action for
+each request. A real fixture counts requests at the unapproved
+destination. A popup required a separate fix. Chromium can send its
+initial request before a target-close notification, so the browser
+pauses new targets at startup.</p>
+<pre class="mermaid">flowchart TD
+  A[Managed document requests navigation] --> B[Pause before dispatch]
+  B --> C[Look up origin and browse decision]
+  C -->|Ask or deny| D[Fail request and report origin]
+  C -->|Allow| E[Continue request]
+  E -->|Redirect| B
+  E -->|Document commits| F[Invalidate old frame and element references]
+</pre>
+<h2>What makes a file approval single-use?</h2>
+<p>The renderer reads the selected bytes before showing the confirmation.
+The execution host binds the approved bytes to the current document
+and grant revision. A random handle lets the agent name the approval
+in a tool call. The host consumes it before it sets a current file
+input in an isolated Chromium world. This works with remote Chromium
+because the browser receives bytes over DevTools and requires no
+access to a local file path.</p>
+<pre class="mermaid">flowchart TD
+  U[Preview file name, bytes, and origin] --> V[Human confirms]
+  V --> W[Bind bytes to document and permission revision]
+  W --> X[Consume handle and set current file input]
+  W -->|Navigation, takeover, or expiry| Y[Discard approval]
+</pre>
+<h2>How do we preserve browser login while bounding a download?</h2>
+<p>Chromium makes the request in an ephemeral target in the same
+profile. The host authorizes every redirect, reads the final response
+through bounded IO calls, and closes the target. Only the host chooses
+the staging path. Explicitly delegated external profiles use the same
+protocol. The native download manager is disabled in the managed
+context. A Docker fixture revealed that closing a second DevTools
+connection could restore Chromium's native download behavior while the
+first connection still controlled a tab. One execution owner now
+holds the profile and endpoint until it releases them.</p>
+<pre class="mermaid">flowchart TD
+  G[Agent requests an HTTP download] --> H[Create ephemeral target]
+  H --> I[Verify current lease and every destination]
+  I --> J[Stream final response into an exclusive staging file]
+  J --> K{Within budget and still authorized?}
+  K -->|Yes| L[Commit file and return receipt]
+  K -->|No| M[Close target and remove partial file]
+</pre>
+<p><a href="../plans/settings-competitors/evidence/T10.json">T10 evidence</a></p>
+<script type="module">import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';mermaid.initialize({startOnLoad:true});</script>
+</body>
+</html>

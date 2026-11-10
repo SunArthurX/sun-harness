@@ -1,9 +1,25 @@
 import { spawnSync } from 'node:child_process';
-import { createHash, randomBytes, timingSafeEqual, X509Certificate } from 'node:crypto';
-import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { createHash, randomBytes, randomUUID, timingSafeEqual, X509Certificate } from 'node:crypto';
+import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { networkInterfaces } from 'node:os';
+import { dirname } from 'node:path';
+import { isIP } from 'node:net';
 import { connect as tlsConnect } from 'node:tls';
 import { homePath, sunHome } from './paths.js';
+import { readSettingsFile, transactSettingsFile, withFileLock } from './settings/store.js';
+
+export function gatewayHostId(file = homePath('gateway-identity.json')): string {
+  const identity = readSettingsFile(file);
+  if (identity.revision !== 'missing') {
+    const { id } = identity.document;
+    if (typeof id !== 'string' || !/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(id)) throw new Error('Invalid gateway identity file.');
+    return id;
+  }
+  const saved = transactSettingsFile(file, 'missing', () => ({ document: { id: randomUUID() } }));
+  if (saved.ok) return saved.file.document.id as string;
+  if (saved.code === 'CONFLICT') return gatewayHostId(file);
+  throw new Error(`Could not save gateway identity (${saved.code}).`);
+}
 
 // ---------------- TLS certificate ----------------
 
@@ -61,58 +77,87 @@ export interface DeviceToken {
   lastUsedAt?: string;
 }
 
-function devicesFile(): string {
+export function devicesFile(): string {
   return homePath('gateway-devices.json');
 }
 
 const sha256 = (s: string) => createHash('sha256').update(s).digest('hex');
 
-export function listDevices(): DeviceToken[] {
+export function listDevices(file = devicesFile()): DeviceToken[] {
   try {
-    return JSON.parse(readFileSync(devicesFile(), 'utf8'));
+    const value: unknown = JSON.parse(readFileSync(file, 'utf8'));
+    if (!Array.isArray(value) || !value.every(d => typeof d?.id === 'string' && typeof d.name === 'string'
+      && typeof d.createdAt === 'string' && /^[a-f0-9]{64}$/.test(d.hash))) return [];
+    return value;
   } catch {
     return [];
   }
 }
 
-function saveDevices(list: DeviceToken[]): void {
-  mkdirSync(sunHome(), { recursive: true });
-  writeFileSync(devicesFile(), JSON.stringify(list, null, 2), { mode: 0o600 });
+function writePrivateJson(file: string, value: unknown): void {
+  const staged = `${file}.${randomUUID()}.tmp`;
+  try {
+    writeFileSync(staged, JSON.stringify(value, null, 2) + '\n', { flag: 'wx', mode: 0o600, flush: true });
+    renameSync(staged, file);
+  } finally {
+    rmSync(staged, { force: true });
+  }
 }
 
 /** Create a token for one device (phone, laptop, bot). Returns the secret once. */
 export function createDevice(name: string): { device: DeviceToken; token: string } {
   if (!name.trim()) throw new Error('Device name required.');
-  if (listDevices().some((d) => d.name === name)) throw new Error(`A device named "${name}" exists; revoke it first.`);
   const token = `sund_${randomBytes(24).toString('base64url')}`;
-  const device: DeviceToken = { id: randomBytes(4).toString('hex'), name, hash: sha256(token), createdAt: new Date().toISOString() };
-  saveDevices([...listDevices(), device]);
+  const device: DeviceToken = { id: randomUUID(), name, hash: sha256(token), createdAt: new Date().toISOString() };
+  const file = devicesFile();
+  mkdirSync(dirname(file), { recursive: true, mode: 0o700 });
+  withFileLock(file, () => {
+    const list = listDevices(file);
+    if (list.some(d => d.name === name)) throw new Error(`A device named "${name}" exists; revoke it first.`);
+    writePrivateJson(file, [...list, device]);
+  });
   return { device, token };
 }
 
 export function revokeDevice(idOrName: string): boolean {
-  const list = listDevices();
-  const next = list.filter((d) => d.id !== idOrName && d.name !== idOrName);
-  saveDevices(next);
-  return next.length !== list.length;
+  const file = devicesFile();
+  if (!existsSync(file)) return false;
+  return withFileLock(file, () => {
+    const list = listDevices(file);
+    const next = list.filter(d => d.id !== idOrName && d.name !== idOrName);
+    if (next.length === list.length) return false;
+    writePrivateJson(file, next);
+    return true;
+  });
 }
 
 /** Constant-time check of a presented token against the device list; records last use. */
-export function matchDevice(token: string | undefined, list = listDevices()): DeviceToken | undefined {
+export function matchDevice(token: string | undefined, file = devicesFile()): DeviceToken | undefined {
   if (!token?.startsWith('sund_')) return undefined;
   const h = Buffer.from(sha256(token), 'hex');
-  const d = list.find((x) => {
+  const find = (items: DeviceToken[]) => items.find(x => {
     const other = Buffer.from(x.hash, 'hex');
     return other.length === h.length && timingSafeEqual(other, h);
   });
-  if (d) {
-    const now = Date.now();
-    if (!d.lastUsedAt || now - Date.parse(d.lastUsedAt) > 60_000) {
-      d.lastUsedAt = new Date(now).toISOString();
-      saveDevices(list);
-    }
+  const device = find(listDevices(file));
+  if (!device) return undefined;
+  const now = Date.now();
+  if (device.lastUsedAt && now - Date.parse(device.lastUsedAt) <= 60_000) return device;
+  try {
+    return withFileLock(file, () => {
+      const current = listDevices(file);
+      const present = find(current);
+      if (!present) return undefined;
+      if (!present.lastUsedAt || now - Date.parse(present.lastUsedAt) > 60_000) {
+        present.lastUsedAt = new Date(now).toISOString();
+        writePrivateJson(file, current);
+      }
+      return present;
+    });
+  } catch {
+    // Last-use metadata is best effort. Authorize only against the current list.
+    return find(listDevices(file));
   }
-  return d;
 }
 
 // ---------------- client-side remotes ----------------
@@ -124,11 +169,23 @@ export interface RemoteEntry {
   /** Pinned certificate (https remotes). */
   fingerprint?: string;
   cert?: string;
+  hostId?: string;
+  label?: string;
 }
 
 interface RemotesFile {
   default?: string;
+  desktop?: string;
   remotes: RemoteEntry[];
+}
+
+export function remoteEndpoint(value: string): string {
+  const url = new URL(value);
+  if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password
+    || url.pathname !== '/' || url.search || url.hash) {
+    throw new Error('Use a gateway origin with no credentials, path, query, or fragment.');
+  }
+  return url.origin;
 }
 
 function remotesFile(): string {
@@ -143,16 +200,13 @@ export function loadRemotes(): RemotesFile {
   }
 }
 
-function saveRemotes(r: RemotesFile): void {
-  mkdirSync(sunHome(), { recursive: true });
-  writeFileSync(remotesFile(), JSON.stringify(r, null, 2), { mode: 0o600 });
-}
-
 /** Fetch the server certificate without trusting it (trust on first use, checked against an expected fingerprint). */
 export function fetchServerCert(url: string): Promise<{ cert: string; fingerprint: string }> {
-  const u = new URL(url);
+  const u = new URL(remoteEndpoint(url));
+  if (u.protocol !== 'https:') throw new Error('Certificate inspection requires HTTPS.');
+  const host = u.hostname.replace(/^\[|\]$/g, '');
   return new Promise((resolve, reject) => {
-    const sock = tlsConnect({ host: u.hostname, port: Number(u.port || 443), servername: /^\d/.test(u.hostname) ? undefined : u.hostname, rejectUnauthorized: false }, () => {
+    const sock = tlsConnect({ host, port: Number(u.port || 443), servername: isIP(host) ? undefined : host, rejectUnauthorized: false }, () => {
       const raw = sock.getPeerCertificate(false)?.raw;
       sock.end();
       if (!raw) return reject(new Error('Server sent no certificate.'));
@@ -164,8 +218,11 @@ export function fetchServerCert(url: string): Promise<{ cert: string; fingerprin
   });
 }
 
-export async function addRemote(opts: { name: string; url: string; token: string; fingerprint?: string }): Promise<RemoteEntry> {
-  const entry: RemoteEntry = { name: opts.name, url: opts.url.replace(/\/$/, ''), token: opts.token };
+export async function addRemote(
+  opts: { name: string; url: string; token: string; fingerprint?: string },
+  verify?: (entry: RemoteEntry) => Promise<Pick<RemoteEntry, 'hostId' | 'label'>>,
+): Promise<RemoteEntry> {
+  const entry: RemoteEntry = { name: opts.name, url: remoteEndpoint(opts.url), token: opts.token };
   if (entry.url.startsWith('https://')) {
     const { cert, fingerprint } = await fetchServerCert(entry.url);
     const norm = (f: string) => f.replace(/[^0-9a-f]/gi, '').toUpperCase();
@@ -175,27 +232,70 @@ export async function addRemote(opts: { name: string; url: string; token: string
     entry.cert = cert;
     entry.fingerprint = fingerprint;
   }
-  const r = loadRemotes();
-  r.remotes = [...r.remotes.filter((x) => x.name !== entry.name), entry];
-  if (!r.default) r.default = entry.name;
-  saveRemotes(r);
+  assertRemotePin(entry);
+  const prior = getRemote(entry.name);
+  if (prior?.hostId) {
+    if (prior.url !== entry.url) throw new Error('GATEWAY_HOST_CHANGED');
+    entry.hostId = prior.hostId;
+    entry.label = prior.label;
+  }
+  if (verify) Object.assign(entry, await verify(entry));
+  storeRemote(entry);
   return entry;
 }
 
+export function assertRemotePin(entry: Pick<RemoteEntry, 'url' | 'fingerprint'>, remotes = loadRemotes().remotes): void {
+  if (remotes.some(old => old.url === entry.url && old.fingerprint && old.fingerprint !== entry.fingerprint)) {
+    throw new Error('GATEWAY_PIN_CHANGED: Gateway certificate fingerprint changed. Remove the previous connection before trusting a replacement.');
+  }
+}
+
+export function storeRemote(entry: RemoteEntry, selectDesktop = false): void {
+  const file = remotesFile();
+  mkdirSync(dirname(file), { recursive: true, mode: 0o700 });
+  withFileLock(file, () => {
+    const r = loadRemotes();
+    assertRemotePin(entry, r.remotes);
+    const old = r.remotes.find(profile => profile.name === entry.name);
+    if (old?.hostId && (old.url !== entry.url || entry.hostId && old.hostId !== entry.hostId)) throw new Error('GATEWAY_HOST_CHANGED');
+    if (old?.hostId && !entry.hostId) entry = { ...entry, hostId: old.hostId, label: old.label };
+    r.remotes = [...r.remotes.filter(x => x.name !== entry.name), entry];
+    if (selectDesktop) r.desktop = entry.name;
+    else if (!r.default) r.default = entry.name;
+    writePrivateJson(file, r);
+  });
+}
+
+export function clearDesktopRemote(): void {
+  const file = remotesFile();
+  if (!existsSync(file)) return;
+  withFileLock(file, () => {
+    const r = loadRemotes();
+    if (r.desktop) writePrivateJson(file, { ...r, desktop: undefined });
+  });
+}
+
 export function removeRemote(name: string): boolean {
-  const r = loadRemotes();
-  const before = r.remotes.length;
-  r.remotes = r.remotes.filter((x) => x.name !== name);
-  if (r.default === name) r.default = r.remotes[0]?.name;
-  saveRemotes(r);
-  return r.remotes.length !== before;
+  const file = remotesFile();
+  if (!existsSync(file)) return false;
+  return withFileLock(file, () => {
+    const r = loadRemotes();
+    const remotes = r.remotes.filter(x => x.name !== name);
+    if (remotes.length === r.remotes.length) return false;
+    writePrivateJson(file, { ...r, remotes, default: r.default === name ? remotes[0]?.name : r.default,
+      desktop: r.desktop === name ? undefined : r.desktop });
+    return true;
+  });
 }
 
 export function useRemote(name: string | undefined): void {
-  const r = loadRemotes();
-  if (name && !r.remotes.some((x) => x.name === name)) throw new Error(`No remote named ${name}.`);
-  r.default = name;
-  saveRemotes(r);
+  const file = remotesFile();
+  mkdirSync(dirname(file), { recursive: true, mode: 0o700 });
+  withFileLock(file, () => {
+    const r = loadRemotes();
+    if (name && !r.remotes.some(x => x.name === name)) throw new Error(`No remote named ${name}.`);
+    writePrivateJson(file, { ...r, default: name });
+  });
 }
 
 export function getRemote(name?: string): RemoteEntry | undefined {

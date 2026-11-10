@@ -1,0 +1,7 @@
+{
+  "id": "permission-denial",
+  "title": "Add bilingual permission denial",
+  "category": "permission-denial",
+  "language": "javascript",
+  "prompt": "$SETTINGS_HANDOFF"
+}

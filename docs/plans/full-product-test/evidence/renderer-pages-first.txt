@@ -1,0 +1,21 @@
+Electron: chat streamed and persisted, reviewable approvals guarded both actions, dock and context rendered, language switched, provider aborted, and main navigation retained the session.
+Electron: the managed Chromium live view displayed a real frame, forwarded keyboard input only under control, and returned ownership.
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+locator.waitFor: Error: strict mode violation: locator('.hit').getByText('Audit solar note') resolved to 2 elements:
+    1) <strong>Audit solar note</strong> aka getByText('Audit solar note', { exact: true })
+    2) <p># Audit solar note↵↵光伏组件保持本地隔离。</p> aka getByText('# Audit solar note 光伏组件保持本地隔离。')
+
+Call log:
+[2m  - waiting for locator('.hit').getByText('Audit solar note') to be visible[22m
+
+    at exercisePages (/Users/sunqingguang/Downloads/06.code/sun-harness/apps/desktop/e2e/chat-product.mjs:248:60)
+    at async file:///Users/sunqingguang/Downloads/06.code/sun-harness/apps/desktop/e2e/chat-product.mjs:315:3 {
+  log: [
+    "  - waiting for locator('.hit').getByText('Audit solar note') to be visible"
+  ]
+}
+
+Node.js v24.15.0

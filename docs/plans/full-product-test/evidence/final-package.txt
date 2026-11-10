@@ -1,0 +1,22 @@
+  • electron-builder  version=26.18.0 os=24.6.0
+  • loaded configuration  file=package.json ("build" field)
+  • author is missed in the package.json  appPackageFile=/Users/sunqingguang/Downloads/06.code/sun-harness/apps/desktop/package.json
+  • packageManager not detected by file, falling back to environment detection  resolvedPackageManager=pnpm detected=/Users/sunqingguang/Downloads/06.code/sun-harness/apps/desktop
+  • detected workspace root for project using lock file  pm=pnpm config=undefined resolved=/Users/sunqingguang/Downloads/06.code/sun-harness projectDir=/Users/sunqingguang/Downloads/06.code/sun-harness/apps/desktop
+  • skipped dependencies rebuild  reason=npmRebuild is set to false
+  • packaging       platform=darwin arch=arm64 electron=45.2.3 appOutDir=release/full-product-latest/mac-arm64
+  • using custom unpacked Electron distribution  electronDist=node_modules/electron/dist
+  • copying unpacked Electron  source=/Users/sunqingguang/Downloads/06.code/sun-harness/apps/desktop/node_modules/electron/dist/Electron.app destination=/Users/sunqingguang/Downloads/06.code/sun-harness/apps/desktop/release/full-product-latest/mac-arm64/Electron.app
+  • searching for node modules  pm=pnpm searchDir=/Users/sunqingguang/Downloads/06.code/sun-harness/apps/desktop
+  • no node modules found in collection, trying next search directory  pm=pnpm searchDir=/Users/sunqingguang/Downloads/06.code/sun-harness/apps/desktop
+  • searching for node modules  pm=pnpm searchDir=/Users/sunqingguang/Downloads/06.code/sun-harness
+  • no node modules found in collection, trying next search directory  pm=pnpm searchDir=/Users/sunqingguang/Downloads/06.code/sun-harness
+  • searching for node modules  pm=traversal searchDir=/Users/sunqingguang/Downloads/06.code/sun-harness/apps/desktop
+  • using manual traversal of node_modules to build dependency tree
+  • no node modules found in collection, trying next search directory  pm=traversal searchDir=/Users/sunqingguang/Downloads/06.code/sun-harness/apps/desktop
+  • searching for node modules  pm=traversal searchDir=/Users/sunqingguang/Downloads/06.code/sun-harness
+  • using manual traversal of node_modules to build dependency tree
+  • no node modules found in collection, trying next search directory  pm=traversal searchDir=/Users/sunqingguang/Downloads/06.code/sun-harness
+  • no node modules returned while searching directories  searchDirectories=["","/Users/sunqingguang/Downloads/06.code/sun-harness"]
+  • skipped macOS code signing  reason=identity explicitly is set to null
+apps/desktop/release/full-product-latest/mac-arm64/sun-harness.app: replacing existing signature

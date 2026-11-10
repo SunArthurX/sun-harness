@@ -1,0 +1,609 @@
+{
+  "version": 1,
+  "spec": "specs/032-settings-and-capability-management.md",
+  "features": [
+    {
+      "id": "S01",
+      "slug": "general",
+      "label": "General",
+      "group": "Personal",
+      "decision": "adapt",
+      "task": "T05",
+      "reason": "Default model/mode, language and startup preferences; preserve existing configuration."
+    },
+    {
+      "id": "S02",
+      "slug": "notifications",
+      "label": "Notifications",
+      "group": "Personal",
+      "decision": "adapt",
+      "task": "T05",
+      "reason": "Existing OS notifications gain event toggles, quiet hours and permission status."
+    },
+    {
+      "id": "S03",
+      "slug": "import",
+      "label": "Import",
+      "group": "Personal",
+      "decision": "adapt",
+      "task": "T06",
+      "reason": "Existing JSONL import gains validation, dry-run summary and attachment-aware bundle import."
+    },
+    {
+      "id": "S04",
+      "slug": "profile",
+      "label": "Profile",
+      "group": "Personal",
+      "decision": "adapt",
+      "task": "T05",
+      "reason": "Local USER.md profile; no public identity or social profile service."
+    },
+    {
+      "id": "S05",
+      "slug": "appearance",
+      "label": "Appearance",
+      "group": "Personal",
+      "decision": "adapt",
+      "task": "T05",
+      "reason": "System/light/dark theme, text size and reduced motion."
+    },
+    {
+      "id": "S06",
+      "slug": "account",
+      "label": "Account",
+      "group": "Personal",
+      "decision": "adapt",
+      "task": "T02",
+      "reason": "Provider credential readiness and endpoint identity; no sun hosted account."
+    },
+    {
+      "id": "S07",
+      "slug": "archived-chats",
+      "label": "Archived chats",
+      "group": "Personal",
+      "decision": "adapt",
+      "task": "T06",
+      "reason": "Reuse flags, search and unarchive; archive is not deletion."
+    },
+    {
+      "id": "S08",
+      "slug": "parental-controls",
+      "label": "Parental controls",
+      "group": "Personal",
+      "decision": "defer",
+      "task": null,
+      "reason": "Requires family identity, guardian consent and service operations; outside local single-owner scope."
+    },
+    {
+      "id": "S09",
+      "slug": "trusted-contact",
+      "label": "Trusted contact",
+      "group": "Personal",
+      "decision": "defer",
+      "task": null,
+      "reason": "Requires account linkage and supported contact workflows; do not simulate by collecting a phone number."
+    },
+    {
+      "id": "S10",
+      "slug": "voice",
+      "label": "Voice",
+      "group": "Personal",
+      "decision": "adapt",
+      "task": "T05",
+      "reason": "Existing transcription/read-aloud controls with push-to-record and provider readiness."
+    },
+    {
+      "id": "S11",
+      "slug": "storage",
+      "label": "Storage",
+      "group": "Personal",
+      "decision": "new",
+      "task": "T06",
+      "reason": "Usage by resource, retention preview, resumable deletion and orphan detection."
+    },
+    {
+      "id": "S12",
+      "slug": "configuration",
+      "label": "Configuration",
+      "group": "Personal",
+      "decision": "adapt",
+      "task": "T02",
+      "reason": "Validated transactional edits, effective values and source provenance."
+    },
+    {
+      "id": "S13",
+      "slug": "personalization",
+      "label": "Personalization",
+      "group": "Personal",
+      "decision": "adapt",
+      "task": "T05",
+      "reason": "Rules, profile and memory controls with origins, limits and explicit edits."
+    },
+    {
+      "id": "S14",
+      "slug": "mini-pets",
+      "label": "Mini & Pets",
+      "group": "Personal",
+      "decision": "adapt",
+      "task": "T05",
+      "reason": "Optional Mini status overlay; animated/custom pets deferred until asset/runtime spec exists."
+    },
+    {
+      "id": "S15",
+      "slug": "keyboard-shortcuts",
+      "label": "Keyboard shortcuts",
+      "group": "Personal",
+      "decision": "new",
+      "task": "T05",
+      "reason": "Discoverable remappable app shortcuts, conflicts, reset; global capture shortcut in T11."
+    },
+    {
+      "id": "S16",
+      "slug": "usage-billing",
+      "label": "Usage & billing",
+      "group": "Personal",
+      "decision": "adapt",
+      "task": "T05",
+      "reason": "Existing usage and estimated cost; unknown prices remain unknown; no fabricated provider invoices."
+    },
+    {
+      "id": "S17",
+      "slug": "data-controls",
+      "label": "Data controls",
+      "group": "Personal",
+      "decision": "new",
+      "task": "T06",
+      "reason": "Export, retention and deletion; describe provider-bound data, do not promise provider-side deletion."
+    },
+    {
+      "id": "S18",
+      "slug": "plugins",
+      "label": "Plugins",
+      "group": "Integrations",
+      "decision": "adapt",
+      "task": "T07",
+      "reason": "Existing local plugins/MCP gain readiness, trust, granted actions and failure diagnostics."
+    },
+    {
+      "id": "S19",
+      "slug": "passwords",
+      "label": "Passwords",
+      "group": "Integrations",
+      "decision": "new",
+      "task": "T13",
+      "reason": "OS-backed credential references and private sign-in; no plaintext password model tool."
+    },
+    {
+      "id": "S20",
+      "slug": "computer-use",
+      "label": "Computer use",
+      "group": "Integrations",
+      "decision": "new",
+      "task": "T12",
+      "reason": "Capability-gated native adapter, per-app grants, ownership, visible stop and takeover."
+    },
+    {
+      "id": "S21",
+      "slug": "appshots",
+      "label": "Appshots",
+      "group": "Integrations",
+      "decision": "new",
+      "task": "T11",
+      "reason": "Explicit frontmost-window capture, preview, redact, attach and durable replay."
+    },
+    {
+      "id": "S22",
+      "slug": "browser",
+      "label": "Browser",
+      "group": "Integrations",
+      "decision": "adapt",
+      "task": "T10",
+      "reason": "Profiles, tab ownership, origin/action permissions, download/upload and takeover."
+    },
+    {
+      "id": "S23",
+      "slug": "cloud-computer",
+      "label": "Cloud computer",
+      "group": "Integrations",
+      "decision": "adapt",
+      "task": "T14",
+      "reason": "Bring-your-own execution target; local Docker labeled local, never marketed as hosted cloud."
+    },
+    {
+      "id": "S24",
+      "slug": "hooks",
+      "label": "Hooks",
+      "group": "Coding",
+      "decision": "adapt",
+      "task": "T07",
+      "reason": "Existing lifecycle events; list source, validate, trust by digest, test fixtures and execution history."
+    },
+    {
+      "id": "S25",
+      "slug": "connections",
+      "label": "Connections",
+      "group": "Coding",
+      "decision": "adapt",
+      "task": "T08",
+      "reason": "Existing pinned TLS gateway gains desktop connect, trust and device revoke controls."
+    },
+    {
+      "id": "S26",
+      "slug": "codex-cloud",
+      "label": "Codex Cloud",
+      "group": "Coding",
+      "decision": "adapt",
+      "task": "T14",
+      "reason": "Name sun counterpart Remote jobs; no implied access to OpenAI subscription backend."
+    },
+    {
+      "id": "S27",
+      "slug": "code-review",
+      "label": "Code Review",
+      "group": "Coding",
+      "decision": "adapt",
+      "task": "T09",
+      "reason": "Logged review input, structured findings, review rules and stale-diff detection."
+    },
+    {
+      "id": "S28",
+      "slug": "git",
+      "label": "Git",
+      "group": "Coding",
+      "decision": "adapt",
+      "task": "T09",
+      "reason": "Repository status/base selection, diff and explicit actions through host."
+    },
+    {
+      "id": "S29",
+      "slug": "worktrees",
+      "label": "Worktrees",
+      "group": "Coding",
+      "decision": "adapt",
+      "task": "T09",
+      "reason": "Existing worktree engine; inventory, ownership, setup trust, dirty/active cleanup guards."
+    }
+  ],
+  "tasks": [
+    {
+      "id": "T01",
+      "title": "Freeze behavioral fixtures",
+      "status": "done",
+      "dependsOn": [],
+      "acceptance": [
+        "AC-16"
+      ],
+      "files": [
+        "packages/core/test/helpers.ts",
+        "packages/core/test/settings-contract.test.ts (new)"
+      ],
+      "evidence": "docs/plans/settings-competitors/evidence/T01.json"
+    },
+    {
+      "id": "T02",
+      "title": "Revisioned settings service",
+      "status": "done",
+      "dependsOn": [
+        "T01"
+      ],
+      "acceptance": [
+        "AC-01",
+        "AC-02",
+        "AC-03"
+      ],
+      "files": [
+        "packages/core/src/config.ts",
+        "packages/core/src/settings/ (new)",
+        "packages/core/src/host.ts",
+        "packages/core/src/gateway.ts",
+        "apps/desktop/src/shared/api.ts",
+        "apps/desktop/src/renderer/src/api.ts",
+        "packages/cli/src/index.ts"
+      ],
+      "evidence": "docs/plans/settings-competitors/evidence/T02.json"
+    },
+    {
+      "id": "T03",
+      "title": "Capability descriptors and transport parity",
+      "status": "done",
+      "dependsOn": [
+        "T02"
+      ],
+      "acceptance": [
+        "AC-03",
+        "AC-04"
+      ],
+      "files": [
+        "packages/core/src/settings/capabilities.ts (new)",
+        "packages/core/src/plugins.ts",
+        "packages/core/src/host.ts",
+        "packages/core/src/gateway.ts",
+        "apps/desktop/src/main/index.ts",
+        "apps/desktop/src/shared/api.ts"
+      ],
+      "evidence": "docs/plans/settings-competitors/evidence/T03.json"
+    },
+    {
+      "id": "T04",
+      "title": "Searchable bilingual settings shell",
+      "status": "done",
+      "dependsOn": [
+        "T03"
+      ],
+      "acceptance": [
+        "AC-04",
+        "AC-16"
+      ],
+      "files": [
+        "apps/desktop/src/renderer/src/settings/ (new)",
+        "apps/desktop/src/renderer/src/pages.tsx",
+        "apps/desktop/src/renderer/src/App.tsx",
+        "apps/desktop/src/renderer/src/styles.css",
+        "apps/desktop/src/renderer/src/locale-zh-CN.ts",
+        "apps/desktop/e2e/smoke.mjs"
+      ],
+      "evidence": "docs/plans/settings-competitors/evidence/T04.json"
+    },
+    {
+      "id": "T05",
+      "title": "Preferences and personal controls",
+      "status": "done",
+      "dependsOn": [
+        "T04"
+      ],
+      "acceptance": [
+        "AC-05"
+      ],
+      "files": [
+        "packages/core/src/config.ts",
+        "packages/core/src/assistant/voice.ts",
+        "packages/core/src/assistant/memstore.ts",
+        "apps/desktop/src/main/index.ts",
+        "apps/desktop/src/renderer/src/settings/",
+        "apps/desktop/src/renderer/src/locale-zh-CN.ts"
+      ],
+      "evidence": "docs/plans/settings-competitors/evidence/T05.json"
+    },
+    {
+      "id": "T06",
+      "title": "Import, archives, storage and privacy",
+      "status": "done",
+      "dependsOn": [
+        "T04"
+      ],
+      "acceptance": [
+        "AC-06"
+      ],
+      "files": [
+        "packages/core/src/host.ts",
+        "packages/core/src/ux/export.ts",
+        "packages/core/src/settings/storage.ts (new)",
+        "packages/core/src/settings/import.ts (new)",
+        "apps/desktop/src/renderer/src/settings/"
+      ],
+      "evidence": "docs/plans/settings-competitors/evidence/T06.json"
+    },
+    {
+      "id": "T07",
+      "title": "Hooks and extension governance",
+      "status": "done",
+      "dependsOn": [
+        "T03",
+        "T04"
+      ],
+      "acceptance": [
+        "AC-07",
+        "AC-16"
+      ],
+      "files": [
+        "packages/core/src/hooks.ts",
+        "packages/core/src/plugins.ts",
+        "packages/core/src/plugin-runtime.ts",
+        "packages/core/src/host.ts",
+        "packages/core/src/sandbox.ts",
+        "apps/desktop/src/renderer/src/settings/",
+        "packages/core/test/settings-hooks.test.ts",
+        "packages/core/test/settings-capabilities.test.ts"
+      ],
+      "evidence": "docs/plans/settings-competitors/evidence/T07.json"
+    },
+    {
+      "id": "T08",
+      "title": "Remote connection management",
+      "status": "done",
+      "dependsOn": [
+        "T03",
+        "T04"
+      ],
+      "acceptance": [
+        "AC-08",
+        "AC-16"
+      ],
+      "files": [
+        "packages/core/src/remote.ts",
+        "packages/core/src/gateway.ts",
+        "packages/core/src/gateway-receipts.ts",
+        "packages/core/src/host.ts",
+        "apps/desktop/src/main/index.ts",
+        "apps/desktop/src/renderer/src/settings/",
+        "packages/core/test/remote.test.ts",
+        "apps/desktop/e2e/settings-remote.mjs"
+      ],
+      "evidence": "docs/plans/settings-competitors/evidence/T08.json"
+    },
+    {
+      "id": "T09",
+      "title": "Review and Git/worktree controls",
+      "status": "done",
+      "dependsOn": [
+        "T04",
+        "T07"
+      ],
+      "acceptance": [
+        "AC-09",
+        "AC-10",
+        "AC-16"
+      ],
+      "files": [
+        "packages/core/src/host.ts",
+        "packages/core/src/types.ts",
+        "packages/core/src/messages.ts",
+        "packages/core/src/worktree.ts",
+        "apps/desktop/src/renderer/src/Changes.tsx",
+        "apps/desktop/src/renderer/src/settings/",
+        "packages/core/test/cursor-coding.test.ts",
+        "packages/core/test/worktree.test.ts"
+      ],
+      "evidence": "docs/plans/settings-competitors/evidence/T09.json"
+    },
+    {
+      "id": "T10",
+      "title": "Browser settings and ownership",
+      "status": "done",
+      "dependsOn": [
+        "T03",
+        "T04"
+      ],
+      "acceptance": [
+        "AC-11"
+      ],
+      "files": [
+        "packages/core/src/browser/browser.ts",
+        "packages/core/src/browser/tools.ts",
+        "packages/core/src/browser/cdp.ts",
+        "packages/core/src/browser/uploads.ts",
+        "packages/core/src/browser/downloads.ts",
+        "apps/desktop/src/renderer/src/Browser.tsx",
+        "apps/desktop/src/renderer/src/settings/",
+        "packages/core/test/browser.test.ts"
+      ],
+      "evidence": "docs/plans/settings-competitors/evidence/T10.json"
+    },
+    {
+      "id": "T11",
+      "title": "Explicit Appshot capture",
+      "status": "done",
+      "dependsOn": [
+        "T03",
+        "T04",
+        "T06"
+      ],
+      "acceptance": [
+        "AC-12"
+      ],
+      "files": [
+        "packages/core/src/settings/capture.ts (new interface)",
+        "apps/desktop/src/main/capture.ts (new adapter)",
+        "apps/desktop/native/Appshot.swift",
+        "apps/desktop/src/renderer/src/Composer.tsx",
+        "packages/core/src/host.ts",
+        "packages/core/src/messages.ts",
+        "packages/core/src/types.ts",
+        "apps/desktop/e2e/appshot.mjs"
+      ],
+      "evidence": "docs/plans/settings-competitors/evidence/T11.json"
+    },
+    {
+      "id": "T12",
+      "title": "Native computer-control adapter",
+      "status": "done",
+      "dependsOn": [
+        "T07",
+        "T10",
+        "T11"
+      ],
+      "acceptance": [
+        "AC-13"
+      ],
+      "files": [
+        "packages/core/src/settings/computer.ts (new interface)",
+        "packages/core/src/settings/computer-grants.ts",
+        "packages/core/src/host.ts",
+        "packages/core/src/gateway.ts",
+        "packages/core/test/settings-computer.test.ts",
+        "packages/core/src/tools/services.ts",
+        "apps/desktop/src/main/computer.ts (new adapter)",
+        "apps/desktop/native/Computer.swift",
+        "apps/desktop/e2e/computer.mjs",
+        "apps/desktop/src/renderer/src/settings/",
+        "apps/desktop/package.json"
+      ],
+      "evidence": "docs/plans/settings-competitors/evidence/T12.json"
+    },
+    {
+      "id": "T13",
+      "title": "Private credential broker",
+      "status": "done",
+      "dependsOn": [
+        "T08",
+        "T10"
+      ],
+      "acceptance": [
+        "AC-14"
+      ],
+      "files": [
+        "packages/core/src/settings/credentials.ts (new interface)",
+        "apps/desktop/src/main/credentials.ts (new adapter)",
+        "apps/desktop/src/main/index.ts",
+        "apps/desktop/src/main/capture.ts",
+        "apps/desktop/src/renderer/src/settings/",
+        "packages/core/test/settings-credentials.test.ts",
+        "apps/desktop/e2e/credentials.mjs"
+      ],
+      "evidence": "docs/plans/settings-competitors/evidence/T13.json"
+    },
+    {
+      "id": "T14",
+      "title": "Bring-your-own execution targets",
+      "status": "done",
+      "dependsOn": [
+        "T08",
+        "T09"
+      ],
+      "acceptance": [
+        "AC-15"
+      ],
+      "files": [
+        "packages/core/src/jobs.ts",
+        "packages/core/src/gateway.ts",
+        "packages/core/src/host.ts",
+        "packages/core/src/sandbox.ts",
+        "packages/core/src/settings/targets.ts (new)",
+        "apps/desktop/src/renderer/src/settings/",
+        "packages/core/test/execution-targets.test.ts",
+        "apps/desktop/e2e/execution-docker.mjs"
+      ],
+      "evidence": "docs/plans/settings-competitors/evidence/T14.json"
+    },
+    {
+      "id": "T15",
+      "title": "Release and handoff qualification",
+      "status": "done",
+      "dependsOn": [
+        "T05",
+        "T06",
+        "T07",
+        "T08",
+        "T09",
+        "T10",
+        "T11",
+        "T12",
+        "T13",
+        "T14"
+      ],
+      "acceptance": [
+        "AC-16"
+      ],
+      "files": [
+        "packages/core/test/",
+        "apps/desktop/test/",
+        "apps/desktop/e2e/smoke.mjs",
+        "docs/manual/",
+        "docs/teach/",
+        "docs/plan.md",
+        "CHANGELOG.md"
+      ],
+      "evidence": "docs/plans/settings-competitors/evidence/T15.json"
+    }
+  ]
+}

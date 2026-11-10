@@ -11,6 +11,9 @@ export interface PromptParts {
   project?: ProjectContext;
   skills?: { name: string; description: string }[];
   memory?: string;
+  /** Bounded user profile (USER.md), separate from the memory notes. */
+  user?: string;
+  personalInstructions?: string;
   knowledgeProviders?: { id: string; name: string }[];
   extraSections?: { title: string; text: string }[];
   /** Coding mode: outline of the repository (computed once per session to keep the prompt prefix cacheable). */
@@ -75,6 +78,8 @@ export function buildSystemPromptSections(p: PromptParts): { title: string; text
   if (p.knowledgeProviders?.length) {
     out.push('# Knowledge base\nUse kb_search to consult: ' + p.knowledgeProviders.map((k) => `${k.name} (${k.id})`).join(', ') + '.');
   }
+  if (p.user?.trim()) out.push('# User\n' + p.user.trim());
+  if (p.personalInstructions?.trim()) out.push('# Personal instructions\n' + p.personalInstructions.trim());
   if (p.memory?.trim()) {
     out.push('# Memory (what you know about the user)\n' + p.memory.trim());
   }

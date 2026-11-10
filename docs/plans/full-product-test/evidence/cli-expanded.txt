@@ -1,0 +1,20 @@
+✔ built and bundled commands expose help and workspace scaffolding (713.050584ms)
+✔ run reads stdin, emits stream JSON and reopens the durable session (3088.01075ms)
+✔ one-shot noninteractive approval denies a write and returns the denial to the model (633.009209ms)
+✔ an approved edit appears in changes and undo restores the workspace (1009.964459ms)
+✔ quota pauses with exit 3 and a later process resumes on the selected model (3750.393958ms)
+✔ a terminal provider error returns exit 1 for both run and resume (1271.91625ms)
+✔ CLI image input reaches the provider and a portable bundle restores its attachment (1241.19425ms)
+✔ MCP inspection exits after closing a successfully connected stdio server (315.849166ms)
+✔ interactive command loop buffers piped follow-ups and applies mode and model switches (687.596833ms)
+✔ knowledge and memory commands persist and retrieve distinct CJK content (1343.6755ms)
+✔ automation commands preview, persist, edit, pause, run, track history and delete (2150.372666ms)
+✔ eval runs a hidden check and compares a passing scripted run with a regression (2248.147208ms)
+ℹ tests 12
+ℹ suites 0
+ℹ pass 12
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 18524.539041

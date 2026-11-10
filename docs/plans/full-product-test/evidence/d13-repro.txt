@@ -1,0 +1,28 @@
+
+ RUN  v5.1.0 /Users/sunqingguang/Downloads/06.code/sun-harness
+
+ ❯ packages/core/test/gateway.test.ts (7 tests | 1 failed | 6 skipped) 613ms
+   ❯ gateway (7)
+     × reads ordinary images when JSON encodes an absent metadata argument as null 612ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/core/test/gateway.test.ts > gateway > reads ordinary images when JSON encodes an absent metadata argument as null
+Error: APPSHOT_ATTACHMENT_UNAVAILABLE
+ ❯ GatewayClient.dispatch packages/core/src/gateway.ts:842:25
+    840|     const body = requestId ? await invoke().catch(() => invoke()) : aw…
+    841|     if (body.error === 'GATEWAY_INSTANCE_CHANGED' || body.error === 'G…
+    842|     if (!body.ok) throw new Error(body.error ?? `gateway call ${method…
+       |                         ^
+    843|     return body.result as T;
+    844|   }
+ ❯ packages/core/test/gateway.test.ts:65:14
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 6 skipped (7)
+   Start at  13:28:08
+   Duration  958ms (tests 70%, import 19%, transform 11%)
+

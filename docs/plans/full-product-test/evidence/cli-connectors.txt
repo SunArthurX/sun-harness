@@ -1,0 +1,11 @@
+✔ configured company knowledge sends a bearer token and keeps local search on a remote denial (564.533ms)
+✔ mail and calendar presets update isolated MCP and untrusted-tool settings without opening accounts (1131.304916ms)
+✔ voice transcribe and record use a controlled audio source and the configured ASR provider (656.519416ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2412.128125

@@ -1,0 +1,2 @@
+/private/var/folders/4c/_fqg96ms18dc7mrmk9dfq32c0000gp/T/sun-computer-e2e-LQ2naU/Sun Computer Fixture.app: replacing existing signature
+The signed desktop exposes the local Computer Use panel and denies control before Accessibility authorization.

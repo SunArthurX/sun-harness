@@ -1,0 +1,25 @@
+
+ RUN  v5.1.0 /Users/sunqingguang/Downloads/06.code/sun-harness
+
+ ❯ apps/desktop/test/preference-adapters.test.ts (0 test)
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  apps/desktop/test/preference-adapters.test.ts [ apps/desktop/test/preference-adapters.test.ts ]
+Error: Cannot find module '../src/main/shortcuts' imported from /Users/sunqingguang/Downloads/06.code/sun-harness/apps/desktop/test/preference-adapters.test.ts
+ ❯ apps/desktop/test/preference-adapters.test.ts:3:1
+      1| import { describe, expect, it, vi } from 'vitest';
+      2| import { defaultUiPreferences } from '../../../packages/core/src/setti…
+      3| import { GlobalShortcutBinding } from '../src/main/shortcuts';
+       | ^
+      4| import { NotificationTracker } from '../src/renderer/src/notifications…
+      5| import { VoiceCapture } from '../src/renderer/src/voice-capture';
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  no tests
+   Start at  19:51:43
+   Duration  102ms (worker 96%, environment 4%)
+

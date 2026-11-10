@@ -1,0 +1,157 @@
+{
+  "checkpoint": "post-t04",
+  "model": "deepseek/deepseek-chat",
+  "modelVersion": "deepseek-chat",
+  "providerRevision": "not reported by the provider adapter",
+  "startedAt": "2026-11-07T11:40:07.658Z",
+  "promptSha256": "167d8614db042901d3e52443625ca5ccda76809f4a1c0f8b790a0a69c5933248",
+  "suiteSha256": "2581e759047c32a5199dba0d3230f3a8b53bbbe55a0d194e39fdc4f3819c7d79",
+  "repetitions": 3,
+  "expectedAttempts": 9,
+  "validation": [
+    {
+      "id": "attachment-replay",
+      "ok": true,
+      "failsUntouched": true,
+      "solvable": true,
+      "output": ""
+    },
+    {
+      "id": "permission-denial",
+      "ok": true,
+      "failsUntouched": true,
+      "solvable": true,
+      "output": ""
+    },
+    {
+      "id": "validated-setting",
+      "ok": true,
+      "failsUntouched": true,
+      "solvable": true,
+      "output": ""
+    }
+  ],
+  "attempts": [
+    {
+      "task": "permission-denial",
+      "repetition": 1,
+      "attempt": 1,
+      "status": "idle",
+      "durationMs": 20404,
+      "inputTokens": 57020,
+      "outputTokens": 2632,
+      "toolCalls": 22,
+      "passed": true,
+      "diffFile": "permission-denial-1.diff",
+      "acceptanceFile": "permission-denial-1.txt"
+    },
+    {
+      "task": "attachment-replay",
+      "repetition": 1,
+      "attempt": 1,
+      "status": "idle",
+      "durationMs": 22555,
+      "inputTokens": 61811,
+      "outputTokens": 3361,
+      "toolCalls": 20,
+      "passed": true,
+      "diffFile": "attachment-replay-1.diff",
+      "acceptanceFile": "attachment-replay-1.txt"
+    },
+    {
+      "task": "validated-setting",
+      "repetition": 1,
+      "attempt": 1,
+      "status": "idle",
+      "durationMs": 32483,
+      "inputTokens": 113806,
+      "outputTokens": 5072,
+      "toolCalls": 31,
+      "passed": true,
+      "diffFile": "validated-setting-1.diff",
+      "acceptanceFile": "validated-setting-1.txt"
+    },
+    {
+      "task": "attachment-replay",
+      "repetition": 2,
+      "attempt": 1,
+      "status": "idle",
+      "durationMs": 19865,
+      "inputTokens": 58342,
+      "outputTokens": 2558,
+      "toolCalls": 16,
+      "passed": true,
+      "diffFile": "attachment-replay-2.diff",
+      "acceptanceFile": "attachment-replay-2.txt"
+    },
+    {
+      "task": "permission-denial",
+      "repetition": 2,
+      "attempt": 1,
+      "status": "idle",
+      "durationMs": 22379,
+      "inputTokens": 63972,
+      "outputTokens": 3285,
+      "toolCalls": 22,
+      "passed": true,
+      "diffFile": "permission-denial-2.diff",
+      "acceptanceFile": "permission-denial-2.txt"
+    },
+    {
+      "task": "validated-setting",
+      "repetition": 2,
+      "attempt": 1,
+      "status": "idle",
+      "durationMs": 25385,
+      "inputTokens": 77235,
+      "outputTokens": 3592,
+      "toolCalls": 28,
+      "passed": true,
+      "diffFile": "validated-setting-2.diff",
+      "acceptanceFile": "validated-setting-2.txt"
+    },
+    {
+      "task": "attachment-replay",
+      "repetition": 3,
+      "attempt": 1,
+      "status": "paused",
+      "reason": "max_steps",
+      "durationMs": 23821,
+      "inputTokens": 99942,
+      "outputTokens": 2753,
+      "toolCalls": 25,
+      "passed": false,
+      "diffFile": "attachment-replay-3.diff",
+      "acceptanceFile": "attachment-replay-3.txt"
+    },
+    {
+      "task": "permission-denial",
+      "repetition": 3,
+      "attempt": 1,
+      "status": "idle",
+      "durationMs": 25583,
+      "inputTokens": 76087,
+      "outputTokens": 3484,
+      "toolCalls": 26,
+      "passed": true,
+      "diffFile": "permission-denial-3.diff",
+      "acceptanceFile": "permission-denial-3.txt"
+    },
+    {
+      "task": "validated-setting",
+      "repetition": 3,
+      "attempt": 1,
+      "status": "idle",
+      "durationMs": 26819,
+      "inputTokens": 69014,
+      "outputTokens": 3804,
+      "toolCalls": 26,
+      "passed": true,
+      "diffFile": "validated-setting-3.diff",
+      "acceptanceFile": "validated-setting-3.txt"
+    }
+  ],
+  "result": "fail",
+  "finishedAt": "2026-11-07T11:42:41.133Z",
+  "passed": 8
+}

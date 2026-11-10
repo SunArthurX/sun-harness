@@ -61,6 +61,8 @@ pnpm desktop           # dev mode with hot reload
 
 The app is ad-hoc signed for your own Mac. To give it to someone else, sign it with an Apple Developer ID and notarize it.
 
+The UI is English or Simplified Chinese (left rail **EN** / **中**, or Settings → Language).
+
 1. Pick **Coding**, choose a project folder, press **Start**.
 2. Ask for something concrete: "Add a `--version` flag to the CLI and a test for it."
 3. Watch tool cards stream in. Writes inside the workspace run freely in the default `auto-edit` mode; shell commands show an approval card — **Allow**, **Always allow bash**, or **Deny**.

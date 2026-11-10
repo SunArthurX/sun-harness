@@ -1,0 +1,3 @@
+$ node apps/desktop/e2e/browser-backends.mjs
+External Chromium requires delegation, reuses its existing authenticated profile, transfers approved files, and preserves the original tab.
+Docker Chromium serves noVNC and negotiates RFB on loopback, refuses a concurrent policy owner, blocks native downloads, and transfers approved bytes after reusing the authenticated profile.

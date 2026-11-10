@@ -1,0 +1,1 @@
+Built CLI listed an untrusted hook, previewed without spawning, required review for execution, ran the reviewed fixture, and revoked the grant.

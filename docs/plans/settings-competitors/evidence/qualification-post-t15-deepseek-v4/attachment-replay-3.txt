@@ -1,0 +1,18 @@
+✔ missing attachments keep the turn and healthy images in order (0.87575ms)
+✔ missing attachment keeps ordered images and appends marker (0.756084ms)
+✔ missing attachment marker counts every missing attachment (0.089541ms)
+✔ user event without attachments is preserved (0.068875ms)
+✔ user and assistant events replay in order (0.489083ms)
+✔ non-ENOENT reader errors propagate (0.213042ms)
+✔ thrown non-ENOENT error without code propagates (0.090417ms)
+✔ event array and event objects are not mutated (0.112625ms)
+✔ repeated replay of the same events is stable (0.074416ms)
+✔ intact attachment replay (0.672542ms)
+ℹ tests 10
+ℹ suites 0
+ℹ pass 10
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 47.805167

@@ -1,0 +1,25 @@
+
+ RUN  v5.1.0 /Users/sunqingguang/Downloads/06.code/sun-harness
+
+ ❯ apps/desktop/test/settings-navigation.test.ts (0 test)
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  apps/desktop/test/settings-navigation.test.ts [ apps/desktop/test/settings-navigation.test.ts ]
+Error: Cannot find module '../src/renderer/src/settings/routes' imported from /Users/sunqingguang/Downloads/06.code/sun-harness/apps/desktop/test/settings-navigation.test.ts
+ ❯ apps/desktop/test/settings-navigation.test.ts:3:1
+      1| import { describe, expect, it } from 'vitest';
+      2| import type { CapabilityStatus } from '@sun/core';
+      3| import { parseRoute, routeHash } from '../src/renderer/src/settings/ro…
+       | ^
+      4| import { searchSettings, visibleSections } from '../src/renderer/src/s…
+      5|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  no tests
+   Start at  19:20:37
+   Duration  106ms (worker 96%, environment 4%)
+

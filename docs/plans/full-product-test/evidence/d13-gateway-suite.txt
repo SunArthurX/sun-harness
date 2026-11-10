@@ -1,0 +1,27 @@
+$ pnpm exec vitest run packages/core/test/gateway.test.ts packages/core/test/settings-capture.test.ts packages/core/test/settings-import.test.ts
+
+ RUN  v5.1.0 /Users/sunqingguang/Downloads/06.code/sun-harness
+
+ ✓ packages/core/test/settings-import.test.ts > legacy transcript import boundary > rejects foreign and symlinked image paths before publishing a log 28ms
+ ✓ packages/core/test/settings-import.test.ts > legacy transcript import boundary > requires an explicit workspace when the old directory is absent 36ms
+ ✓ packages/core/test/settings-import.test.ts > legacy transcript import boundary > cannot reuse historical approvals, jobs, tools, or proposals 30ms
+ ✓ packages/core/test/gateway.test.ts > gateway > requires the token, advertises itself, and is discoverable 62ms
+ ✓ packages/core/test/gateway.test.ts > gateway > restricts dated Intel and briefing RPCs to their own report directories 35ms
+ ✓ packages/core/test/settings-import.test.ts > portable session bundles > round-trips image bytes across homes and restart, under a new session ID 63ms
+ ✓ packages/core/test/settings-import.test.ts > portable session bundles > rejects paths, links, size bombs, bad digests, extra bytes and missing references without publishing 272ms
+ ✓ packages/core/test/settings-import.test.ts > portable session bundles > exports rewound compactions with sequence pointers that survive reimport 20ms
+ ✓ packages/core/test/settings-capture.test.ts > Appshot draft and durable replay > sends only the prepared image, verifies it on replay, and preserves the receipt in portable history 549ms
+ ✓ packages/core/test/settings-capture.test.ts > Appshot draft and durable replay > projects the approved text on text-only models and reports permission denial 96ms
+ ✓ packages/core/test/settings-capture.test.ts > Appshot draft and durable replay > expires private drafts and bounds the extracted text 3ms
+ ✓ packages/core/test/gateway.test.ts > gateway > reads ordinary images when JSON encodes an absent metadata argument as null 454ms
+ ✓ packages/core/test/settings-import.test.ts > portable session bundles > keeps a rewind of historical pending tools inert until a new user turn 453ms
+ ✓ packages/core/test/gateway.test.ts > gateway > runs a session for a remote client and streams its events 272ms
+ ✓ packages/core/test/gateway.test.ts > gateway > a remote approver answers approvals; with none attached the gateway denies instead of hanging 789ms
+ ✓ packages/core/test/gateway.test.ts > gateway > authenticates portable bundles and validates invalid streams before publishing 53ms
+ ✓ packages/core/test/gateway.test.ts > gateway > serves the web UI and blocks path traversal 18ms
+
+ Test Files  3 passed (3)
+      Tests  17 passed (17)
+   Start at  13:28:26
+   Duration  2.01s (tests 81%, import 12%, transform 6%)
+

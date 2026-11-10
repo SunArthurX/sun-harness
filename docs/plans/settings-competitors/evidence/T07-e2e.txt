@@ -1,0 +1,21 @@
+Could not save settings (INVALID): briefing.hour, briefing.minute. Try again after checking the current settings.
+CLI rejects invalid times and persists briefing and connector settings.
+CLI inspected and edited the plugin without importing JavaScript.
+A real SIGKILL after the first rename leaves a recoverable journal. Restart keeps both replacement files.
+A real Chromium profile stays protected while running and moves to trash only after exit and explicit profile confirmation.
+Electron settings retain the two-field draft on conflict and save it atomically after reload.
+Electron settings pass English and Chinese search, focus, invalid save, discard and Back at 1440 and 800 pixels.
+Electron forms save appearance and default mode, and keep profile and instructions separate with conflict and discard handling.
+Electron settings import JSONL with an explicit workspace, round-trip a bundle, restore the archive ID, reject stale cleanup, and move the confirmed log to trash.
+Electron hooks show matcher diagnostics, preview without effects, execute or cancel after review, and reject stale trust after editing the source.
+Electron inspected the disabled plugin manifest, enabled its registration, and revoked it through settings.
+Electron applies appearance, remaps in-app shortcuts, and retains the old OS binding after registration failure.
+CLI, Electron, and gateway share capability IDs. Version mismatch and native-only routes are rejected.
+Gateway web settings pass direct routes, Back, bilingual search and layout at 1440 and 800 pixels.
+Gateway renderer explicitly requests notification permission, deduplicates alerts, and cancels denied or unfinished audio. Unknown prices remain unknown in mixed usage.
+Gateway web settings import JSONL with an explicit workspace, round-trip a bundle, restore the archive ID, reject stale cleanup, and move the confirmed log to trash.
+Gateway web hooks show matcher diagnostics, preview without effects, execute or cancel after review, and reject stale trust after editing the source.
+Gateway web inspected the disabled plugin manifest, enabled its registration, and revoked it through settings.
+Gateway web streamed Draining with one call, then Disabled after settlement.
+Electron Mini is isolated, opens the active chat, aborts the live gateway provider request, and closes when disabled.
+Desktop opens configuration recovery and preserves malformed bytes.

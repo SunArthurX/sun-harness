@@ -1,0 +1,9 @@
+
+ RUN  v5.1.0 /Users/sunqingguang/Downloads/06.code/sun-harness
+
+
+ Test Files  2 passed (2)
+      Tests  8 passed (8)
+   Start at  18:52:48
+   Duration  208ms (tests 61%, transform 19%, import 18%, worker 2%)
+

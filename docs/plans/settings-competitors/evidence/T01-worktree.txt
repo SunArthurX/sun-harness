@@ -1,0 +1,92 @@
+ M AGENTS.md
+ M CHANGELOG.md
+ M README.md
+ M apps/desktop/e2e/smoke.mjs
+ M apps/desktop/package.json
+ M apps/desktop/src/renderer/src/App.tsx
+ M apps/desktop/src/renderer/src/Browser.tsx
+ M apps/desktop/src/renderer/src/Changes.tsx
+ M apps/desktop/src/renderer/src/Chat.tsx
+ M apps/desktop/src/renderer/src/Composer.tsx
+ M apps/desktop/src/renderer/src/Context.tsx
+ M apps/desktop/src/renderer/src/api.ts
+ M apps/desktop/src/renderer/src/main.tsx
+ M apps/desktop/src/renderer/src/pages.tsx
+ M apps/desktop/src/renderer/src/styles.css
+ M apps/desktop/src/renderer/src/web-bridge.ts
+ M apps/desktop/src/shared/api.ts
+ M docs/manual/README.md
+ M docs/manual/assistant.md
+ M docs/manual/cli.md
+ M docs/manual/coding.md
+ M docs/manual/configuration.md
+ M docs/manual/desktop.md
+ M docs/manual/gateway.md
+ M docs/manual/getting-started.md
+ M docs/manual/modes.md
+ M docs/manual/research.md
+ M docs/plan.md
+ M docs/teach/index.html
+ M package.json
+ M packages/cli/package.json
+ M packages/cli/src/index.ts
+ M packages/core/package.json
+ M packages/core/src/bots/bridge.ts
+ M packages/core/src/config.ts
+ M packages/core/src/gateway.ts
+ M packages/core/src/host.ts
+ M packages/core/src/index.ts
+ M packages/core/src/memory.ts
+ M packages/core/src/modes.ts
+ M packages/core/src/prompt.ts
+ M packages/core/src/rules.ts
+ M packages/core/src/skills.ts
+ M packages/core/src/tools/builtin.ts
+ M packages/core/src/tools/services.ts
+ M packages/core/src/tools/types.ts
+ M packages/core/src/types.ts
+ M packages/core/src/ux/context.ts
+ M packages/core/src/ux/export.ts
+ M packages/core/src/ux/mentions.ts
+ M packages/core/test/ux.test.ts
+ M pnpm-lock.yaml
+ M specs/004-desktop.md
+ M vitest.config.ts
+?? apps/desktop/AGENTS.md
+?? apps/desktop/scripts/i18n.mjs
+?? apps/desktop/src/renderer/src/Dock.tsx
+?? apps/desktop/src/renderer/src/i18n.ts
+?? apps/desktop/src/renderer/src/locale-zh-CN.ts
+?? apps/desktop/test/i18n.test.ts
+?? docs/adr/0009-ui-i18n.md
+?? docs/adr/0010-settings-capability-boundaries.md
+?? docs/manual/settings-roadmap.md
+?? docs/plans/settings-competitors/README.md
+?? docs/plans/settings-competitors/evidence/T01-worktree.txt
+?? docs/plans/settings-competitors/handoff.md
+?? docs/plans/settings-competitors/implementation.md
+?? docs/plans/settings-competitors/manifest.json
+?? docs/plans/settings-competitors/research.md
+?? docs/plans/settings-competitors/tasks.md
+?? docs/plans/settings-competitors/validation/README.md
+?? docs/plans/settings-competitors/validation/build.txt
+?? docs/plans/settings-competitors/validation/plan-checker.txt
+?? docs/plans/settings-competitors/validation/tests.txt
+?? docs/teach/26-ui-i18n.html
+?? docs/teach/27-cursor-grade-coding.html
+?? docs/teach/28-manus-and-assistants.html
+?? docs/teach/29-right-dock.html
+?? docs/teach/30-settings-planning.html
+?? packages/core/src/ux/codebase.ts
+?? packages/core/src/ux/ignore.ts
+?? packages/core/src/ux/slides.ts
+?? packages/core/test/assist-manus.test.ts
+?? packages/core/test/cursor-coding.test.ts
+?? packages/core/test/settings-plan.test.ts
+?? scripts/check-settings-plan.mjs
+?? scripts/check-settings-plan.test.mjs
+?? specs/028-ui-i18n.md
+?? specs/029-cursor-grade-coding.md
+?? specs/030-manus-and-assistants.md
+?? specs/031-right-dock.md
+?? specs/032-settings-and-capability-management.md

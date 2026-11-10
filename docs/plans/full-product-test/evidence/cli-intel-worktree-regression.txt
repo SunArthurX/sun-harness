@@ -1,0 +1,10 @@
+✔ intel defaults to the local calendar day for listing, showing, and retrying saved analysis (682.258875ms)
+✔ worktree commands isolate an edit, report its diff, squash it, and clean a separate worktree (7494.717084ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 8238.448459

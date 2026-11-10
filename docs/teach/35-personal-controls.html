@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>35 — Personal controls</title>
+<body>
+<p><a href="index.html">Teaching index</a></p>
+<h1>Personal controls</h1>
+<p>The work started with typed preference defaults and validation. The next
+slice applied appearance, event notifications, keyboard bindings, and voice
+cancellation. Settings then exposed those controls using the existing
+section draft and revision checks.</p>
+<pre class="mermaid">flowchart LR
+  E[Electron main] -->|Narrow IPC| M[Mini window]
+  H[HarnessHost session state] -->|Session summaries| E
+  M -->|Stop selected session| E
+  E -->|Existing abort method| H
+  H -->|Abort signal| P[Running provider request]
+  E -->|Open chat| A[Main window]
+  A --> G[Unsaved settings guard]
+</pre>
+<h2>Where does Mini get its state?</h2>
+<p>Electron reduces the host's summaries to the latest active top-level
+session. A dedicated IPC allowlist restricts the panel to status, stop, and
+open. A Playwright test opens the real window while the gateway's scripted
+provider is waiting and observes its abort signal and the saved terminal
+status.</p>
+<h2>How do instructions stay separate from learned facts?</h2>
+<p><code>USER.md</code> remains the profile. <code>INSTRUCTIONS.md</code>
+contains standing user-authored instructions and is recorded in the session's
+request header. Extraction adds core facts to <code>MEMORY.md</code>. A text
+editor compares the content it loaded with the current host content before
+replacing it, so it can surface changes made by another client.</p>
+<h2>What can the pricing table tell us?</h2>
+<p>The usage panel selects one retained session and reuses the host's cost
+calculation. Forks and imports can contain copies of token usage, so the view
+reports each history separately. Priced rows contribute to the subtotal.
+Unpriced models have token counts and an unknown estimate.</p>
+<p><a href="../plans/settings-competitors/evidence/T05.json">T05 evidence</a></p>
+<script type="module">import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';mermaid.initialize({startOnLoad:true});</script>
+</body>
+</html>

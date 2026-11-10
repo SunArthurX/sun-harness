@@ -1,0 +1,22 @@
+$ pnpm exec vitest run packages/core/test/browser.test.ts --reporter=verbose
+
+ RUN  v5.1.0 /Users/sunqingguang/Downloads/06.code/sun-harness
+
+ ✓ packages/core/test/browser.test.ts > accessibility snapshot rendering > assigns refs to interactive nodes and keeps text 1ms
+ ✓ packages/core/test/browser.test.ts > browser origin permissions > normalizes origins, isolates actions, handles stale revisions, and audits without URL details 69ms
+ ✓ packages/core/test/browser.test.ts > browser transfer limits > expires the approved bytes and rejects files beyond the upload limit 5ms
+ ✓ packages/core/test/browser.test.ts > browser transfer limits > requires explicit delegation before using an external browser profile 1ms
+ ✓ packages/core/test/browser.test.ts > browser over CDP (local Chrome, headless) > navigates, types, clicks by ref, follows links, goes back, and screenshots 2627ms
+ ✓ packages/core/test/browser.test.ts > browser over CDP (local Chrome, headless) > blocks an unapproved redirect before the target origin receives a request 786ms
+ ✓ packages/core/test/browser.test.ts > browser over CDP (local Chrome, headless) > blocks unreviewed subframe navigations and suppresses a tab opened by a managed page 1467ms
+ ✓ packages/core/test/browser.test.ts > browser over CDP (local Chrome, headless) > isolates live frames and revokes stale control and agent actions after takeover 1228ms
+ ✓ packages/core/test/browser.test.ts > browser over CDP (local Chrome, headless) > uses only a confirmed in-memory file for the owning document and revokes prior handles 1832ms
+ ✓ packages/core/test/browser.test.ts > browser over CDP (local Chrome, headless) > stages authenticated binary downloads, checks every origin, and blocks native blob downloads 1216ms
+ ✓ packages/core/test/browser.test.ts > browser over CDP (local Chrome, headless) > rejects unsafe staging and cleans partial downloads after size limits, cancellation, or takeover 1467ms
+ ✓ packages/core/test/browser.test.ts > browser over CDP (local Chrome, headless) > exposes browser tools to a session through the host 2666ms
+
+ Test Files  1 passed (1)
+      Tests  12 passed (12)
+   Start at  13:48:28
+   Duration  13.85s (tests 98%, import 1%, transform 1%)
+

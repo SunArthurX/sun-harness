@@ -1,0 +1,5 @@
+$ node apps/desktop/e2e/computer.mjs apps/desktop/release/full-product-d16/mac-arm64/sun-harness.app --preflight-only
+# cdhash d6af32f488e8303abc235fdc5722030dce3b89f8
+/private/var/folders/4c/_fqg96ms18dc7mrmk9dfq32c0000gp/T/sun-computer-e2e-pNrEYF/Sun Computer Fixture.app: replacing existing signature
+Accessibility authorized for signed desktop: false. Native helper: false.
+The signed desktop exposes the local Computer Use panel and denies control before Accessibility authorization.

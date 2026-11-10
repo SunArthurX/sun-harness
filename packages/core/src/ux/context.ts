@@ -38,7 +38,30 @@ export interface ContextReport {
   /** Older history replaced by a summary in the current view. */
   compactedUpToSeq?: number;
   suggestions: string[];
+  /** The same suggestions as English templates and parameters, so a UI can translate them (specs/028). */
+  suggestionKeys: ContextSuggestion[];
 }
+
+export interface ContextSuggestion {
+  key: string;
+  params: Record<string, string | number>;
+}
+
+/** Category names; UIs translate them by these exact strings. */
+export const CONTEXT_CATEGORIES = ['System prompt', 'Tool definitions', 'Compaction summary', 'User messages', 'Attached files', 'Images', 'Recalled memories', 'Assistant messages', 'Tool results'] as const;
+
+/** Suggestion templates; `{name}` placeholders are filled from the suggestion params. */
+export const CONTEXT_SUGGESTIONS = {
+  nearThreshold: 'The context is at {pct}% of the compaction threshold: run /compact now, or start a new session for an unrelated task.',
+  largeResult: '{label} alone is {tokens} tokens ({pct}%). Ask for narrower reads (line ranges, grep) next time; /compact drops it.',
+  manyTools: '{n} tool definitions take {pct}%: disable MCP servers you do not need in this project.',
+  largeRules: 'Project rules are {tokens} tokens: mark rarely needed rule files alwaysApply: false (they become a one-line index).',
+  largeSkills: 'The skills index is {tokens} tokens ({pct}%): set "skills": { "compat": false } to skip Claude/agents skill folders, or prune ~/.sun/skills.',
+  largeAttachments: 'Attached files are a large share: mention folders or smaller files, or let the agent read what it needs.',
+  fine: 'Nothing to do: the context is comfortably sized.',
+} as const;
+
+export const fillTemplate = (s: string, params: Record<string, string | number>) => s.replace(/\{(\w+)\}/g, (m, k: string) => (k in params ? String(params[k]) : m));
 
 const top = (items: ContextItem[], n = 12) => [...items].sort((a, b) => b.tokens - a.tokens).slice(0, n);
 const sum = (items: ContextItem[]) => items.reduce((s, i) => s + i.tokens, 0);
@@ -123,16 +146,18 @@ export function buildContextReport(input: {
   const last = [...events].reverse().find((e) => e.type === 'assistant/message' && e.usage) as Extract<SessionEvent, { type: 'assistant/message' }> | undefined;
   const pct = (n: number) => Math.round((n / Math.max(1, totalTokens)) * 100);
   const byName = (n: string) => categories.find((c) => c.name === n)?.tokens ?? 0;
-  const suggestions: string[] = [];
-  if (totalTokens >= input.compactAt * 0.8) suggestions.push(`The context is at ${Math.round((totalTokens / input.compactAt) * 100)}% of the compaction threshold: run /compact now, or start a new session for an unrelated task.`);
-  for (const r of largestResults) if (r.tokens > totalTokens * 0.15 && r.tokens > 2000) suggestions.push(`${r.label} alone is ${r.tokens.toLocaleString('en')} tokens (${pct(r.tokens)}%). Ask for narrower reads (line ranges, grep) next time; /compact drops it.`);
-  if (byName('Tool definitions') > totalTokens * 0.25 && tools.length > 30) suggestions.push(`${tools.length} tool definitions take ${pct(byName('Tool definitions'))}%: disable MCP servers you do not need in this project.`);
+  const keys: ContextSuggestion[] = [];
+  const suggest = (k: keyof typeof CONTEXT_SUGGESTIONS, params: Record<string, string | number> = {}) => keys.push({ key: CONTEXT_SUGGESTIONS[k], params });
+  if (totalTokens >= input.compactAt * 0.8) suggest('nearThreshold', { pct: Math.round((totalTokens / input.compactAt) * 100) });
+  for (const r of largestResults) if (r.tokens > totalTokens * 0.15 && r.tokens > 2000) suggest('largeResult', { label: r.label, tokens: r.tokens.toLocaleString('en'), pct: pct(r.tokens) });
+  if (byName('Tool definitions') > totalTokens * 0.25 && tools.length > 30) suggest('manyTools', { n: tools.length, pct: pct(byName('Tool definitions')) });
   const rules = system.find((s) => s.label === 'Project rules');
-  if (rules && rules.tokens > 4000) suggestions.push(`Project rules are ${rules.tokens.toLocaleString('en')} tokens: mark rarely needed rule files alwaysApply: false (they become a one-line index).`);
+  if (rules && rules.tokens > 4000) suggest('largeRules', { tokens: rules.tokens.toLocaleString('en') });
   const skills = system.find((s) => s.label === 'Skills');
-  if (skills && skills.tokens > 1500 && skills.tokens > totalTokens * 0.2) suggestions.push(`The skills index is ${skills.tokens.toLocaleString('en')} tokens (${pct(skills.tokens)}%): set "skills": { "compat": false } to skip Claude/agents skill folders, or prune ~/.sun/skills.`);
-  if (byName('Attached files') > totalTokens * 0.3) suggestions.push('Attached files are a large share: mention folders or smaller files, or let the agent read what it needs.');
-  if (!suggestions.length) suggestions.push('Nothing to do: the context is comfortably sized.');
+  if (skills && skills.tokens > 1500 && skills.tokens > totalTokens * 0.2) suggest('largeSkills', { tokens: skills.tokens.toLocaleString('en'), pct: pct(skills.tokens) });
+  if (byName('Attached files') > totalTokens * 0.3) suggest('largeAttachments');
+  if (!keys.length) suggest('fine');
+  const suggestions = keys.map((s) => fillTemplate(s.key, s.params));
 
   return {
     sessionId: input.sessionId,
@@ -146,6 +171,7 @@ export function buildContextReport(input: {
     compactions: events.filter((e) => e.type === 'context/compaction').length,
     compactedUpToSeq,
     suggestions,
+    suggestionKeys: keys,
   };
 }
 

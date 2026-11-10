@@ -1,0 +1,25 @@
+
+ RUN  v5.1.0 /Users/sunqingguang/Downloads/06.code/sun-harness
+
+ ❯ packages/core/test/settings-capabilities.test.ts (0 test)
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/core/test/settings-capabilities.test.ts [ packages/core/test/settings-capabilities.test.ts ]
+Error: Cannot find module '../src/settings/protocol.js' imported from /Users/sunqingguang/Downloads/06.code/sun-harness/packages/core/test/settings-capabilities.test.ts
+ ❯ packages/core/test/settings-capabilities.test.ts:7:1
+      5| import { HarnessHost } from '../src/host.js';
+      6| import { GatewayClient, hostMethods, startGateway, type RunningGateway…
+      7| import { SETTINGS_PROTOCOL_VERSION as v } from '../src/settings/protoc…
+       | ^
+      8| import { MockProvider } from '../src/providers/mock.js';
+      9| import type { ModelResponse } from '../src/providers/types.js';
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  no tests
+   Start at  19:13:24
+   Duration  292ms (worker 96%, environment 4%)
+

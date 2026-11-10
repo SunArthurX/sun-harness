@@ -1,0 +1,34 @@
+
+ RUN  v5.1.0 /Users/sunqingguang/Downloads/06.code/sun-harness
+
+ ↓ packages/core/test/research.test.ts > readable extraction > keeps the article, drops boilerplate and hidden text, converts to markdown
+ ↓ packages/core/test/research.test.ts > search providers > parses Bing results and unwraps redirect links
+ ↓ packages/core/test/research.test.ts > search providers > auto-selects a keyed provider, then searxng, then bing
+ ↓ packages/core/test/research.test.ts > pdf > extracts text from a PDF
+ ↓ packages/core/test/research.test.ts > prompt-injection guard > detects common injection patterns and invisible text
+ ↓ packages/core/test/research.test.ts > web tools, taint, and deliverables through a session > wraps fetched pages as untrusted, reads PDFs, and escalates approval after an injection
+ ↓ packages/core/test/research.test.ts > web tools, taint, and deliverables through a session > lists created and modified files as deliverables
+ ↓ packages/core/test/research.test.ts > python kernel > keeps state between cells, echoes the last expression, and reports errors
+ × packages/core/test/research.test.ts > python kernel > keeps a pre-aborted cell inert and restarts state after timeout or an active abort 174ms
+   → .toMatch() expects to receive a string, but got object
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/core/test/research.test.ts > python kernel > keeps a pre-aborted cell inert and restarts state after timeout or an active abort
+TypeError: .toMatch() expects to receive a string, but got object
+ ❯ packages/core/test/research.test.ts:175:31
+    173|       await kernel.run('marker = 7');
+    174|       const cancelled = await kernel.run('open("cancelled-cell.txt", "…
+    175|       expect(cancelled.error).toMatch(/aborted/i);
+       |                               ^
+    176|       expect(existsSync(join(ws, 'cancelled-cell.txt'))).toBe(false);
+    177|       expect((await kernel.run('marker')).result).toBe('7');
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 8 skipped (9)
+   Start at  21:52:37
+   Duration  541ms (import 45%, tests 38%, transform 16%)
+

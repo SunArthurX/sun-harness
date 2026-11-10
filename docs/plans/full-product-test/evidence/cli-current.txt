@@ -1,0 +1,24 @@
+✔ built and bundled commands expose help and workspace scaffolding (776.943917ms)
+✔ run reads stdin, emits stream JSON and reopens the durable session (3712.411875ms)
+✔ one-shot noninteractive approval denies a write and returns the denial to the model (779.880583ms)
+✔ an approved edit appears in changes and undo restores the workspace (1227.329125ms)
+✔ quota pauses with exit 3 and a later process resumes on the selected model (1462.613625ms)
+✔ a terminal provider error returns exit 1 for both run and resume (1385.886292ms)
+✔ CLI image input reaches the provider and a portable bundle restores its attachment (1418.713625ms)
+✔ MCP inspection exits after closing a successfully connected stdio server (372.821666ms)
+✔ interactive command loop buffers piped follow-ups and applies mode and model switches (875.41725ms)
+✔ knowledge and memory commands persist and retrieve distinct CJK content (1279.260458ms)
+✔ configured company knowledge sends a bearer token and keeps local search on a remote denial (579.340583ms)
+✔ mail and calendar presets update isolated MCP and untrusted-tool settings without opening accounts (1200.191417ms)
+✔ voice transcribe and record use a controlled audio source and the configured ASR provider (527.312333ms)
+✔ automation commands preview, persist, edit, pause, run, track history and delete (2262.942708ms)
+✔ eval runs a hidden check and compares a passing scripted run with a regression (2184.015958ms)
+✔ serve owns CLI sessions, isolates local routing, and creates removable launch-agent metadata (6871.606458ms)
+ℹ tests 16
+ℹ suites 0
+ℹ pass 16
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 26989.596458

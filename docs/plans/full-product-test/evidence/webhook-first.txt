@@ -1,0 +1,38 @@
+
+ RUN  v5.1.0 /Users/sunqingguang/Downloads/06.code/sun-harness
+
+ ↓ packages/core/test/bots.test.ts > chat bots > Telegram: allowlist, one session per chat, approvals answered in the chat, replies sent back
+ ↓ packages/core/test/bots.test.ts > chat bots > a bot only approves its own chats; other sessions still fail closed
+ ↓ packages/core/test/bots.test.ts > chat bots > DingTalk: verifies the callback signature and replies through the session webhook
+ ↓ packages/core/test/bots.test.ts > chat bots > webhook: device-token auth, allowlist, and synchronous replies with ?wait=1
+ × packages/core/test/bots.test.ts > chat bots > isolates a waiting webhook reply from concurrent same-chat requests 1097ms
+   → expected undefined to be 409 // Object.is equality
+ ↓ packages/core/test/bots.test.ts > chat bots > reports bots that cannot start for lack of credentials
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/core/test/bots.test.ts > chat bots > isolates a waiting webhook reply from concurrent same-chat requests
+AssertionError: expected undefined to be 409 // Object.is equality
+
+- Expected:
+409
+
++ Received:
+undefined
+
+ ❯ packages/core/test/bots.test.ts:178:32
+    176|       concurrent = post('shared-chat', '/status');
+    177|       const conflict = await Promise.race([concurrent, new Promise<und…
+    178|       expect(conflict?.status).toBe(409);
+       |                                ^
+    179|       expect((await post('different-chat', '/status')).status).toBe(20…
+    180|       release();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 5 skipped (6)
+   Start at  21:26:30
+   Duration  1.49s (tests 78%, import 15%, transform 7%)
+

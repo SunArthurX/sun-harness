@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>31 — Settings compatibility fixtures</title>
+<body>
+<p><a href="index.html">Teaching index</a></p>
+<h1>Settings compatibility fixtures</h1>
+<p>Settings persistence must preserve existing user data. The first implementation task records how the current runtime reads legacy configuration, supplies defaults and replays attachments.</p>
+<h2>How are the checks isolated?</h2>
+<p>Each test creates a temporary SUN_HOME and removes it afterward. The provider fixture uses an invalid domain and synthetic credential values. The tests exercise the configuration and replay paths directly.</p>
+<pre class="mermaid">flowchart LR
+  A[Temporary SUN_HOME] --> B[Legacy configuration]
+  A --> C[Session and owned image]
+  B --> D[Load and save compatibility]
+  C --> E[Replay after reopen]
+  E --> F[Delete fixture and verify missing attachment state]
+  G[Fake window adapter] --> H[Available, denied and cancelled states]
+</pre>
+<h2>What happens when a dependency finishes?</h2>
+<p>Mutation tests start from a synthetic planned state. This keeps their negative cases valid as the actual manifest accumulates completed tasks and evidence.</p>
+<p><a href="../plans/settings-competitors/evidence/T01.json">T01 evidence</a></p>
+<script type="module">import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';mermaid.initialize({startOnLoad:true});</script>
+</body>
+</html>

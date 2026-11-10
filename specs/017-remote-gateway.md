@@ -14,10 +14,12 @@ Code: `packages/core/src/remote.ts`, `gateway.ts` (`startGateway` TLS + device a
 
 - `sun gateway token create <device>` creates `sund_…` (24 random bytes, base64url), shows it **once**, and stores only its SHA-256 in `~/.sun/gateway-devices.json` (0600) with `id, name, createdAt, lastUsedAt`. It prints ready-to-paste `sun remote add` commands for each LAN address, including the fingerprint.
 - `token list`, `token revoke <id|name>`. The gateway accepts the owner token or any non-revoked device token (constant-time hash comparison) on every request; revocation takes effect immediately.
+- Decision (T08): device updates are atomic across cooperating processes. A revoked device loses active event streams and any approval that no remaining approver can answer. Gateway approvals require the current prompt ID. See spec 032 for connection identity and retry rules.
 
 ## Clients
 
 - `sun remote add <name> <url> --token <t> [--fingerprint <sha256>]` fetches the server certificate without trusting it, compares it with `--fingerprint` (case and separators ignored) and refuses to save on mismatch. Without `--fingerprint` it trusts on first use and says so. Remotes live in `~/.sun/remotes.json` (0600) with the pinned certificate.
+- Decision (T08): the CLI validates the authenticated protocol handshake before saving a remote. Saved profiles include the authenticated installation identity. Desktop selection is separate from the CLI default.
 - Connections to an https remote trust **only** the pinned certificate (`ca`), verify its fingerprint in `checkServerIdentity` and again on the response socket, and never reuse pooled sockets.
 - `sun remote list | use <name> | off | remove <name>`. Session commands pick: `--local` → `--remote <name>` → default remote → local gateway → in-process. A remote coding session without `--cwd` uses the gateway's `~/.sun/workspace`.
 - Browsers: open `https://<host>:<port>/#token=<device token>` and accept the self-signed certificate after checking its fingerprint.

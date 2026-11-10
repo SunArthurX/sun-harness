@@ -1,11 +1,29 @@
 import { spawn, spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { glob as fsGlob } from 'node:fs/promises';
-import { dirname, join, relative } from 'node:path';
+import { dirname, join, relative, resolve } from 'node:path';
 import { resolveIn } from '../policy.js';
+import { findProjectRoot } from '../rules.js';
+import { isIgnored } from '../ux/ignore.js';
 import type { TodoItem } from '../types.js';
 import { truncate, type Tool } from './types.js';
 import { applyPatchTool, editFileTool, writeFileTool } from './edit.js';
+
+function refuseIgnored(cwd: string, abs: string): void {
+  const root = findProjectRoot(cwd);
+  if (isIgnored(root, abs)) throw new Error(`Refusing to read ${relative(root, abs)}: it matches .cursorignore or .sunignore.`);
+}
+
+function dropIgnored(cwd: string, searchRoot: string, text: string): string {
+  const project = findProjectRoot(cwd);
+  return text
+    .split('\n')
+    .filter((line) => {
+      const file = line.split(':')[0];
+      return !file || !isIgnored(project, resolve(searchRoot, file));
+    })
+    .join('\n');
+}
 
 const IGNORED = new Set(['node_modules', '.git', 'dist', 'out', '.next', 'coverage', '.venv', '__pycache__']);
 
@@ -25,6 +43,7 @@ const readFile: Tool = {
   source: 'builtin',
   async execute(args, ctx) {
     const p = resolveIn(ctx.cwd, args.path);
+    refuseIgnored(ctx.cwd, p);
     const full = readFileSync(p, 'utf8');
     ctx.services.fileState?.note(p, full);
     const lines = full.split('\n');
@@ -45,8 +64,9 @@ const listDir: Tool = {
   source: 'builtin',
   async execute(args, ctx) {
     const p = resolveIn(ctx.cwd, args.path || '.');
+    const root = findProjectRoot(ctx.cwd);
     const entries = readdirSync(p, { withFileTypes: true })
-      .filter((e) => !IGNORED.has(e.name))
+      .filter((e) => !IGNORED.has(e.name) && !isIgnored(root, join(p, e.name)))
       .map((e) => (e.isDirectory() ? `${e.name}/` : e.name))
       .sort();
     return entries.join('\n') || '(empty directory)';
@@ -61,11 +81,13 @@ const globTool: Tool = {
   source: 'builtin',
   async execute(args, ctx) {
     const root = resolveIn(ctx.cwd, args.path || '.');
+    const project = findProjectRoot(ctx.cwd);
     const out: string[] = [];
     for await (const f of fsGlob(String(args.pattern), {
       cwd: root,
       exclude: (name: any) => IGNORED.has(typeof name === 'string' ? name : name.name),
     })) {
+      if (isIgnored(project, resolve(root, String(f)))) continue;
       out.push(String(f));
       if (out.length >= 500) break;
     }
@@ -100,7 +122,7 @@ const grep: Tool = {
       a.push('-e', args.pattern, root);
       const r = spawnSync('rg', a, { encoding: 'utf8', maxBuffer: 20 * 1024 * 1024 });
       const text = (r.stdout || '').split(root + '/').join('');
-      return truncate(text.trim()) || 'No matches.';
+      return truncate(dropIgnored(ctx.cwd, root, text).trim()) || 'No matches.';
     }
     const re = new RegExp(args.pattern, args.ignore_case ? 'i' : '');
     const out: string[] = [];
@@ -109,7 +131,7 @@ const grep: Tool = {
         if (IGNORED.has(e.name) || out.length > 500) continue;
         const full = join(dir, e.name);
         if (e.isDirectory()) walk(full);
-        else if (statSync(full).size < 2_000_000) {
+        else if (statSync(full).size < 2_000_000 && !isIgnored(findProjectRoot(ctx.cwd), full)) {
           readFileSync(full, 'utf8')
             .split('\n')
             .forEach((l, i) => re.test(l) && out.push(`${relative(root, full)}:${i + 1}:${l.slice(0, 300)}`));

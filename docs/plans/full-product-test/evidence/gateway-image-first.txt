@@ -1,0 +1,33 @@
+
+ RUN  v5.1.0 /Users/sunqingguang/Downloads/06.code/sun-harness
+
+ ↓ packages/core/test/gateway.test.ts > gateway > requires the token, advertises itself, and is discoverable
+ ↓ packages/core/test/gateway.test.ts > gateway > restricts dated Intel and briefing RPCs to their own report directories
+ × packages/core/test/gateway.test.ts > gateway > reads ordinary images when JSON encodes an absent metadata argument as null 455ms
+   → APPSHOT_ATTACHMENT_UNAVAILABLE
+ ↓ packages/core/test/gateway.test.ts > gateway > runs a session for a remote client and streams its events
+ ↓ packages/core/test/gateway.test.ts > gateway > a remote approver answers approvals; with none attached the gateway denies instead of hanging
+ ↓ packages/core/test/gateway.test.ts > gateway > authenticates portable bundles and validates invalid streams before publishing
+ ↓ packages/core/test/gateway.test.ts > gateway > serves the web UI and blocks path traversal
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/core/test/gateway.test.ts > gateway > reads ordinary images when JSON encodes an absent metadata argument as null
+Error: APPSHOT_ATTACHMENT_UNAVAILABLE
+ ❯ GatewayClient.dispatch packages/core/src/gateway.ts:842:25
+    840|     const body = requestId ? await invoke().catch(() => invoke()) : aw…
+    841|     if (body.error === 'GATEWAY_INSTANCE_CHANGED' || body.error === 'G…
+    842|     if (!body.ok) throw new Error(body.error ?? `gateway call ${method…
+       |                         ^
+    843|     return body.result as T;
+    844|   }
+ ❯ packages/core/test/gateway.test.ts:65:14
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 6 skipped (7)
+   Start at  22:01:42
+   Duration  806ms (tests 63%, import 23%, transform 13%)
+

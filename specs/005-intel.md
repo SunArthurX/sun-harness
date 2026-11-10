@@ -25,6 +25,11 @@ Every day, learn what other harnesses shipped, *why it works* (mechanism / princ
 
 If analysis fails (quota, auth, network), the report is written with raw items and marked "Analysis pending"; `sun intel analyze <date>` or the desktop button re-runs analysis from the saved raw items.
 
+Decision — Intel report lookup and re-analysis accept a valid local calendar
+date in `YYYY-MM-DD` format. Callers cannot select a path outside the Intel
+report and raw-item directories by passing a date argument.
+`sun intel analyze` defaults to the current local date when no date is given.
+
 ## Schedule
 
 - macOS: `sun intel install-schedule` copies the self-contained CLI bundle to `~/.sun/bin/sun.mjs` and installs `~/Library/LaunchAgents/com.sun-harness.intel.plist` (daily at `intel.hour:intel.minute`, default 09:00). Node runs directly; no shell rc is executed.

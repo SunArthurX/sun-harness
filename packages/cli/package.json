@@ -1,6 +1,6 @@
 {
   "name": "@sun/cli",
-  "version": "0.7.0",
+  "version": "0.11.0",
   "type": "module",
   "bin": {
     "sun": "./dist/index.js"

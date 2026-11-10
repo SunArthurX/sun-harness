@@ -1,0 +1,23 @@
+
+ RUN  v5.1.0 /Users/sunqingguang/Downloads/06.code/sun-harness
+
+ ✓ packages/core/test/bots-cn.test.ts > Feishu and WeChat bots > matches the vendors’ published test vectors 7ms
+ ✓ packages/core/test/bots-cn.test.ts > Feishu and WeChat bots > WeChat/WeCom crypto round-trips and signatures sort their inputs 5ms
+ ✓ packages/core/test/bots-cn.test.ts > Feishu and WeChat bots > Feishu: url_verification, token check, encrypted events, dedupe, reply via IM API 599ms
+ ✓ packages/core/test/bots-cn.test.ts > Feishu and WeChat bots > WeChat Official Account: URL verification, signed XML, retry dedupe, allowlist, customer-service reply 153ms
+ ✓ packages/core/test/bots-cn.test.ts > Feishu and WeChat bots > WeCom: encrypted URL verification and messages, receiver check, reply with agentid 116ms
+ ✓ packages/core/test/bots-cn.test.ts > Feishu and WeChat bots > reports missing credentials for each platform 3ms
+ ✓ packages/core/test/bots.test.ts > chat bots > Telegram: allowlist, one session per chat, approvals answered in the chat, replies sent back 852ms
+ ✓ packages/core/test/bots.test.ts > chat bots > a bot only approves its own chats; other sessions still fail closed 206ms
+ ✓ packages/core/test/bots.test.ts > chat bots > DingTalk: verifies the callback signature and replies through the session webhook 118ms
+ ✓ packages/core/test/bots.test.ts > chat bots > webhook: device-token auth, allowlist, and synchronous replies with ?wait=1 194ms
+ ✓ packages/core/test/bots.test.ts > chat bots > isolates a waiting webhook reply from concurrent same-chat requests 289ms
+ ✓ packages/core/test/bots.test.ts > chat bots > webhook keeps a denied user from replacing an authorized reply destination 130ms
+ ✓ packages/core/test/bots.test.ts > chat bots > dingtalk keeps a denied user from replacing an authorized reply destination 127ms
+ ✓ packages/core/test/bots.test.ts > chat bots > reports bots that cannot start for lack of credentials 2ms
+
+ Test Files  2 passed (2)
+      Tests  14 passed (14)
+   Start at  21:31:16
+   Duration  2.36s (tests 79%, import 12%, transform 9%)
+

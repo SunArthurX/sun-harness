@@ -1,0 +1,47 @@
+{
+  "task": "T11",
+  "result": "pass",
+  "acceptance": ["AC-12"],
+  "commands": [
+    { "command": "pnpm test", "exitCode": 0, "outputFile": "docs/plans/settings-competitors/evidence/T11-test.txt" },
+    { "command": "pnpm build", "exitCode": 0, "outputFile": "docs/plans/settings-competitors/evidence/T11-build.txt" },
+    { "command": "pnpm typecheck", "exitCode": 0, "outputFile": "docs/plans/settings-competitors/evidence/T11-types.txt" },
+    { "command": "pnpm --filter @sun/desktop exec electron-builder --mac --dir --publish never --config.directories.output=release/appshot-verified && codesign --force --deep --sign - apps/desktop/release/appshot-verified/mac-arm64/sun-harness.app && codesign --verify --deep --strict apps/desktop/release/appshot-verified/mac-arm64/sun-harness.app", "exitCode": 0, "outputFile": "docs/plans/settings-competitors/evidence/T11-package-refresh.txt" },
+    { "command": "node apps/desktop/e2e/appshot.mjs apps/desktop/release/appshot-verified/mac-arm64/sun-harness.app", "exitCode": 0, "outputFile": "docs/plans/settings-competitors/evidence/T11-native-refresh.txt" },
+    { "command": "node apps/desktop/e2e/appshot.mjs apps/desktop/release/appshot-verified/mac-arm64/sun-harness.app", "exitCode": 0, "outputFile": "docs/plans/settings-competitors/evidence/T11-native-repeat.txt" },
+    { "command": "node apps/desktop/e2e/settings.mjs", "exitCode": 0, "outputFile": "docs/plans/settings-competitors/evidence/T11-settings-refresh.txt" }
+  ],
+  "artifacts": [
+    "packages/core/src/settings/capture.ts",
+    "packages/core/src/host.ts",
+    "packages/core/src/messages.ts",
+    "packages/core/src/types.ts",
+    "packages/core/test/settings-capture.test.ts",
+    "apps/desktop/native/Appshot.swift",
+    "apps/desktop/src/main/capture.ts",
+    "apps/desktop/src/renderer/src/Appshot.tsx",
+    "apps/desktop/src/renderer/src/Composer.tsx",
+    "apps/desktop/src/renderer/src/locale-zh-CN.ts",
+    "apps/desktop/e2e/appshot.mjs",
+    "apps/desktop/e2e/settings.mjs",
+    "specs/032-settings-and-capability-management.md",
+    "docs/adr/0012-appshot-capture-and-replay.md",
+    "docs/manual/appshots.md",
+    "docs/manual/settings-roadmap.md",
+    "docs/teach/41-appshot-capture.html",
+    "docs/teach/index.html",
+    "docs/plan.md",
+    "CHANGELOG.md"
+  ],
+  "manualChecks": [
+    "The authorized signed macOS bundle launched through LaunchServices. Appshots defaulted off. Enabling them registered the chosen operating-system shortcut. The helper captured one real foreground synthetic window and returned its actual title and pixels. The strict fixture passed twice.",
+    "The native fixture checked the dimensions and fully opaque pixels of a cropped and masked draft. Cancelling left no attachment or user message. It then edited a second capture through the composer and verified that the only stored file exactly matched the prepared thumbnail and its SHA-256. The raw captures were absent from the event log.",
+    "The fake adapter covered target changes, permission denial, cross-session rejection, expiry and text limits. The model fixture verified that prepared bytes and their digest were on disk before dispatch, reopened history replayed them, portable export and import retained them, changed bytes became unavailable, and a text-only model used only the approved fallback.",
+    "Gateway web explained why native capture required the supported desktop and rejected native capture RPCs. Replay is independent of the capture surface."
+  ],
+  "limitations": [
+    "The production capture path targets macOS 13 or later. Real packaged verification ran on macOS 15.7.2 arm64. Accessibility text requires a separate OS grant and is optional. The signed fixture registered the global shortcut and exercised real capture through the desktop composer.",
+    "The native fixture retries a refused foreground transition only after focusing its isolated synthetic window. It still checks the actual captured title and prepared bytes. One pre-existing unit test was skipped."
+  ],
+  "rollback": "Turn off Appshots in Settings to remove the shortcut and prevent new captures. Keep the session logs, owned prepared files, and portable bundles for replay."
+}

@@ -1,0 +1,21 @@
+Plan integrity passed: 29 screenshot entries, 15 tasks. Product implementation remains subject to behavioral acceptance.
+✔ current plan is coherent (13.556875ms)
+✔ missing screenshot entry is rejected (0.444916ms)
+✔ unknown dependency is rejected (0.341958ms)
+✔ dependency cycle is rejected (0.312792ms)
+✔ fake completion without evidence is rejected (0.315583ms)
+✔ unknown acceptance is rejected (1.501417ms)
+✔ unimplemented dependency blocks starting work (0.65575ms)
+✔ unexplained deferral is rejected (0.62775ms)
+✔ outside-repository specification is rejected (0.375375ms)
+✔ the live prompt includes the full public quote and excludes the separate procedure (3.559125ms)
+✔ release accepts nine distinct first-attempt passes with artifact evidence (0.199791ms)
+✔ release rejects old, repeated, retried, unfinished, or undocumented results (0.210459ms)
+ℹ tests 12
+ℹ suites 0
+ℹ pass 12
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 82.053917

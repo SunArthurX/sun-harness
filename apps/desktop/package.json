@@ -1,16 +1,16 @@
 {
   "name": "@sun/desktop",
-  "version": "0.7.0",
+  "version": "0.11.0",
   "private": true,
   "type": "module",
   "main": "./out/main/index.js",
   "description": "sun-harness desktop app",
   "scripts": {
     "dev": "electron-vite dev",
-    "build": "electron-vite build",
+    "build": "electron-vite build && node scripts/build-appshot.mjs",
     "start": "electron-vite preview",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "package": "electron-vite build && electron-builder --mac --dir --publish never && node scripts/adhoc-sign.mjs"
+    "package": "pnpm --filter @sun/core run build && pnpm build && electron-builder --mac --dir --publish never && node scripts/adhoc-sign.mjs"
   },
   "dependencies": {},
   "devDependencies": {
@@ -48,6 +48,13 @@
     "electronVersion": "45.2.3",
     "npmRebuild": false,
     "asar": true,
+    "extraResources": [
+      {
+        "from": "build/native",
+        "to": ".",
+        "filter": ["sun-appshot", "sun-computer"]
+      }
+    ],
     "mac": {
       "category": "public.app-category.developer-tools",
       "target": [
@@ -56,7 +63,8 @@
       "identity": null,
       "icon": "build/icon.png",
       "extendInfo": {
-        "NSMicrophoneUsageDescription": "sun-harness uses the microphone only while you hold the voice button, to transcribe what you say."
+        "NSMicrophoneUsageDescription": "sun-harness uses the microphone only while you hold the voice button, to transcribe what you say.",
+        "NSScreenCaptureUsageDescription": "Sun Harness captures the foreground window only when you request an Appshot."
       }
     }
   }

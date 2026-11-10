@@ -1,0 +1,71 @@
+{
+  "task": "T06",
+  "result": "pass",
+  "acceptance": [
+    "AC-06",
+    "AC-16"
+  ],
+  "commands": [
+    {
+      "command": "pnpm test",
+      "exitCode": 0,
+      "outputFile": "docs/plans/settings-competitors/evidence/T06-test.txt"
+    },
+    {
+      "command": "pnpm build",
+      "exitCode": 0,
+      "outputFile": "docs/plans/settings-competitors/evidence/T06-build.txt"
+    },
+    {
+      "command": "pnpm typecheck",
+      "exitCode": 0,
+      "outputFile": "docs/plans/settings-competitors/evidence/T06-typecheck.txt"
+    },
+    {
+      "command": "node apps/desktop/e2e/settings.mjs",
+      "exitCode": 0,
+      "outputFile": "docs/plans/settings-competitors/evidence/T06-e2e.txt"
+    }
+  ],
+  "artifacts": [
+    "packages/core/src/settings/import.ts",
+    "packages/core/src/settings/bundle.ts",
+    "packages/core/src/settings/storage.ts",
+    "packages/core/src/settings/storage-inventory.ts",
+    "packages/core/src/settings/storage-lock.ts",
+    "packages/core/src/ux/export.ts",
+    "packages/core/src/host.ts",
+    "packages/core/src/log.ts",
+    "packages/core/src/gateway.ts",
+    "packages/core/test/settings-import.test.ts",
+    "packages/core/test/settings-storage.test.ts",
+    "apps/desktop/src/renderer/src/settings/data-controls.tsx",
+    "apps/desktop/src/renderer/src/locale-zh-CN.ts",
+    "apps/desktop/e2e/settings.mjs",
+    "docs/plans/settings-competitors/evidence/T06b-cli.txt",
+    "specs/032-settings-and-capability-management.md",
+    "docs/adr/0010-settings-capability-boundaries.md",
+    "docs/manual/desktop.md",
+    "docs/manual/configuration.md",
+    "docs/manual/cli.md",
+    "docs/manual/gateway.md",
+    "docs/teach/36-session-data.html",
+    "docs/teach/index.html",
+    "docs/plan.md",
+    "CHANGELOG.md"
+  ],
+  "manualChecks": [
+    "Unit fixtures reject traversal, links, duplicate paths, bad hashes, oversized decompression, extra or truncated payloads, unsafe images, and absent workspaces. Import failures leave no published log. Portable image replay works across homes and a restart.",
+    "Confirmed inert HTML and credential redaction in every transcript format. Imported operational history cannot reuse approval grants, run pending tools, launch imported jobs, or resolve historical automation proposals.",
+    "The built CLI exported and reimported a bundle across separate homes with an explicit replacement workspace. HTTP and pinned HTTPS tests exercised authenticated binary transfer and device revocation.",
+    "Real Electron and gateway web settings downloaded and reimported a bundle, restored an archive with the same ID, rejected stale cleanup, and moved the confirmed archived log. The Electron form saved a new trash grace period with automatic retention off.",
+    "Fixtures verify active sessions and jobs and shared attachments remain protected. Real SIGKILL after a trash rename left a journal that resumed without moving either replacement file. A partial purge resumed in private trash while preserving a newly created live profile.",
+    "Real Chromium profile storage remained protected while the process was alive. After exit, the profile still required an explicit browser-specific confirmation. Configured retention and grace-period boundaries were checked with offline clocks."
+  ],
+  "limitations": [
+    "The real Chromium lifecycle, Electron, and gateway renderer were exercised on macOS. Docker and other desktop OS profile lifecycles were not exercised. One existing unrelated unit test was skipped.",
+    "Worktrees stay protected in the inventory and use their dedicated Git workflow. Oversized or unverifiable inventories disable cleanup. Orphan attachments can be selected from a new preview after their last retained log is moved.",
+    "Earlier builds only discover flat logs. Save JSONL for downgrade compatibility and a portable bundle if image bytes are needed on later import."
+  ],
+  "rollback": "Set automatic cleanup to zero. Keep the managed trash and its operation journals for reconciliation by a compatible build. Export imported sessions before downgrading if older versions need a readable transcript."
+}

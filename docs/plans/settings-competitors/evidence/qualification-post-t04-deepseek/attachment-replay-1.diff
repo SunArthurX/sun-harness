@@ -1,0 +1,128 @@
+diff --git a/src/replay.mjs b/src/replay.mjs
+index c831dac..09cda88 100644
+--- a/src/replay.mjs
++++ b/src/replay.mjs
+@@ -3,12 +3,18 @@ export function replay(events, readAttachment) {
+   for (const event of events) {
+     if (event.type === 'assistant') messages.push({ role: 'assistant', text: event.text, images: [] });
+     if (event.type !== 'user') continue;
+-    try {
+-      const images = (event.attachments ?? []).map(path => readAttachment(path));
+-      messages.push({ role: 'user', text: event.text, images });
+-    } catch (error) {
+-      if (error.code !== 'ENOENT') throw error;
++    const images = [];
++    let missing = 0;
++    for (const path of event.attachments ?? []) {
++      try {
++        images.push(readAttachment(path));
++      } catch (error) {
++        if (error?.code !== 'ENOENT') throw error;
++        missing += 1;
++      }
+     }
++    const text = missing > 0 ? `${event.text}\n[Missing attachments: ${missing}]` : event.text;
++    messages.push({ role: 'user', text, images });
+   }
+   return messages;
+ }
+diff --git a/test/additions.test.mjs b/test/additions.test.mjs
+new file mode 100644
+index 0000000..e889657
+--- /dev/null
++++ b/test/additions.test.mjs
+@@ -0,0 +1,94 @@
++import { test } from 'node:test';
++import assert from 'node:assert/strict';
++import { replay } from '../src/replay.mjs';
++
++const enoent = path => Object.assign(new Error(`ENOENT: ${path}`), { code: 'ENOENT' });
++
++test('intact replay keeps text and images in order', () => {
++  const events = [
++    { type: 'user', text: 'hi', attachments: ['a', 'b'] },
++    { type: 'assistant', text: 'hello' },
++    { type: 'user', text: 'again', attachments: [] },
++  ];
++  assert.deepEqual(replay(events, path => `bytes:${path}`), [
++    { role: 'user', text: 'hi', images: ['bytes:a', 'bytes:b'] },
++    { role: 'assistant', text: 'hello', images: [] },
++    { role: 'user', text: 'again', images: [] },
++  ]);
++});
++
++test('missing attachment keeps message, successful images and appends marker', () => {
++  const events = [{ type: 'user', text: 'see this', attachments: ['ok', 'gone', 'ok2', 'gone2'] }];
++  const result = replay(events, path => {
++    if (path.startsWith('gone')) throw enoent(path);
++    return `bytes:${path}`;
++  });
++  assert.deepEqual(result, [
++    { role: 'user', text: 'see this\n[Missing attachments: 2]', images: ['bytes:ok', 'bytes:ok2'] },
++  ]);
++});
++
++test('marker does not include paths or substitute bytes', () => {
++  const result = replay([{ type: 'user', text: 'x', attachments: ['secret/path.png'] }], path => {
++    throw enoent(path);
++  });
++  assert.deepEqual(result, [{ role: 'user', text: 'x\n[Missing attachments: 1]', images: [] }]);
++  assert.equal(JSON.stringify(result).includes('secret/path.png'), false);
++});
++
++test('all attachments missing still keeps user message', () => {
++  const result = replay([{ type: 'user', text: 'only text', attachments: ['a', 'b'] }], path => {
++    throw enoent(path);
++  });
++  assert.deepEqual(result, [{ role: 'user', text: 'only text\n[Missing attachments: 2]', images: [] }]);
++});
++
++test('non-ENOENT reader errors propagate', () => {
++  const boom = Object.assign(new Error('disk error'), { code: 'EIO' });
++  assert.throws(
++    () => replay([{ type: 'user', text: 'x', attachments: ['a'] }], () => {
++      throw boom;
++    }),
++    error => error === boom,
++  );
++});
++
++test('unrelated event types are ignored', () => {
++  const events = [
++    { type: 'system', text: 'ignored' },
++    { type: 'user', text: 'kept', attachments: [] },
++    { type: 'tool', text: 'ignored' },
++  ];
++  assert.deepEqual(replay(events, () => 'image'), [{ role: 'user', text: 'kept', images: [] }]);
++});
++
++test('replay does not mutate the input events', () => {
++  const events = [
++    { type: 'user', text: 'x', attachments: ['a', 'b'] },
++    { type: 'assistant', text: 'y' },
++  ];
++  const snapshot = structuredClone(events);
++  replay(events, path => {
++    if (path === 'b') throw enoent(path);
++    return 'image';
++  });
++  assert.deepEqual(events, snapshot);
++});
++
++test('assistant and user order is preserved across missing attachments', () => {
++  const events = [
++    { type: 'user', text: 'u1', attachments: ['missing'] },
++    { type: 'assistant', text: 'a1' },
++    { type: 'user', text: 'u2', attachments: ['ok'] },
++    { type: 'assistant', text: 'a2' },
++  ];
++  assert.deepEqual(replay(events, path => {
++    if (path === 'missing') throw enoent(path);
++    return 'image';
++  }), [
++    { role: 'user', text: 'u1\n[Missing attachments: 1]', images: [] },
++    { role: 'assistant', text: 'a1', images: [] },
++    { role: 'user', text: 'u2', images: ['image'] },
++    { role: 'assistant', text: 'a2', images: [] },
++  ]);
++});

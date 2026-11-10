@@ -1,0 +1,18 @@
+✔ both locales use the denied state without exposing the adapter error (1.026917ms)
+✔ render denied returns the localized denial state in English (0.733541ms)
+✔ render denied returns the localized denial state in Chinese (0.06725ms)
+✔ capture does not call the adapter when status is denied (0.101541ms)
+✔ capture returns the denial state when the OS denies a capture after an available probe (0.524209ms)
+✔ capture rethrows other adapter failures (0.270583ms)
+✔ capture rethrows failures without a PERMISSION_DENIED code (0.093333ms)
+✔ available behavior is preserved (0.237458ms)
+✔ unavailable behavior is preserved (0.079042ms)
+✔ unavailable remains disabled (0.372916ms)
+ℹ tests 10
+ℹ suites 0
+ℹ pass 10
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 51.496791

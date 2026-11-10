@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { HarnessHost, MockProvider, applyHunks, parsePatch, runEval, tolerantReplace, validateSuite, wireArguments } from '../src/index.js';
+import { HarnessHost, MockProvider, applyHunks, homePath, parsePatch, runEval, tolerantReplace, validateSuite, wireArguments } from '../src/index.js';
 import { call, mockHost, tempHome, tempWorkspace, testConfig } from './helpers.js';
 
 describe('tolerant replace', () => {
@@ -104,10 +104,16 @@ describe('edit tools in sessions', () => {
 
   it('capability gating hides tools whose backend is unavailable', async () => {
     const provider = new MockProvider([{ text: 'ok', toolCalls: [] }]);
-    const host = new HarnessHost({ config: testConfig(), providerFactory: () => ({ provider, model: 'm' }), loadPlugins: false, connectMcp: false, shellHooks: false });
+    const plugin = homePath('plugins', 'availability-fixture');
+    mkdirSync(plugin, { recursive: true });
+    writeFileSync(join(plugin, 'index.mjs'), `export default api => {
+      for (const [name, ready] of [['dead_tool', false], ['live_tool', true]]) {
+        api.registerTool({ name, description: name, parameters: { type: 'object' }, risk: 'read',
+          available: async () => ready, execute: async () => '' });
+      }
+    };`);
+    const host = new HarnessHost({ config: testConfig(), providerFactory: () => ({ provider, model: 'm' }), connectMcp: false, shellHooks: false });
     await host.init();
-    (host as any).pluginTools.push({ name: 'dead_tool', description: 'd', parameters: { type: 'object' }, risk: 'read', source: 'plugin:x', available: async () => false, execute: async () => '' });
-    (host as any).pluginTools.push({ name: 'live_tool', description: 'l', parameters: { type: 'object' }, risk: 'read', source: 'plugin:x', available: async () => true, execute: async () => '' });
     const s = host.createSession({ cwd: ws });
     await host.send(s.id, 'hi');
     await host.wait(s.id);

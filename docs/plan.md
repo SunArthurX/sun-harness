@@ -151,6 +151,29 @@ Derived from a first-principles comparison with Codex / Claude Code (coding), Ma
 - [x] Natural-language schedules (EN + ZH), proposal flow on every surface, automations with history, catch-up, notifications; ⏲ Automations menu; `sun automations`; bot `/automations`
 - [x] Changed files per turn and per session (A/M/D, diffs, full file, tree), per-file revert; CLI `/changes` `/diff` `/revert`, `sun changes`; bot summaries (teach 25)
 
+## 0.8.0 — Desktop and web UI languages `[x]`
+
+- [x] English + Simplified Chinese on every desktop/web page (`t()` / `tk()`, `locale-zh-CN.ts`)
+- [x] `ui.language`: system / en / zh-CN; Settings + left-rail toggle; persists in `~/.sun/config.json`
+- [x] Completeness test so later UI copy cannot ship in one language (`apps/desktop/test/i18n.test.ts`); `AGENTS.md` + `apps/desktop/AGENTS.md` (`specs/028`, ADR 0009, teach 26)
+
+## 0.9.0 — Cursor-grade coding `[x]`
+
+- [x] Competitor matrix (Cursor, Claude Code, Codex, Manus, Hermes, OpenCode, Cline, DeepSeek Harness): top 3 each, and the gaps still open (`specs/029`)
+- [x] Local `codebase_search` (symbol + BM25) and `@codebase` / `@git` / `@rule`
+- [x] `.cursorignore` / `.sunignore` on read, search, and mentions; glob rules attached after a matching file is in context
+- [x] `/review` of the session diff (desktop, CLI, bots) — read-only `review/report` (teach 27)
+
+## 0.10.0 — Manus and personal assistants `[x]`
+
+- [x] Manus: `wide_research` (fresh subagent per item, `research/*.md`), `make_slides` (HTML deck + notes), Deliverables list (`specs/030`, teach 28)
+- [x] Hermes / OpenClaw: capped `USER.md`, `remember_user`, daily notes, `/skill-name`, `session_search`
+
+## 0.11.0 — Right workspace dock `[x]`
+
+- [x] Cursor Agents Window column: Changes (+/−), Browser, Terminal (session command scrollback), Files (`listWorkspace`)
+- [x] `DOCK_PANES` registry so another pane is one list entry (`specs/031`, teach 29)
+
 ## Iteration backlog (research loop)
 
 Filled from intel reports (`~/.sun/evolution/proposals`); each item becomes a spec before code.
@@ -166,3 +189,35 @@ Filled from intel reports (`~/.sun/evolution/proposals`); each item becomes a sp
 | Learned router (from metrics) instead of keyword heuristics | — | Model |
 | Browser: multi-tab, file upload/download, Playwright via connectOverCDP | Manus | Tools |
 | DingTalk event stream (`dws event`) as a trigger kind | — | Architecture |
+
+## Settings and competitor adoption — complete
+
+- [x] Research and design pack: project/code map, official sources, 29 screenshot dispositions, 15 dependency-ordered task cards, contracts and failure cases (`docs/plans/settings-competitors/README.md`).
+- [x] Planning harness: coverage/dependency/evidence checker, adversarial checker tests, normal test-suite integration; spec 032 and ADR 0010.
+- [x] T01: offline compatibility fixtures and baseline evidence.
+- [x] T02: revisioned settings, field validation, redaction, audit, recovery and CLI/desktop/web migration.
+- [x] T03: versioned capability discovery, desktop-only adapter routes and extension revocation.
+- [x] T04: searchable bilingual settings navigation, deep links and section drafts.
+- [x] Post-T04 checkpoint measured: DeepSeek passed 8/9. The shortfall is retained as an interim result.
+- [x] T05: persisted personal controls, separate profile and instructions, notification and voice readiness, native Mini stop, and session usage estimates.
+- [x] T06: inert and redacted exports, staged portable import, archive restore, bounded inventory, and recoverable trash operations across desktop, web, and CLI transfer.
+- [x] T07: digest-reviewed hooks, bounded sandbox execution, bilingual review and fixture controls, and plugin manifest inspection with immediate revocation and audited drain.
+- [x] T08: authenticated gateway identity, active device revocation, request receipts, browser token exchange, desktop connection selection, local preference separation, and reconnect recovery.
+- [x] T09: durable structured review, optional completion gate, read-only Git inspection, guarded worktree lifecycle, cleanup preview, and reviewed one-time setup.
+- [x] T10: browser origin review, exclusive profile and tab control, single-use upload approvals, and bounded authenticated download staging.
+- [x] T11: opt-in macOS Appshots, private preview and redaction, and digest-verified attachment replay. The signed macOS fixture passed capture, cancel, and send.
+- [x] T12: scoped macOS Accessibility observations and actions, one active lease, durable receipts, and emergency stop. Signed native acceptance passed.
+- [x] T13: macOS Keychain-backed website passwords, origin-bound private fill, and isolation from agent browser profiles and gateways.
+- [x] T14: reviewed shell jobs on verified execution targets, durable start and cancellation recovery, and isolated Local Docker jobs.
+- [x] T15: cross-surface and signed native acceptance, plus nine first-attempt passes on the final live handoff (`docs/plans/settings-competitors/evidence/T15.json`).
+
+Task states and detailed dependencies: `docs/plans/settings-competitors/manifest.json`. Family-account services and public hosted cloud remain deferred; see the complete screenshot inventory.
+
+## Full product verification — done
+
+- [x] Plan the audit across all numbered specs, command and renderer surfaces, and integrations.
+- [x] Run the feature matrix, reproduce defects, and verify repairs across affected surfaces (D01–D18).
+- [x] Rebuild, rerun the complete matrix, and publish the final evidence ledger and report: 337 unit tests, 23 CLI process tests, and the renderer, Settings, Docker and package checks.
+- [x] Positive Appshot, Computer Use and Keychain runs on the granted final signed package (`apps/desktop/release/full-product-d17`).
+
+See the [report](plans/full-product-test/report.md), [feature ledger](plans/full-product-test/feature-ledger.md), [run log](plans/full-product-test/run-log.md), and [handoff](plans/full-product-test/handoff.md).

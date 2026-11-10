@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "tasks": [
+    {
+      "id": "attachment-replay",
+      "title": "Repair missing attachment replay",
+      "status": "planned",
+      "dependsOn": []
+    }
+  ]
+}

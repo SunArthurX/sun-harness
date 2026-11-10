@@ -1,0 +1,210 @@
+UTC 2026-11-09T13:12:50Z
+17398f10df01d1606f8789db46e3669cc7e8c459
+## main...origin/main
+ M .gitignore
+ M AGENTS.md
+ M CHANGELOG.md
+ M README.md
+ M apps/desktop/e2e/smoke.mjs
+ M apps/desktop/package.json
+ M apps/desktop/src/main/index.ts
+ M apps/desktop/src/preload/index.ts
+ M apps/desktop/src/renderer/src/App.tsx
+ M apps/desktop/src/renderer/src/Browser.tsx
+ M apps/desktop/src/renderer/src/Changes.tsx
+ M apps/desktop/src/renderer/src/Chat.tsx
+ M apps/desktop/src/renderer/src/Composer.tsx
+ M apps/desktop/src/renderer/src/Context.tsx
+ M apps/desktop/src/renderer/src/api.ts
+ M apps/desktop/src/renderer/src/main.tsx
+ M apps/desktop/src/renderer/src/pages.tsx
+ M apps/desktop/src/renderer/src/styles.css
+ M apps/desktop/src/renderer/src/web-bridge.ts
+ M apps/desktop/src/shared/api.ts
+ M docs/manual/README.md
+ M docs/manual/assistant.md
+ M docs/manual/browser.md
+ M docs/manual/cli.md
+ M docs/manual/coding.md
+ M docs/manual/configuration.md
+ M docs/manual/desktop.md
+ M docs/manual/extensions.md
+ M docs/manual/gateway.md
+ M docs/manual/getting-started.md
+ M docs/manual/modes.md
+ M docs/manual/research.md
+ M docs/manual/worktrees.md
+ M docs/plan.md
+ M docs/teach/index.html
+ M package.json
+ M packages/cli/package.json
+ M packages/cli/src/index.ts
+ M packages/core/package.json
+ M packages/core/src/agent.ts
+ M packages/core/src/assistant/connectors.ts
+ M packages/core/src/assistant/memstore.ts
+ M packages/core/src/assistant/voice.ts
+ M packages/core/src/bestofn.ts
+ M packages/core/src/bots/bridge.ts
+ M packages/core/src/browser/browser.ts
+ M packages/core/src/browser/cdp.ts
+ M packages/core/src/browser/tools.ts
+ M packages/core/src/config.ts
+ M packages/core/src/gateway.ts
+ M packages/core/src/hooks.ts
+ M packages/core/src/host.ts
+ M packages/core/src/index.ts
+ M packages/core/src/jobs.ts
+ M packages/core/src/kb/hybrid.ts
+ M packages/core/src/log.ts
+ M packages/core/src/memory.ts
+ M packages/core/src/messages.ts
+ M packages/core/src/modes.ts
+ M packages/core/src/plugins.ts
+ M packages/core/src/prompt.ts
+ M packages/core/src/remote.ts
+ M packages/core/src/rules.ts
+ M packages/core/src/sandbox.ts
+ M packages/core/src/skills.ts
+ M packages/core/src/tools/builtin.ts
+ M packages/core/src/tools/services.ts
+ M packages/core/src/tools/types.ts
+ M packages/core/src/types.ts
+ M packages/core/src/ux/context.ts
+ M packages/core/src/ux/export.ts
+ M packages/core/src/ux/mentions.ts
+ M packages/core/src/worktree.ts
+ M packages/core/test/browser.test.ts
+ M packages/core/test/edit.test.ts
+ M packages/core/test/extensions.test.ts
+ M packages/core/test/gateway.test.ts
+ M packages/core/test/remote.test.ts
+ M packages/core/test/ux.test.ts
+ M packages/core/test/verify.test.ts
+ M packages/core/test/worktree.test.ts
+ M pnpm-lock.yaml
+ M specs/002-extensions.md
+ M specs/004-desktop.md
+ M specs/008-approval-policy.md
+ M specs/010-worktrees.md
+ M specs/012-gateway.md
+ M specs/017-remote-gateway.md
+ M specs/022-browser.md
+ M vitest.config.ts
+?? apps/desktop/AGENTS.md
+?? apps/desktop/e2e/appshot.mjs
+?? apps/desktop/e2e/browser-backends.mjs
+?? apps/desktop/e2e/computer-native-probe.mjs
+?? apps/desktop/e2e/computer.mjs
+?? apps/desktop/e2e/credentials.mjs
+?? apps/desktop/e2e/execution-docker.mjs
+?? apps/desktop/e2e/fixtures/
+?? apps/desktop/e2e/hooks-docker.mjs
+?? apps/desktop/e2e/settings-remote.mjs
+?? apps/desktop/e2e/settings.mjs
+?? apps/desktop/native/
+?? apps/desktop/scripts/build-appshot.mjs
+?? apps/desktop/scripts/i18n.mjs
+?? apps/desktop/src/main/capture.ts
+?? apps/desktop/src/main/computer.ts
+?? apps/desktop/src/main/connections.ts
+?? apps/desktop/src/main/credentials.ts
+?? apps/desktop/src/main/shortcuts.ts
+?? apps/desktop/src/renderer/src/Appshot.tsx
+?? apps/desktop/src/renderer/src/BrowserUpload.tsx
+?? apps/desktop/src/renderer/src/Dock.tsx
+?? apps/desktop/src/renderer/src/Mini.tsx
+?? apps/desktop/src/renderer/src/PrivateSignIn.tsx
+?? apps/desktop/src/renderer/src/Review.tsx
+?? apps/desktop/src/renderer/src/i18n.ts
+?? apps/desktop/src/renderer/src/locale-zh-CN.ts
+?? apps/desktop/src/renderer/src/notifications.ts
+?? apps/desktop/src/renderer/src/presentation.ts
+?? apps/desktop/src/renderer/src/settings-feedback.ts
+?? apps/desktop/src/renderer/src/settings/
+?? apps/desktop/src/renderer/src/voice-capture.ts
+?? apps/desktop/src/shared/connections.ts
+?? apps/desktop/src/shared/credentials.ts
+?? apps/desktop/src/shared/mini.ts
+?? apps/desktop/test/
+?? docs/adr/0009-ui-i18n.md
+?? docs/adr/0010-settings-capability-boundaries.md
+?? docs/adr/0011-browser-transfer-boundaries.md
+?? docs/adr/0012-appshot-capture-and-replay.md
+?? docs/adr/0013-execution-target-job-receipts.md
+?? docs/adr/0014-private-website-credentials.md
+?? docs/adr/0015-native-computer-control.md
+?? docs/manual/appshots.md
+?? docs/manual/computer-use.md
+?? docs/manual/execution-targets.md
+?? docs/manual/passwords.md
+?? docs/manual/settings-roadmap.md
+?? docs/plans/
+?? docs/teach/26-ui-i18n.html
+?? docs/teach/27-cursor-grade-coding.html
+?? docs/teach/28-manus-and-assistants.html
+?? docs/teach/29-right-dock.html
+?? docs/teach/30-settings-planning.html
+?? docs/teach/31-settings-fixtures.html
+?? docs/teach/32-settings-transactions.html
+?? docs/teach/33-settings-capabilities.html
+?? docs/teach/34-settings-navigation.html
+?? docs/teach/35-personal-controls.html
+?? docs/teach/36-session-data.html
+?? docs/teach/37-hook-plugin-governance.html
+?? docs/teach/38-remote-connections.html
+?? docs/teach/39-review-worktree-governance.html
+?? docs/teach/40-browser-ownership.html
+?? docs/teach/41-appshot-capture.html
+?? docs/teach/42-native-computer-control.html
+?? docs/teach/43-private-credentials.html
+?? docs/teach/44-execution-targets.html
+?? docs/teach/45-settings-release-qualification.html
+?? evals/settings-qualification/
+?? packages/core/src/attachments.ts
+?? packages/core/src/browser/downloads.ts
+?? packages/core/src/browser/permissions.ts
+?? packages/core/src/browser/uploads.ts
+?? packages/core/src/gateway-receipts.ts
+?? packages/core/src/hook-config.ts
+?? packages/core/src/hook-process.ts
+?? packages/core/src/plugin-runtime.ts
+?? packages/core/src/review.ts
+?? packages/core/src/settings/
+?? packages/core/src/ux/codebase.ts
+?? packages/core/src/ux/ignore.ts
+?? packages/core/src/ux/slides.ts
+?? packages/core/test/assist-manus.test.ts
+?? packages/core/test/cursor-coding.test.ts
+?? packages/core/test/execution-targets.test.ts
+?? packages/core/test/fixtures/settings.ts
+?? packages/core/test/settings-capabilities.test.ts
+?? packages/core/test/settings-capture.test.ts
+?? packages/core/test/settings-computer.test.ts
+?? packages/core/test/settings-contract.test.ts
+?? packages/core/test/settings-credentials.test.ts
+?? packages/core/test/settings-hooks.test.ts
+?? packages/core/test/settings-import.test.ts
+?? packages/core/test/settings-plan.test.ts
+?? packages/core/test/settings-preferences.test.ts
+?? packages/core/test/settings-service.test.ts
+?? packages/core/test/settings-storage.test.ts
+?? packages/core/test/settings-store.test.ts
+?? packages/core/test/voice-cancellation.test.ts
+?? scripts/check-settings-plan.mjs
+?? scripts/check-settings-plan.test.mjs
+?? scripts/settings-qualification.mjs
+?? specs/028-ui-i18n.md
+?? specs/029-cursor-grade-coding.md
+?? specs/030-manus-and-assistants.md
+?? specs/031-right-dock.md
+?? specs/032-settings-and-capability-management.md
+ProductName:		macOS
+ProductVersion:		15.7.2
+BuildVersion:		24G325
+arm64
+v24.15.0
+11.23.0
+git version 2.23.0
+Python 3.14.4
+Docker version 29.4.2, build 055a478

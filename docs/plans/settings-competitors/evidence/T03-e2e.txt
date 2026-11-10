@@ -1,0 +1,6 @@
+[31mCould not save settings (INVALID): briefing.hour, briefing.minute. Try again after checking the current settings.[0m
+CLI rejects invalid times and persists briefing and connector settings.
+Electron settings reject stale state, retain the edit, and apply it only after reload.
+CLI, Electron, and gateway share capability IDs. Version mismatch and native-only routes are rejected.
+Gateway web settings load without raw credentials and persist the Chinese language switch.
+Desktop opens configuration recovery and preserves malformed bytes.

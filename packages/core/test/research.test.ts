@@ -1,6 +1,8 @@
 import { spawnSync } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
+import { join } from 'node:path';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { DEFAULT_SEARCH, PythonKernel, extractReadable, isUntrustedTool, parseBing, pdfToText, pickProvider, scanInjection, unwrapBing, wrapUntrusted } from '../src/index.js';
 import { call, mockHost, tempHome, tempWorkspace } from './helpers.js';
@@ -163,4 +165,27 @@ describe.runIf(spawnSync('python3', ['--version']).status === 0)('python kernel'
       k.dispose();
     }
   }, 30_000);
+
+  it('keeps a pre-aborted cell inert and restarts state after timeout or an active abort', async () => {
+    const ws = tempWorkspace();
+    const kernel = new PythonKernel(ws);
+    try {
+      await kernel.run('marker = 7');
+      const cancelled = await kernel.run('open("cancelled-cell.txt", "w").write("unexpected")', 1000, AbortSignal.abort());
+      expect(existsSync(join(ws, 'cancelled-cell.txt'))).toBe(false);
+      expect(cancelled.error).toMatch(/aborted/i);
+      expect((await kernel.run('marker')).result).toBe('7');
+      const timedOut = await kernel.run('import time\ntime.sleep(2)', 100);
+      expect(timedOut.error).toMatch(/timed out.*state was lost/i);
+      expect((await kernel.run('marker')).error).toMatch(/NameError/);
+      await kernel.run('marker = 11');
+      const controller = new AbortController();
+      const pending = kernel.run('import time\ntime.sleep(2)', 4000, controller.signal);
+      controller.abort();
+      expect((await pending).error).toMatch(/aborted.*restarted/i);
+      expect((await kernel.run('marker')).error).toMatch(/NameError/);
+    } finally {
+      kernel.dispose();
+    }
+  });
 });

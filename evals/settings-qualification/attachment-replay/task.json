@@ -1,0 +1,7 @@
+{
+  "id": "attachment-replay",
+  "title": "Repair missing attachment replay",
+  "category": "attachment-replay",
+  "language": "javascript",
+  "prompt": "$SETTINGS_HANDOFF"
+}

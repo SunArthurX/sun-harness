@@ -1,0 +1,18 @@
+
+ RUN  v5.1.0 /Users/sunqingguang/Downloads/06.code/sun-harness
+
+ ✓ packages/core/test/sandbox.test.ts > sandbox policy pieces > matches allowlist hosts with wildcards 1ms
+ ✓ packages/core/test/sandbox.test.ts > sandbox policy pieces > collects secret env names from the config and credential-looking variables 1ms
+ ✓ packages/core/test/sandbox.test.ts > sandbox policy pieces > builds bubblewrap arguments: workspace writable, secrets hidden, network unshared when off 71ms
+ ✓ packages/core/test/sandbox.test.ts > sandbox policy pieces > auto-approves sandboxed shell commands in auto-edit only when allowed 0ms
+ ✓ packages/core/test/sandbox.test.ts > seatbelt sandbox (macOS) > allows workspace writes, blocks writes elsewhere, hides denied paths, scrubs secrets 344ms
+ ✓ packages/core/test/sandbox.test.ts > seatbelt sandbox (macOS) > denies outbound network when the policy is off but keeps loopback 229ms
+ ✓ packages/core/test/sandbox.test.ts > seatbelt sandbox (macOS) > runs the bash tool and verify commands inside the session sandbox 491ms
+ ✓ packages/core/test/sandbox.test.ts > allowlist proxy > forwards allowed hosts and refuses others 6ms
+ ✓ packages/core/test/sandbox.test.ts > docker sandbox > runs commands in a per-session container with only the workspace mounted 381ms
+
+ Test Files  1 passed (1)
+      Tests  9 passed (9)
+   Start at  21:16:18
+   Duration  1.87s (tests 86%, import 9%, transform 5%)
+

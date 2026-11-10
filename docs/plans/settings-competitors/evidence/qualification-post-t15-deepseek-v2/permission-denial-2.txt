@@ -1,0 +1,17 @@
+✔ both locales use the denied state without exposing the adapter error (1.123042ms)
+✔ denied renders disabled denial state in both locales (0.763875ms)
+✔ locale copy stays in sync (0.081541ms)
+✔ available and unavailable behavior preserved (0.082041ms)
+✔ capture is not called for denied status (0.9595ms)
+✔ capture denial after available probe returns denial state (0.200041ms)
+✔ other adapter failures still reject (0.329541ms)
+✔ successful capture keeps available state (0.136334ms)
+✔ unavailable remains disabled (0.400125ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 9
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 69.063167

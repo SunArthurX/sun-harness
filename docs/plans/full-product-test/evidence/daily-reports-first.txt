@@ -1,0 +1,80 @@
+
+ RUN  v5.1.0 /Users/sunqingguang/Downloads/06.code/sun-harness
+
+ ↓ packages/core/test/gateway.test.ts > gateway > requires the token, advertises itself, and is discoverable
+ × packages/core/test/gateway.test.ts > gateway > restricts dated Intel and briefing RPCs to their own report directories 66ms
+   → expected [ 'fulfilled', 'fulfilled', …(1) ] to deeply equal [ 'rejected', 'rejected', 'rejected' ]
+ ↓ packages/core/test/gateway.test.ts > gateway > runs a session for a remote client and streams its events
+ ↓ packages/core/test/gateway.test.ts > gateway > a remote approver answers approvals; with none attached the gateway denies instead of hanging
+ ↓ packages/core/test/gateway.test.ts > gateway > authenticates portable bundles and validates invalid streams before publishing
+ ↓ packages/core/test/gateway.test.ts > gateway > serves the web UI and blocks path traversal
+ ↓ packages/core/test/assistant.test.ts > long-term memory store > adds, deduplicates, searches (including CJK), touches and removes
+ ↓ packages/core/test/assistant.test.ts > long-term memory store > parses extraction output defensively
+ ↓ packages/core/test/assistant.test.ts > assistant sessions: recall, extraction, routing > attaches relevant memories before the user message and extracts new ones after the run
+ ↓ packages/core/test/assistant.test.ts > assistant sessions: recall, extraction, routing > routes "auto" sessions between a fast and a strong model
+ ↓ packages/core/test/assistant.test.ts > DingTalk connector (dws) > classifies read and write commands
+ ↓ packages/core/test/assistant.test.ts > DingTalk connector (dws) > runs dws, gates on login, and refuses writes through the read tool
+ × packages/core/test/assistant.test.ts > briefing, triggers, voice, metrics > builds the briefing prompt and saves the briefing 413ms
+   → expected 'Prepare my daily briefing for 2026-11…' to contain '/var/folders/4c/_fqg96ms18dc7mrmk9dfq…'
+ ↓ packages/core/test/assistant.test.ts > briefing, triggers, voice, metrics > fires webhook triggers with the payload marked as untrusted
+ ↓ packages/core/test/assistant.test.ts > briefing, triggers, voice, metrics > debounces file-watch triggers
+ ↓ packages/core/test/assistant.test.ts > briefing, triggers, voice, metrics > transcribes audio through a chat-completions ASR endpoint
+ ↓ packages/core/test/assistant.test.ts > briefing, triggers, voice, metrics > computes conversation efficiency per mode
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/core/test/assistant.test.ts > briefing, triggers, voice, metrics > builds the briefing prompt and saves the briefing
+AssertionError: expected 'Prepare my daily briefing for 2026-11…' to contain '/var/folders/4c/_fqg96ms18dc7mrmk9dfq…'
+
+- Expected
++ Received
+
+- /var/folders/4c/_fqg96ms18dc7mrmk9dfq32c0000gp/T/sun-test-t7Mlim/home/intel/reports/2026-11-07.md
++ Prepare my daily briefing for 2026-11-07. Be brief and concrete; lead with what needs my attention today.
++ Sections (skip any with nothing to report):
++ 1. Today: reminders and scheduled tasks you know about (my memory and schedules).
++ 2. Follow-ups: open items from my memory (projects, promises, people waiting on me).
++ 4. Suggested focus: at most three priorities for today, each with the first concrete step.
++ Answer in Markdown with short bullet points. Do not take actions or send messages; this is read-only.
+
+ ❯ packages/core/test/assistant.test.ts:147:85
+    145|     expect(r.text).toContain('standup');
+    146|     const firstRequest = providers.get('mock/a')!.requests[0];
+    147|     expect(firstRequest.messages.find(message => message.role === 'use…
+       |                                                                                     ^
+    148|     expect(readBriefing('2026-11-07')).toContain('# Briefing 2026-11-0…
+    149|     expect(seen).toEqual(['2026-11-07']);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  packages/core/test/gateway.test.ts > gateway > restricts dated Intel and briefing RPCs to their own report directories
+AssertionError: expected [ 'fulfilled', 'fulfilled', …(1) ] to deeply equal [ 'rejected', 'rejected', 'rejected' ]
+
+- Expected
++ Received
+
+  [
+-   "rejected",
+-   "rejected",
+-   "rejected",
++   "fulfilled",
++   "fulfilled",
++   "fulfilled",
+  ]
+
+ ❯ packages/core/test/gateway.test.ts:47:53
+     45|       client.call('analyzeIntel', '../../audit-private'),
+     46|     ]);
+     47|     expect(attempts.map(attempt => attempt.status)).toEqual(['rejected…
+       |                                                     ^
+     48|     expect(readFileSync(outside, 'utf8')).toBe('Private fixture outsid…
+     49|     await expect(client.call('readIntelReport', '2026-02-30')).rejects…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  2 failed (2)
+      Tests  2 failed | 15 skipped (17)
+   Start at  21:40:05
+   Duration  739ms (tests 49%, import 34%, transform 16%)
+

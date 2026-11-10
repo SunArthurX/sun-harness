@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>42 — Native computer control</title>
+<body>
+<p><a href="index.html">Teaching index</a></p>
+<h1>Native computer control</h1>
+<p>The work began with a signed read-only helper that checked the macOS
+permission and foreground application. The controller tests then
+separated the process, window, session, and observation lifetimes.</p>
+<h2>What happens between approval and the click?</h2>
+<p>Review can take time. The application might have switched windows,
+the owner might have revoked the grant, or another observation might
+have invalidated the reference. The controller rechecks the lease and
+the helper verifies the exact target before sending the AX action.</p>
+<pre class="mermaid">flowchart TD
+  A[User grants an app and assigns a chat] --> B[Observe the focused window]
+  B --> C[Model selects one current control]
+  C --> D[Runtime policy resolves approval]
+  D --> E{Grant, lease, and target still valid}
+  E -->|No| F[Refuse without dispatch]
+  E -->|Yes| G[Consume observation and flush intent]
+  G --> H[Verify native element and act]
+</pre>
+<h2>Why does stop release the user before the helper returns?</h2>
+<p>Stop synchronously revokes the lease and ends the caller's wait.
+The underlying native call can take longer to settle. The process claim
+stays held during drain, and a late reply cannot restore the lease or
+settle an action after ownership has changed.</p>
+<pre class="mermaid">flowchart TD
+  A[Native action in flight] --> B[User stops or takes over]
+  B --> C[Invalidate the lease and abort waiting]
+  C --> D[Keep exclusive claim until helper settles]
+  D --> E[Require new assignment and observation]
+  A --> F[Persist confirmed outcome while lease is valid]
+  C --> G[Retain unresolved dispatch receipt]
+</pre>
+<p><a href="../manual/computer-use.md">Computer Use manual</a> ·
+<a href="../plans/settings-competitors/evidence/T12.json">T12 evidence</a></p>
+<script type="module">import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';mermaid.initialize({startOnLoad:true});</script>
+</body>
+</html>

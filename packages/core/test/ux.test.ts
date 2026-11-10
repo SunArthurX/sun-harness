@@ -1,10 +1,71 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_PRICING, completePaths, expandCommand, expandMentions, loadCommands, priceOf, sessionCost, supportsVision, testable, unifiedDiff } from './ux-imports.js';
+import { defaultConfig, loadConfig, saveConfig, SessionLog, sessionToHtml } from '../src/index.js';
+import { discoverSkills, skillDirs } from '../src/skills.js';
 import { call, mockHost, tempHome, tempWorkspace, testConfig } from './helpers.js';
 
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
+
+describe('session export', () => {
+  it('redacts configured credentials in all export formats without changing the log', async () => {
+    tempHome();
+    const raw = 'raw-test-secret:"\\';
+    const env = 'env-test-secret';
+    const header = 'header-test-secret';
+    const device = `sund_${'X'.repeat(32)}`;
+    vi.stubEnv('SUN_EXPORT_TEST_API_KEY', env);
+    try {
+      const { host } = await mockHost({}, {
+        providers: {
+          fixture: { type: 'openai', baseUrl: 'https://example.invalid/v1', models: ['model'],
+            apiKey: raw, apiKeyEnv: 'SUN_EXPORT_TEST_API_KEY', headers: { Authorization: `Bearer ${header}` } },
+        },
+      });
+      const session = host.createSession({ cwd: tempWorkspace() });
+      const text = `Credentials: ${raw}, ${env}, ${header}, ${device}.`;
+      const log = SessionLog.open(session.id);
+      const toolCall = call('fixture', { credential: raw }, 'fixture-call');
+      log.append({ type: 'assistant/message', text: '', toolCalls: [toolCall], model: 'fixture/model' });
+      log.append({ type: 'user/message', text });
+      for (const format of ['markdown', 'html', 'jsonl'] as const) {
+        const exported = host.exportSession(session.id, format);
+        for (const secret of [raw, env, header, device]) expect(exported).not.toContain(secret);
+        expect(exported).toContain('[REDACTED]');
+        if (format === 'jsonl') {
+          const events = exported.trimEnd().split('\n').map(line => JSON.parse(line));
+          expect(events.at(-1)).toMatchObject({ type: 'user/message', text: 'Credentials: [REDACTED], [REDACTED], [REDACTED], [REDACTED].' });
+          expect(JSON.parse(events.at(-2).toolCalls[0].arguments)).toEqual({ credential: '[REDACTED]' });
+        }
+      }
+      expect(host.getEvents(session.id).at(-1)).toMatchObject({ type: 'user/message', text });
+      await host.dispose();
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it('renders untrusted HTML and code fence attributes as inert text', () => {
+    const html = sessionToHtml([{
+      type: 'user/message', seq: 0, ts: '2026-01-01T00:00:00Z',
+      text: [
+        '<details open ontoggle="alert(1)">',
+        '<summary onclick="alert(2)">Fake control</summary>',
+        '<summary>Text <img src=x onerror=alert(3)></summary>',
+        '```js" onclick="alert(4)',
+        'payload',
+        '```',
+      ].join('\n'),
+    }]);
+    expect(html).toContain('&lt;details open ontoggle=&quot;alert(1)&quot;&gt;');
+    expect(html).toContain('&lt;summary onclick=&quot;alert(2)&quot;&gt;');
+    expect(html).toContain('<summary>Text &lt;img src=x onerror=alert(3)&gt;</summary>');
+    expect(html).toContain('<code class="js&quot; onclick=&quot;alert(4)">');
+    expect(html).toContain('Content-Security-Policy');
+    expect(html).not.toMatch(/<(?:details|summary)\s+|<img|<code[^>]*"\s+onclick=/i);
+  });
+});
 
 describe('custom slash commands', () => {
   beforeEach(() => tempHome());
@@ -26,6 +87,22 @@ describe('custom slash commands', () => {
     expect(expandCommand('/git:pr', cmds)!.prompt).toBe('Write a PR description for the current branch.');
     expect(expandCommand('/explain the parser', cmds)!.prompt).toBe('# Explain the code\nExplain it simply.\n\nthe parser');
     expect(expandCommand('/unknown x', cmds)).toBeUndefined();
+  });
+
+  it('discovers compat skills after project skills and omits them when compat is off', () => {
+    const ws = tempWorkspace();
+    const skill = (dir: string, name: string, description: string) => {
+      mkdirSync(join(ws, dir, name), { recursive: true });
+      writeFileSync(join(ws, dir, name, 'SKILL.md'), `---\nname: ${name}\ndescription: ${description}\n---\nBody.\n`);
+    };
+    skill('.sun/skills', 'shared-audit', 'project copy');
+    skill('.claude/skills', 'shared-audit', 'compat copy');
+    skill('.claude/skills', 'claude-audit', 'Claude-only skill');
+    skill('.agents/skills', 'agents-audit', 'Agents-only skill');
+    const inWorkspace = (dirs: ReturnType<typeof skillDirs>) => dirs.filter(({ dir }) => dir.startsWith(ws));
+    const found = discoverSkills(inWorkspace(skillDirs(ws))).map((s) => `${s.name}:${s.scope}:${s.description}`);
+    expect(found).toEqual(['agents-audit:compat:Agents-only skill', 'claude-audit:compat:Claude-only skill', 'shared-audit:project:project copy']);
+    expect(discoverSkills(inWorkspace(skillDirs(ws, [], false))).map((s) => s.name)).toEqual(['shared-audit']);
   });
 
   it('expands commands in sessions, switches mode, and logs what was typed', async () => {
@@ -201,5 +278,17 @@ describe('bots: custom commands and /cost', () => {
     expect((host.getEvents(sid).find((e) => e.type === 'user/message') as any).text).toBe('Summarize yesterday for my standup: billing service');
     await bridge.handle({ chatId: 'c', userId: 'u', text: '/cost' });
     expect(said.at(-1)).toMatch(/mock\/a|No usage yet/);
+  });
+});
+
+describe('ui.language', () => {
+  beforeEach(() => tempHome());
+
+  it('defaults to system and round-trips en / zh-CN through config.json', () => {
+    expect(defaultConfig().ui.language).toBe('system');
+    expect(loadConfig().ui.language).toBe('system');
+    expect(saveConfig({ ui: { language: 'zh-CN' } }).ui.language).toBe('zh-CN');
+    expect(loadConfig().ui.language).toBe('zh-CN');
+    expect(saveConfig({ ui: { language: 'en' } }).ui.language).toBe('en');
   });
 });

@@ -34,7 +34,7 @@ const HELP = `sun-harness bot
 /status — current session, model, state
 /stop — stop the current run · /resume [model] — continue a paused run
 /approve [always] · /deny — answer a pending approval
-/compact — summarize older history · /cost — tokens and estimated cost · /context — what fills the context
+/compact — summarize older history · /cost — tokens and estimated cost · /context — what fills the context · /review — review this session's diff
 /commands — custom commands (from .sun/commands, ~/.sun/commands)
 /automations — scheduled automations · /yes /both /no — answer a scheduling proposal
 /id — show your user id`;
@@ -127,12 +127,17 @@ export class BotBridge {
     return this.host.pendingApprovals().filter((a) => a.displaySessionId === sessionId);
   }
 
-  async handle(msg: BotMessage): Promise<void> {
-    const text = msg.text.trim();
-    if (text === '/id') return this.say(msg.chatId, `Your ${this.transport.platform} user id: ${msg.userId}`);
+  identityReply(msg: BotMessage): string | undefined {
+    if (msg.text.trim() === '/id') return `Your ${this.transport.platform} user id: ${msg.userId}`;
     if (!this.opts.allowedUsers.includes(msg.userId)) {
-      return this.say(msg.chatId, `Not authorized. Your user id is ${msg.userId}; the owner can add it to bots.${this.transport.platform}.allowedUsers.`);
+      return `Not authorized. Your user id is ${msg.userId}; the owner can add it to bots.${this.transport.platform}.allowedUsers.`;
     }
+  }
+
+  async handle(msg: BotMessage): Promise<void> {
+    const identityReply = this.identityReply(msg);
+    if (identityReply) return this.say(msg.chatId, identityReply);
+    const text = msg.text.trim();
     if (!text) return;
     if (text.startsWith('/')) return this.command(msg.chatId, text);
     const sid = this.map[msg.chatId] && this.host.listSessions().some((s) => s.id === this.map[msg.chatId]) ? this.map[msg.chatId] : this.newSession(msg.chatId);
@@ -189,6 +194,9 @@ export class BotBridge {
         if (!sid) return this.say(chatId, 'No session yet.');
         return this.say(chatId, formatContextReport(await this.host.contextUsage(sid), false));
       }
+      case '/review':
+        if (!sid) return this.say(chatId, 'No session yet.');
+        return this.say(chatId, await this.host.reviewSession(sid));
       case '/yes':
       case '/both':
       case '/no': {

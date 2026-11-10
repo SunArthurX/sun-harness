@@ -1,0 +1,22 @@
+✔ defaults, UI labels, boundary validation and shared revision (1.079208ms)
+✔ pageSize defaults to 25 with default provenance and revision 0 (1.180375ms)
+✔ durable saved values take user provenance and persist (0.081ms)
+✔ CLI accepts inclusive integer boundaries 10 and 100 (0.205166ms)
+✔ CLI refuses out-of-range values and leaves values and revision intact (0.131333ms)
+✔ CLI refuses partial, non-decimal and non-string pageSize inputs (0.161833ms)
+✔ host update validates pageSize independently of the CLI (0.088208ms)
+✔ stale expected revision reports CONFLICT and keeps state (0.08275ms)
+✔ invalid settings inside a batch reject the whole batch (0.06175ms)
+✔ unknown persisted keys survive edits and persistence (0.080042ms)
+✔ existing verbose behavior is unchanged (0.097708ms)
+✔ pageSize is exposed through the existing IPC and gateway transports (0.1365ms)
+✔ renderer labels pageSize in English and Simplified Chinese (0.124875ms)
+✔ verbose remains editable (0.457875ms)
+ℹ tests 14
+ℹ suites 0
+ℹ pass 14
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 48.44625

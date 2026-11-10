@@ -1,0 +1,19 @@
+✔ defaults, UI labels, boundary validation and shared revision (1.051959ms)
+✔ pageSize default is exposed through host, IPC and gateway (0.960583ms)
+✔ pageSize 10 and 100 are inclusive bounds accepted by the host (0.230292ms)
+✔ CLI accepts decimal digit strings for pageSize (0.078708ms)
+✔ CLI refuses partial numbers and out-of-range values without changing state (0.67625ms)
+✔ pageSize edits survive IPC and gateway with revision check and persistence (0.135292ms)
+✔ host rejects non-integer pageSize values (0.081333ms)
+✔ renderer labels pageSize in English and Simplified Chinese (0.122042ms)
+✔ saved pageSize and unknown persisted keys are preserved (0.074167ms)
+✔ verbose behavior is unchanged alongside pageSize (0.10775ms)
+✔ verbose remains editable (0.470333ms)
+ℹ tests 11
+ℹ suites 0
+ℹ pass 11
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 49.593334

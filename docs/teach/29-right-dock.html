@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" /><meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>29 · The right dock — sun-harness</title>
+<link rel="stylesheet" href="teach.css" />
+<script type="module">import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs'; mermaid.initialize({ startOnLoad: true, theme: 'neutral' });</script>
+</head>
+<body>
+<header class="top"><div class="wrap"><a class="brand" href="index.html">sun<em>harness</em> · teach</a><nav><a href="index.html">All pages</a></nav></div></header>
+<main class="wrap">
+<p class="muted">Release 0.11.0 · spec <code>specs/031-right-dock.md</code></p>
+<h1>29 · A column for <em>the work</em>, not another app</h1>
+<p class="lede">Cursor's Agents Window keeps the chat in the middle and puts Changes, Browser, Terminal, and Files in one column on the right. You pick a pane; you do not get four windows. The useful part is that the list is the extension point.</p>
+
+<div class="mermaid">
+flowchart LR
+  S["DOCK_PANES"] --> R[switcher]
+  R -->|Changes| C[diff review]
+  R -->|Browser| B[live page]
+  R -->|Terminal| T[bash scrollback]
+  R -->|Files| F[workspace tree]
+</div>
+
+<div class="qa"><p class="q">Why is the terminal not a real shell?</p><p class="a">The agent already ran the commands, and the log is the record. Showing that scrollback answers "what did it run?" without a second process that could escape the approval policy. An interactive terminal later replaces only <code>TerminalPane</code>.</p></div>
+<div class="qa"><p class="q">How do you add a fifth pane?</p><p class="a">Append an id and an English label to <code>DOCK_PANES</code>, add the Chinese string, and one branch in <code>DockBody</code>. The switcher renders whatever is in the list. It never imports the pane.</p></div>
+
+<h2>Lessons</h2>
+<ul>
+<li>A side column that is a list of panes stays small. Four hardcoded layouts do not.</li>
+<li>Files and the change viewer already had a path guard. The new list uses the same one.</li>
+</ul>
+</main>
+</body>
+</html>

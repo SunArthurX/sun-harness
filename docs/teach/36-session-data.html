@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>36 — Session data and recoverable cleanup</title>
+<body>
+<p><a href="index.html">Teaching index</a></p>
+<h1>Session data and recoverable cleanup</h1>
+<p>The work started by escaping transcript exports and redacting known
+credential values. Portable bundles then added manifest and payload limits,
+file digests, and a staged import. The storage UI applies separate decisions
+for archive, cleanup, and purge.</p>
+<pre class="mermaid">flowchart LR
+  A[Bundle stream] --> B[Bounded manifest and digest checks]
+  B --> C[Private staging directory]
+  C --> D[Rewrite attachment paths and historical state]
+  D --> E[Publish session directory with one rename]
+  F[Managed roots] --> G[Inventory and live reference check]
+  G --> H[Preview bound to revision and selection]
+  H --> I[Revalidate under storage lock]
+  I --> J[Persist operation journal]
+  J --> K[Move selected item to trash]
+  K --> L[Grace period and purge]
+  M[Restart] --> J
+</pre>
+<h2>Which parts of an imported session can run?</h2>
+<p>Conversation text, image bytes, and completed tool results form a readable
+history. Historical authority and pending work become inert. A new user turn
+uses the receiving host's policy. A single rename installs the log with its
+attachments, while the existing flat session layout remains readable.</p>
+<h2>Why separate archives and trash?</h2>
+<p>Archiving records a flag in the same log, so a restore keeps its identity.
+Trash operations move selected files. The inventory checks both attachment
+layouts and keeps every file referenced by retained history. Job metadata,
+session activity markers, and browser process checks protect live data.</p>
+<h2>What if the process dies just after a move?</h2>
+<p>The intent is already on disk. Recovery compares identities at both the
+source and destination. A replacement at the old path remains available.
+Purge uses a private staging location after the grace period, so restarting
+during deletion cannot reach a new file in the live store.</p>
+<p><a href="../plans/settings-competitors/evidence/T06.json">T06 evidence</a></p>
+<script type="module">import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';mermaid.initialize({startOnLoad:true});</script>
+</body>
+</html>

@@ -1,0 +1,4 @@
+$ node apps/desktop/e2e/appshot.mjs apps/desktop/release/full-product-d17/mac-arm64/sun-harness.app
+# cdhash 3658f97b6d8daadb8b40342203dda962bd1cb582
+# started 2026-11-10T06:40:51Z
+Signed macOS Appshot captures one fixture window, applies an opaque crop and mask, cancels without persistence, and sends only the prepared attachment.

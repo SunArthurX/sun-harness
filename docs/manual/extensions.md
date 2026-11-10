@@ -31,6 +31,9 @@ Locations: `<project>/.sun/skills`, `~/.sun/skills`, plus Claude-compatible `.cl
 
 Tools appear as `mcp__<server>__<tool>`. They ask for approval in `auto-edit` mode unless the server has `"trust": true`. Check status with `sun mcp` or the desktop screen.
 
+`sun mcp` prints the tools or connection error and exits after closing its
+connections. A slow handshake has a 30-second deadline.
+
 ## Plugins
 
 ```text
@@ -52,21 +55,94 @@ export default function (api) {
 }
 ```
 
-Settings for a plugin: `config.plugins.settings.<name>` (available as `api.settings`). Disable with `config.plugins.disabled: ["hello"]`. Reload from the desktop or restart the CLI.
+Put settings for a plugin in `plugins.settings.<name>` in `~/.sun/config.json`.
+The plugin reads them through `api.settings`.
+
+Declare requested actions in the plugin's optional `package.json`.
+
+```json
+{
+  "sun": {
+    "main": "index.mjs",
+    "requestedActions": ["tools", "prompts", "knowledge", "session-events"]
+  }
+}
+```
+
+The supported IDs are `tools`, `knowledge`, `modes`, `prompts`, `session-events`,
+`filesystem`, `network`, and `processes`. The host reads up to 64 KiB of
+manifest content without activating the plugin. Existing plugins can omit
+the declaration. Enabled plugins run with the host process's privileges,
+so enable only code you trust.
+
+Open **Settings → Plugins** in desktop or gateway web to inspect requested
+actions and registered contributions. **Disable plugin** immediately removes
+the plugin's registrations. A tool awaiting approval will fail if approved
+after disable. Calls that already started may finish. **Draining** shows how
+many remain. **Enable plugin** becomes available again when they finish.
+The settings audit records the transition in `~/.sun/settings/audit.jsonl`.
+
+```sh
+sun plugins list
+sun plugins disable hello
+sun plugins enable hello
+```
+
+The CLI uses the selected execution host when connected. Without a gateway,
+it inspects manifests and saves the change for the next host start.
+`--local` explicitly selects the local files. **Reload** reads the current
+plugin settings and replaces registrations on the active host. Activation
+publishes all staged registrations only after it succeeds.
 
 ## Hooks
 
+Put project hooks in `<project>/.sun/hooks.json`. Put user hooks in
+`~/.sun/hooks.json`.
+
+A `sessionStart` hook marked `worktreeSetup: true` is available through
+the owning worktree's reviewed setup action. See
+[Worktree sessions](worktrees.md) for the run and recovery controls.
+
 ```json
-// <project>/.sun/hooks.json  (or ~/.sun/hooks.json)
 {
   "preToolUse": [
-    { "matcher": "^bash$", "command": "./scripts/check-command.sh", "onFailure": "block" }
+    { "id": "check-shell", "enabled": true, "matcher": "^bash$", "command": "./scripts/check-command.sh", "onFailure": "block" }
   ],
   "postToolUse": [{ "matcher": "^(write_file|edit_file)$", "command": "pnpm -s lint --quiet || true" }],
   "sessionStart": [{ "command": "git status --short" }],
   "stop": [{ "command": "pnpm -s test >/dev/null 2>&1 || { echo 'Tests fail; fix them before finishing.' >&2; exit 2; }" }]
 }
 ```
+
+Existing hooks need review before they can execute. Open **Settings → Hooks**,
+choose the workspace, and load its hooks. Select reviewed commands and save
+their trust. Preview a synthetic event before running a fixture. The same
+review and fixture flow is available in the CLI. Run `sun hooks list`
+from the workspace to inspect the source, command, state, ID, and current
+digest. Use the returned ID and digest for review.
+
+```bash
+sun hooks list --cwd /path/to/workspace
+sun hooks preview HOOK_ID HOOK_DIGEST --fixture shell --cwd /path/to/workspace
+sun hooks trust HOOK_ID HOOK_DIGEST --cwd /path/to/workspace
+sun hooks test HOOK_ID HOOK_DIGEST --fixture shell --execute --cwd /path/to/workspace
+sun hooks revoke HOOK_ID HOOK_DIGEST --cwd /path/to/workspace
+```
+
+Preview builds a synthetic event without running the command. Executing a
+fixture requires a matching reviewed hook and the explicit `--execute`
+flag. Press Ctrl+C to cancel a running fixture. `read`, `shell`, and `edit`
+select sample tool events. Use `--local` for the local host or `--remote NAME`
+with an absolute workspace on that execution host.
+
+Trust is stored on the execution host. Edits to the configuration file
+require another review. Simple literals, anchors, character classes,
+alternation, and one ungrouped quantifier are supported in matchers.
+`onFailure: "block"` blocks matching tools if the policy hook cannot
+be validated or is untrusted. The hook runs with the host sandbox and
+a restricted environment. A hook can produce up to 64 KiB of combined
+output. Runtime logs record the outcome and retain any text passed to
+the model.
 
 The event JSON arrives on stdin (`tool`, `args`, `cwd`, `sessionId`, and `output` for postToolUse).
 

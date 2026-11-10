@@ -1,0 +1,12 @@
+$ node apps/desktop/e2e/smoke.mjs
+# started 2026-11-10T06:15:01Z
+race-guard {"pendingAfterEarlyClick":1}
+ui {"idleDot":true,"working":false,"okTools":2,"assistantBlocks":1}
+recovery {"paused":true,"switched":true,"text":"recovered"}
+worktree {"inMainBefore":false,"merged":true,"staged":"A  hello.txt"}
+{
+  "notesCreated": true,
+  "approvalLogged": true,
+  "toolResults": 2,
+  "shots": "/Users/sunqingguang/Downloads/06.code/sun-harness/apps/desktop/e2e/shots"
+}

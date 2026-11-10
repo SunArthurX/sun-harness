@@ -1,0 +1,13 @@
+Fixture attachment-replay: untouched fails=true, reference passes=true
+Fixture permission-denial: untouched fails=true, reference passes=true
+Fixture validated-setting: untouched fails=true, reference passes=true
+attachment-replay-1: FAIL (paused, 954 ms)
+permission-denial-1: FAIL (paused, 727 ms)
+validated-setting-1: FAIL (paused, 353 ms)
+attachment-replay-2: FAIL (paused, 490 ms)
+permission-denial-2: FAIL (paused, 257 ms)
+validated-setting-2: FAIL (paused, 354 ms)
+attachment-replay-3: FAIL (paused, 544 ms)
+permission-denial-3: FAIL (paused, 282 ms)
+validated-setting-3: FAIL (paused, 356 ms)
+Qualification: 0/9 passed.

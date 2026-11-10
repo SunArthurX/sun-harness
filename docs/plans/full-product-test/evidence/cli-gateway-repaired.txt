@@ -1,0 +1,31 @@
+✔ interactive command loop buffers piped follow-ups and applies mode and model switches (713.815ms)
+✖ serve owns CLI sessions, isolates local routing, and creates removable launch-agent metadata (1191.711583ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 1
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1967.209708
+
+✖ failing tests:
+
+test at packages/cli/e2e/product.mjs:249:1
+✖ serve owns CLI sessions, isolates local routing, and creates removable launch-agent metadata (1191.711583ms)
+  AssertionError [ERR_ASSERTION]: [31mreadline was closed[0m
+  
+  
+  1 !== 0
+  
+      at succeed (file:///Users/sunqingguang/Downloads/06.code/sun-harness/packages/cli/e2e/product.mjs:88:10)
+      at async TestContext.<anonymous> (file:///Users/sunqingguang/Downloads/06.code/sun-harness/packages/cli/e2e/product.mjs:282:24)
+      at async Test.run (node:internal/test_runner/test:1208:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

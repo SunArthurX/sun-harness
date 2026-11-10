@@ -1,0 +1,68 @@
+$ zsh /tmp/package-signoff.sh
+# started 2026-11-10T06:15:58Z
+# started 2026-11-10T06:15:59Z
+$ pnpm exec electron-builder --mac --dir --publish never --config.directories.output=release/full-product-d17
+  • electron-builder  version=26.18.0 os=24.6.0
+  • loaded configuration  file=package.json ("build" field)
+  • author is missed in the package.json  appPackageFile=/Users/sunqingguang/Downloads/06.code/sun-harness/apps/desktop/package.json
+  • packageManager not detected by file, falling back to environment detection  resolvedPackageManager=pnpm detected=/Users/sunqingguang/Downloads/06.code/sun-harness/apps/desktop
+  • detected workspace root for project using lock file  pm=pnpm config=undefined resolved=/Users/sunqingguang/Downloads/06.code/sun-harness projectDir=/Users/sunqingguang/Downloads/06.code/sun-harness/apps/desktop
+  • skipped dependencies rebuild  reason=npmRebuild is set to false
+  • packaging       platform=darwin arch=arm64 electron=45.2.3 appOutDir=release/full-product-d17/mac-arm64
+  • using custom unpacked Electron distribution  electronDist=node_modules/electron/dist
+  • copying unpacked Electron  source=/Users/sunqingguang/Downloads/06.code/sun-harness/apps/desktop/node_modules/electron/dist/Electron.app destination=/Users/sunqingguang/Downloads/06.code/sun-harness/apps/desktop/release/full-product-d17/mac-arm64/Electron.app
+  • searching for node modules  pm=pnpm searchDir=/Users/sunqingguang/Downloads/06.code/sun-harness/apps/desktop
+  • no node modules found in collection, trying next search directory  pm=pnpm searchDir=/Users/sunqingguang/Downloads/06.code/sun-harness/apps/desktop
+  • searching for node modules  pm=pnpm searchDir=/Users/sunqingguang/Downloads/06.code/sun-harness
+  • no node modules found in collection, trying next search directory  pm=pnpm searchDir=/Users/sunqingguang/Downloads/06.code/sun-harness
+  • searching for node modules  pm=traversal searchDir=/Users/sunqingguang/Downloads/06.code/sun-harness/apps/desktop
+  • using manual traversal of node_modules to build dependency tree
+  • no node modules found in collection, trying next search directory  pm=traversal searchDir=/Users/sunqingguang/Downloads/06.code/sun-harness/apps/desktop
+  • searching for node modules  pm=traversal searchDir=/Users/sunqingguang/Downloads/06.code/sun-harness
+  • using manual traversal of node_modules to build dependency tree
+  • no node modules found in collection, trying next search directory  pm=traversal searchDir=/Users/sunqingguang/Downloads/06.code/sun-harness
+  • no node modules returned while searching directories  searchDirectories=["","/Users/sunqingguang/Downloads/06.code/sun-harness"]
+  • skipped macOS code signing  reason=identity explicitly is set to null
+sun-appshot copied unchanged from build/native before signing
+sun-computer copied unchanged from build/native before signing
+$ codesign --force --deep --sign - release/full-product-d17/mac-arm64/sun-harness.app
+release/full-product-d17/mac-arm64/sun-harness.app: replacing existing signature
+$ codesign --verify --deep --strict --verbose=2 release/full-product-d17/mac-arm64/sun-harness.app
+--prepared:/Users/sunqingguang/Downloads/06.code/sun-harness/apps/desktop/release/full-product-d17/mac-arm64/sun-harness.app/Contents/Frameworks/Mantle.framework/Versions/Current/.
+--prepared:/Users/sunqingguang/Downloads/06.code/sun-harness/apps/desktop/release/full-product-d17/mac-arm64/sun-harness.app/Contents/Frameworks/sun-harness Helper (Renderer).app
+--prepared:/Users/sunqingguang/Downloads/06.code/sun-harness/apps/desktop/release/full-product-d17/mac-arm64/sun-harness.app/Contents/Frameworks/Squirrel.framework/Versions/Current/.
+--validated:/Users/sunqingguang/Downloads/06.code/sun-harness/apps/desktop/release/full-product-d17/mac-arm64/sun-harness.app/Contents/Frameworks/Mantle.framework/Versions/Current/.
+--validated:/Users/sunqingguang/Downloads/06.code/sun-harness/apps/desktop/release/full-product-d17/mac-arm64/sun-harness.app/Contents/Frameworks/sun-harness Helper (Renderer).app
+--prepared:/Users/sunqingguang/Downloads/06.code/sun-harness/apps/desktop/release/full-product-d17/mac-arm64/sun-harness.app/Contents/Frameworks/ReactiveObjC.framework/Versions/Current/.
+--validated:/Users/sunqingguang/Downloads/06.code/sun-harness/apps/desktop/release/full-product-d17/mac-arm64/sun-harness.app/Contents/Frameworks/ReactiveObjC.framework/Versions/Current/.
+--validated:/Users/sunqingguang/Downloads/06.code/sun-harness/apps/desktop/release/full-product-d17/mac-arm64/sun-harness.app/Contents/Frameworks/Squirrel.framework/Versions/Current/.
+--prepared:/Users/sunqingguang/Downloads/06.code/sun-harness/apps/desktop/release/full-product-d17/mac-arm64/sun-harness.app/Contents/Frameworks/sun-harness Helper.app
+--prepared:/Users/sunqingguang/Downloads/06.code/sun-harness/apps/desktop/release/full-product-d17/mac-arm64/sun-harness.app/Contents/Frameworks/sun-harness Helper (Plugin).app
+--prepared:/Users/sunqingguang/Downloads/06.code/sun-harness/apps/desktop/release/full-product-d17/mac-arm64/sun-harness.app/Contents/Frameworks/sun-harness Helper (GPU).app
+--validated:/Users/sunqingguang/Downloads/06.code/sun-harness/apps/desktop/release/full-product-d17/mac-arm64/sun-harness.app/Contents/Frameworks/sun-harness Helper.app
+--validated:/Users/sunqingguang/Downloads/06.code/sun-harness/apps/desktop/release/full-product-d17/mac-arm64/sun-harness.app/Contents/Frameworks/sun-harness Helper (Plugin).app
+--validated:/Users/sunqingguang/Downloads/06.code/sun-harness/apps/desktop/release/full-product-d17/mac-arm64/sun-harness.app/Contents/Frameworks/sun-harness Helper (GPU).app
+--prepared:/Users/sunqingguang/Downloads/06.code/sun-harness/apps/desktop/release/full-product-d17/mac-arm64/sun-harness.app/Contents/Frameworks/Electron Framework.framework/Versions/Current/.
+--prepared:/Users/sunqingguang/Downloads/06.code/sun-harness/apps/desktop/release/full-product-d17/mac-arm64/sun-harness.app/Contents/Frameworks/Electron Framework.framework/Versions/Current/Helpers/app_shim_loader
+--validated:/Users/sunqingguang/Downloads/06.code/sun-harness/apps/desktop/release/full-product-d17/mac-arm64/sun-harness.app/Contents/Frameworks/Electron Framework.framework/Versions/Current/Helpers/app_shim_loader
+--prepared:/Users/sunqingguang/Downloads/06.code/sun-harness/apps/desktop/release/full-product-d17/mac-arm64/sun-harness.app/Contents/Frameworks/Electron Framework.framework/Versions/Current/Helpers/chrome_crashpad_handler
+--validated:/Users/sunqingguang/Downloads/06.code/sun-harness/apps/desktop/release/full-product-d17/mac-arm64/sun-harness.app/Contents/Frameworks/Electron Framework.framework/Versions/Current/Helpers/chrome_crashpad_handler
+--validated:/Users/sunqingguang/Downloads/06.code/sun-harness/apps/desktop/release/full-product-d17/mac-arm64/sun-harness.app/Contents/Frameworks/Electron Framework.framework/Versions/Current/.
+release/full-product-d17/mac-arm64/sun-harness.app: valid on disk
+release/full-product-d17/mac-arm64/sun-harness.app: satisfies its Designated Requirement
+$ codesign -dv release/full-product-d17/mac-arm64/sun-harness.app
+Identifier=dev.sun-harness.desktop
+Format=app bundle with Mach-O thin (arm64)
+CodeDirectory v=20400 size=496 flags=0x2(adhoc) hashes=9+3 location=embedded
+Signature=adhoc
+Info.plist entries=33
+TeamIdentifier=not set
+Sealed Resources version=2 rules=13 files=13
+Internal requirements count=0 size=12
+asar out/main matches the current build (1 files)
+asar out/preload matches the current build (1 files)
+asar out/renderer matches the current build (15 files)
+sun-appshot present, executable, signature valid after signing (Mach-O 64-bit executable arm64)
+sun-computer present, executable, signature valid after signing (Mach-O 64-bit executable arm64)
+bundle sha256 of app.asar: f8710ea34ff204a9781f8780b1a6c65b6a9f121e183f9de84026127c0569a20f
+cdhash: 3658f97b6d8daadb8b40342203dda962bd1cb582

@@ -1,0 +1,60 @@
+✔ missing attachments keep the turn and healthy images in order (0.897334ms)
+DIAG replay source:
+function replay(events, readAttachment) {
+  const messages = [];
+  for (const event of events) {
+    if (event.type === 'assistant') messages.push({ role: 'assistant', text: event.text, images: [] });
+    if (event.type !== 'user') continue;
+    const images = [];
+    let missing = 0;
+    for (const path of event.attachments ?? []) {
+      try {
+        images.push(readAttachment(path));
+      } catch (error) {
+        if (error.code !== 'ENOENT') throw error;
+        missing += 1;
+      }
+    }
+    const text = missing > 0 ? `${event.text}\n[Missing attachments: ${missing}]` : event.text;
+    messages.push({ role: 'user', text, images });
+  }
+  return messages;
+}
+✔ missing attachments keep the user message and append a count (0.803208ms)
+✔ missing attachments are counted and successful images keep original order (0.087958ms)
+✔ the cursor advances past missing attachments so later images survive (0.095042ms)
+✔ assistant and user events replay in order without mutation (0.503917ms)
+✔ missing marker does not leak attachment paths (0.1265ms)
+✔ diagnostic: how does replay treat EACCES (0.365542ms)
+✖ non-ENOENT reader errors propagate (0.365625ms)
+✔ unrelated event types are ignored (0.07325ms)
+✔ a user event without attachments replays unchanged (0.068125ms)
+✔ intact attachment replay (0.710458ms)
+ℹ tests 11
+ℹ suites 0
+ℹ pass 10
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 46.679208
+
+✖ failing tests:
+
+test at test/additions.test.mjs:67:1
+✖ non-ENOENT reader errors propagate (0.365625ms)
+  AssertionError [ERR_ASSERTION]: Missing expected exception.
+      at TestContext.<anonymous> (file:///private/var/folders/4c/_fqg96ms18dc7mrmk9dfq32c0000gp/T/sun-eval-attachment-replay-LK4wrP/test/additions.test.mjs:69:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1201:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:831:18)
+      at Test.postRun (node:internal/test_runner/test:1330:19)
+      at Test.run (node:internal/test_runner/test:1258:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: { code: 'EACCES' },
+    operator: 'throws',
+    diff: 'simple'
+  }

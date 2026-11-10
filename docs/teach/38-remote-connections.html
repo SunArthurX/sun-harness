@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>38 — Remote connections and recovery</title>
+<body>
+<p><a href="index.html">Teaching index</a></p>
+<h1>Remote connections and recovery</h1>
+<p>The gateway already supported pinned TLS and per-device tokens. This
+milestone added live revocation, request receipts, browser authentication,
+and a desktop connection panel.</p>
+<pre class="mermaid">flowchart TD
+  A[Desktop endpoint] --> B[Preview TLS certificate]
+  B --> C[Confirm fingerprint]
+  C --> D[Pinned credential exchange]
+  D --> E[Read installation and gateway instance IDs]
+  E --> F[Activate the selected host]
+  F --> G[Invalidate old renderer generation]
+  F --> H[User preference write]
+  F --> I[Host setting write]
+  H --> J[Compare local configuration revision]
+  I --> K[Compare remote configuration revision]
+</pre>
+<h2>How does the gateway recognize a retry?</h2>
+<p>The client sends the same request ID after a lost response. The gateway
+scopes it to the authenticated device and checks the payload digest before
+reusing the first outcome. The acceptance window and gateway instance
+binding prevent a request from being executed again after its receipt is
+gone.</p>
+<pre class="mermaid">stateDiagram-v2
+  [*] --> Stale
+  Stale --> Refreshing: Event stream opens
+  Refreshing --> Ready: Identity and state refreshed
+  Ready --> Stale: Stream interrupted
+  Refreshing --> Stale: Refresh interrupted
+  Ready --> Revoked: Device access revoked
+  Revoked --> [*]
+</pre>
+<h2>What changes when a device is revoked?</h2>
+<p>The gateway closes that device's live streams and releases its approver
+registrations. If no authorized approver remains, pending approvals resolve
+as denied. A reply requires the exact prompt ID from the current host.
+Desktop calls carry the bound installation identity, and switching hosts
+invalidates requests from the old renderer document.</p>
+<h2>What happens to a draft during reconnect?</h2>
+<p>The client keeps the displayed state and disables host writes. When
+events resume, it refreshes settings, sessions, and approvals. The draft
+retains its original revision, so a concurrent settings change still
+requires review.</p>
+<p><a href="../plans/settings-competitors/evidence/T08.json">T08 evidence</a></p>
+<script type="module">import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';mermaid.initialize({startOnLoad:true});</script>
+</body>
+</html>

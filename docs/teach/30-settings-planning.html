@@ -1,0 +1,17 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>30 — Settings planning and anti-drift</title>
+<style>body{max-width:920px;margin:3rem auto;padding:0 1rem;font:18px/1.6 system-ui;color:#172331;background:#f7f8fa}pre{overflow:auto;padding:1rem;background:#e7edf2}a{color:#1459a1}</style>
+<body><a href="index.html">Teaching index</a><h1>Settings planning and anti-drift</h1>
+<p>This milestone delivers a design, not the planned product features. We inspected existing runtime seams before selecting competitor features, then mapped every screenshot entry to an implementation task or an explained deferral.</p>
+<h2>What questions shaped the design?</h2><p>Does a setting already exist? Is a feature native, browser-only or remote? Can configuration survive two writers? Can the exact review input be reconstructed? Which controls can the web renderer honestly expose? These questions led to revisioned settings, capability descriptors and durable input records.</p>
+<pre class="mermaid">flowchart LR
+ Evidence[Source and code evidence] --> Spec[Stable acceptance IDs]
+ Spec --> Tasks[Bounded tasks and dependencies]
+ Tasks --> Fixtures[Behavioral failure fixtures]
+ Fixtures --> Code[Host and adapter implementation]
+ Code --> Tests[Tests and manual verification]
+ Tests --> Reports[Evidence and documentation]
+ Reports --> Gate[Completion gate]</pre>
+<h2>Why a machine-readable plan?</h2><p>A prose plan can omit a screenshot entry, invent a dependency or claim completion prematurely. The manifest checker rejects missing coverage, cycles, unknown acceptance IDs and completion without evidence. Its negative tests mutate a valid plan to show that those mistakes fail. It is also called by the normal Vitest suite.</p>
+<h2>Limits of the harness</h2><p>File existence cannot prove correct behavior. Product tasks still need adversarial tests, restart and permission cases, bilingual UI checks and human evidence review. Smaller-model trials are specified but have not been run. A native adapter tested only with mocks is not a shipped computer-control feature.</p>
+<p><a href="../plans/settings-competitors/README.md">Execution pack</a> · <a href="../plans/settings-competitors/handoff.md">Fresh-agent protocol</a></p>
+<script type="module">import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';mermaid.initialize({startOnLoad:true});</script></body></html>

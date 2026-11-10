@@ -1,12 +1,23 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { buildContextReport, contextReportHtml, estimateTextTokens, formatContextReport } from '../src/index.js';
+import { ProviderError, applyRuleBudgets, buildContextReport, contextReportHtml, estimateTextTokens, formatContextReport } from '../src/index.js';
 import { call, mockHost, tempHome, tempWorkspace } from './helpers.js';
 
 const ev = (seq: number, body: any) => ({ seq, ts: new Date(1_800_000_000_000 + seq * 1000).toISOString(), ...body });
 
 describe('context report', () => {
+  it('keeps project and global rule budgets independent and points to omitted files', () => {
+    const sections = applyRuleBudgets([
+      { source: 'root', scope: 'project', text: 'project content' },
+      { source: 'user', scope: 'global', text: 'keep this' },
+      { source: 'later', scope: 'project', text: 'omit this' },
+    ], { projectMaxChars: 7, globalMaxChars: 20 });
+    expect(sections[0].text).toMatch(/^project\n\[truncated.*read root/);
+    expect(sections[1].text).toBe('keep this');
+    expect(sections[2].text).toMatch(/omitted.*read later/);
+  });
+
   it('breaks the next request into categories and honors compaction', () => {
     const events: any[] = [
       ev(0, { type: 'session/meta', id: 's', title: 't', mode: 'coding', cwd: '/w', model: 'm', createdAt: '' }),
@@ -83,6 +94,44 @@ describe('host: context usage, flags, titles', () => {
     expect(host.setSessionFlags(s.id, { pinned: true })).toMatchObject({ pinned: true });
     expect(host.setSessionFlags(s.id, { archived: true })).toMatchObject({ pinned: true, archived: true });
     expect(host.setSessionFlags(s.id, { pinned: false }).pinned).toBeUndefined();
+  });
+
+  it.each([true, false])('compacts a smaller model switch with the original model when usable (%s)', async (originalUsable) => {
+    const long = 'Original history marker. ' + 'older context content '.repeat(450);
+    const summary = { text: 'Compacted fixture summary.', toolCalls: [] };
+    const reply = { text: 'Replacement model completed.', toolCalls: [] };
+    const { host, providers } = await mockHost({
+      'mock/large': [{ text: 'Recorded older history.', toolCalls: [] }, originalUsable ? summary : new ProviderError('quota', 'Fixture quota')],
+      'mock/small': originalUsable ? [reply] : [summary, reply],
+    }, {
+      defaultModel: 'mock/large',
+      providers: { mock: { type: 'openai', baseUrl: 'http://mock', noKey: true, models: ['large', 'small'], modelContext: { large: 64_000, small: 2_000 } } },
+      compaction: { thresholdTokens: 12_000, buffer: '25%', keepRecent: 1 },
+    });
+    try {
+      const session = host.createSession({ cwd: tempWorkspace() });
+      await host.send(session.id, long);
+      await host.wait(session.id);
+      expect(host.getEvents(session.id).some(event => event.type === 'context/compaction')).toBe(false);
+      host.switchModel(session.id, 'mock/small');
+      await host.send(session.id, 'Now continue.');
+      expect(await host.wait(session.id)).toMatchObject({ status: 'idle' });
+      const oldCalls = providers.get('mock/large')!.requests;
+      const newCalls = providers.get('mock/small')!.requests;
+      expect(oldCalls[1].system).toMatch(/compress agent transcripts/);
+      expect(oldCalls[1].messages[0].content).toContain('Original history marker.');
+      expect(newCalls).toHaveLength(originalUsable ? 1 : 2);
+      if (!originalUsable) expect(newCalls[0].messages[0].content.length).toBeLessThanOrEqual(4500);
+      const compacted = host.getEvents(session.id).find(event => event.type === 'context/compaction');
+      expect(compacted).toMatchObject({ type: 'context/compaction', summary: summary.text });
+      expect(compacted?.model).toBe(originalUsable ? 'mock/large' : undefined);
+      const prompt = JSON.stringify(newCalls.at(-1)?.messages);
+      expect(prompt).toContain(summary.text);
+      expect(prompt).toContain('Now continue.');
+      expect(prompt).not.toContain('Original history marker.');
+    } finally {
+      await host.dispose();
+    }
   });
 
   it('writes a model title after the first run, but never over a rename', async () => {

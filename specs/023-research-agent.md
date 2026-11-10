@@ -34,6 +34,10 @@ Capability gating probes the chosen keyless provider (cached 10 minutes); keyed 
 
 `python(code, restart?, timeout_ms?)` (risk exec): one persistent `python3` process per session, started through the session's shell sandbox, speaking JSON lines. Cells share globals; the value of a final expression is echoed (`Out: …`); stdout/stderr are captured; exceptions return a short traceback; open matplotlib figures are saved to `figures/fig-N.png` in the workspace (`MPLBACKEND=Agg`). A timeout or abort restarts the kernel and says that state was lost.
 
+Decision — A cell cancelled before dispatch is never sent to the kernel and
+preserves existing state. Cancelling an active cell or reaching its deadline
+restarts the kernel and clears its state.
+
 ## Parallel subagents
 
 `task` is a read-risk tool, so several `task` calls in one model response run concurrently (each a child session with its own context). All concurrent tool batches are bounded by `config.maxParallelTools` (default 6) and are logged in call order. The agent-mode prompt tells the model to fan out this way.

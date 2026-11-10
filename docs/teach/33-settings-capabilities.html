@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>33 — Capability discovery and dispatch</title>
+<body>
+<p><a href="index.html">Teaching index</a></p>
+<h1>Capability discovery and dispatch</h1>
+<p>Settings clients need to know what the current host and surface can do.
+A versioned settings snapshot now includes stable capability IDs, current state,
+and reason codes. The same method table shapes the Electron and gateway responses.</p>
+<pre class="mermaid">flowchart LR
+  C[Client settings protocol] --> P{Version matches}
+  P -->|No| E[Protocol error]
+  P -->|Yes| S[Settings snapshot]
+  R[Runtime and extension registry] --> S
+  A[Native adapter] --> S
+  D[Desktop native invocation] --> N{Adapter still available}
+  N -->|Yes| A
+  N -->|No| U[Explicit capability error]
+  W[Gateway native invocation] --> H[Unknown route]
+</pre>
+<h2>Why check again at dispatch?</h2>
+<p>A capability can change while a client has an old snapshot or a tool call waits
+for approval. Reload removes old plugin registrations. The tool wrapper verifies
+that its original registration is still active before executing. It does not reuse
+an approval for a newly loaded tool with the same name.</p>
+<h2>How do failed plugins stay isolated?</h2>
+<p>The loader stages registrations during activation. Only successful activation
+publishes them. The capability descriptor includes a diagnostic code while the
+extension manager retains its existing local diagnostic text.</p>
+<p><a href="../plans/settings-competitors/evidence/T03.json">T03 evidence</a></p>
+<script type="module">import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';mermaid.initialize({startOnLoad:true});</script>
+</body>
+</html>

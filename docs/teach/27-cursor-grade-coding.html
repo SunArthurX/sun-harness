@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" /><meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>27 · Cursor-grade coding — sun-harness</title>
+<link rel="stylesheet" href="teach.css" />
+<script type="module">import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs'; mermaid.initialize({ startOnLoad: true, theme: 'neutral' });</script>
+</head>
+<body>
+<header class="top"><div class="wrap"><a class="brand" href="index.html">sun<em>harness</em> · teach</a><nav><a href="index.html">All pages</a></nav></div></header>
+<main class="wrap">
+<p class="muted">Release 0.9.0 · spec <code>specs/029-cursor-grade-coding.md</code></p>
+<h1>27 · Code the way <em>Cursor</em> does</h1>
+<p class="lede">Each competitor has a short list of things it does better. Most of those lists are already in sun-harness: sandbox, plan mode, checkpoints, LSP, memory, MCP. What was still missing, and what makes Cursor's agent feel oriented inside a repository, is three moves: find the code, attach the rule for that file, and review the diff without editing it.</p>
+
+<h2>What each product was best at</h2>
+<div class="mermaid">
+flowchart LR
+  C[Cursor] --> S[codebase search]
+  C --> R[glob rules and @rule]
+  C --> V[review the diff]
+  CC[Claude Code] --> S
+  CX[Codex] --> V
+  S --> H[HarnessHost]
+  R --> H
+  V --> H
+</div>
+<div class="qa"><p class="q">Why not ship a feature for every cell of the comparison?</p><p class="a">Manus's cloud computer, Hermes's self-written skills, and OpenCode's model menu are already covered or are a different product. Copying the label without a gap would only add surface. The spec table records the three strengths and marks the ones this release actually adds.</p></div>
+
+<h2>Search stays on disk</h2>
+<p>Cursor's index is a background embedding job. A personal harness should still answer "where is <code>chargeInvoice</code>?" with the laptop off the network. <code>codebase_search</code> chunks source files, scores them with the same BM25 tokenizer as the knowledge base, and if the query is a single identifier it also returns the matching definition from the repository map's patterns. The cache key is the file mtimes, so an edit shows up on the next search.</p>
+<div class="qa"><p class="q">How does a secret stay out of that index?</p><p class="a"><code>.cursorignore</code> and <code>.sunignore</code> are read with gitignore rules: <code>*</code>, <code>**</code>, <code>?</code>, a trailing slash for a directory, and <code>!</code> to un-ignore. <code>read_file</code>, <code>grep</code>, <code>glob</code>, and <code>@file</code> check the same list and return a refusal instead of the bytes. The model sees the refusal, not the token.</p></div>
+
+<h2>Rules that wake up when the file does</h2>
+<p>A rule with <code>globs: src/**/*.ts</code> used to be treated like any other description: a one-line hint, globs ignored. Now the body is appended only after the conversation has touched a matching path. The first request stays cacheable; the next request, after <code>read_file</code>, carries the rule. <code>@rule api</code> pulls a manual rule immediately.</p>
+<div class="mermaid">
+sequenceDiagram
+  participant U as User
+  participant A as Agent
+  participant P as Prompt
+  U->>A: edit the parser
+  A->>P: request 1, no file yet
+  A->>A: read_file src/parser.ts
+  A->>P: request 2 includes rules whose globs match src/parser.ts
+</div>
+<div class="qa"><p class="q">Why <code>*.ts</code> does not match <code>src/a.ts</code>?</p><p class="a">That is Cursor's rule table, not gitignore. A pattern with no slash is the project root. <code>**/*.ts</code> is every directory. Ignore files keep the gitignore meaning, because that is what <code>.cursorignore</code> documents.</p></div>
+
+<h2>Review is a reader</h2>
+<p><code>/review</code> builds the same diff as the Changes panel and asks the session model to name bugs, missing tests, and security issues. The answer is a <code>review/report</code> event. It is not fed back into <code>deriveMessages</code>, so a review does not silently become the agent's next instruction. An empty session does not spend a model call.</p>
+
+<h2>Lessons</h2>
+<ul>
+<li>A competitor matrix is a filter. Build the cell that is still empty and that changes how code gets written.</li>
+<li>File-scoped rules belong at the end of the prompt, after the model has actually opened the file, or the prefix cache breaks on every turn.</li>
+<li>Search, ignore, and review share one path check. A secret that search can quote is not ignored.</li>
+</ul>
+</main>
+</body>
+</html>

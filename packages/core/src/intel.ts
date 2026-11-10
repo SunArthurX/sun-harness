@@ -1,4 +1,4 @@
-import { localDate } from './util/date.js';
+import { isCalendarDate, localDate, requireCalendarDate } from './util/date.js';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
@@ -268,7 +268,7 @@ export async function runIntel(opts: IntelOptions): Promise<IntelRunResult> {
   }
   if (errors.length) report += `\n\n## Fetch errors\n\n${errors.map((e) => `- ${e.source}: ${e.error}`).join('\n')}\n`;
 
-  const reportPath = homePath('intel', 'reports', `${date}.md`);
+  const reportPath = intelReportFile(date);
   const htmlPath = homePath('intel', 'reports', `${date}.html`);
   writeFileSync(reportPath, report);
   writeFileSync(htmlPath, htmlPage(`Harness Intel ${date}`, markdownToHtml(report)));
@@ -279,12 +279,12 @@ export async function runIntel(opts: IntelOptions): Promise<IntelRunResult> {
 
 /** Re-run analysis for a day whose raw items were saved but not analyzed (e.g. quota ran out). */
 export async function analyzeIntelDay(date: string, complete: Complete): Promise<IntelRunResult> {
+  const reportPath = intelReportFile(date);
   const raw = JSON.parse(readFileSync(homePath('intel', 'raw', `${date}.json`), 'utf8')) as { items: IntelItem[]; errors: IntelRunResult['errors'] };
   const items = raw.items;
   const notes = items.map((i) => `=== ${i.title}\nURL: ${i.url}\nDate: ${i.publishedAt ?? 'n/a'}\n${i.body.slice(0, 3500)}`).join('\n\n');
   const answer = items.length ? await complete(ANALYSIS_SYSTEM, `Date: ${date}\n\nSource notes (${items.length} items):\n\n${notes.slice(0, 120_000)}`) : `# Harness Intel — ${date}\n\nNo items.\n`;
   const { report, proposals } = fileIdeas(answer, date);
-  const reportPath = homePath('intel', 'reports', `${date}.md`);
   const htmlPath = homePath('intel', 'reports', `${date}.html`);
   writeFileSync(reportPath, report);
   writeFileSync(htmlPath, htmlPage(`Harness Intel ${date}`, markdownToHtml(report)));
@@ -293,17 +293,21 @@ export async function analyzeIntelDay(date: string, complete: Complete): Promise
 
 export function listIntelReports(): { date: string; path: string; html: string; pending: boolean }[] {
   const d = ensureDir(homePath('intel', 'reports'));
-  return readdirSync(d)
-    .filter((f) => f.endsWith('.md'))
-    .map((f) => {
+  return readdirSync(d, { withFileTypes: true })
+    .filter(entry => entry.isFile() && entry.name.endsWith('.md') && isCalendarDate(entry.name.slice(0, -3)))
+    .map(({ name: f }) => {
       const p = join(d, f);
       return { date: f.slice(0, -3), path: p, html: p.replace(/\.md$/, '.html'), pending: readFileSync(p, 'utf8').includes('> Analysis pending') };
     })
     .sort((a, b) => b.date.localeCompare(a.date));
 }
 
+export function intelReportFile(date: string): string {
+  return homePath('intel', 'reports', `${requireCalendarDate(date)}.md`);
+}
+
 export function readIntelReport(date: string): string {
-  return readFileSync(homePath('intel', 'reports', `${date}.md`), 'utf8');
+  return readFileSync(intelReportFile(date), 'utf8');
 }
 
 /**

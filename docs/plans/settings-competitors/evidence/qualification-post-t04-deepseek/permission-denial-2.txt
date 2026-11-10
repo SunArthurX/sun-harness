@@ -1,0 +1,17 @@
+✔ both locales use the denied state without exposing the adapter error (1.043625ms)
+✔ denied renders localized denial state with action disabled (0.740125ms)
+✔ english and chinese locales expose the same keys (0.081083ms)
+✔ capture is not called for denied status (0.113042ms)
+✔ available status still captures and stays enabled (0.559958ms)
+✔ unavailable status never calls capture and stays disabled (0.099542ms)
+✔ PERMISSION_DENIED during capture resolves to denial state without raw error text (0.140417ms)
+✔ other adapter failures keep rejecting (0.292792ms)
+✔ unavailable remains disabled (0.378875ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 9
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 45.927625

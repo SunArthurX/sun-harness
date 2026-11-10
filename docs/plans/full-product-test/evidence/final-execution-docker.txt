@@ -1,0 +1,1 @@
+Local Docker ran a reviewed command in an isolated container and durably acknowledged cancellation of only that container. No delayed write survived.

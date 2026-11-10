@@ -1,9 +1,11 @@
 import { localDate } from './util/date.js';
-import { appendFileSync, existsSync, readFileSync, readdirSync, statSync, rmSync } from 'node:fs';
+import { appendFileSync, closeSync, existsSync, fsyncSync, lstatSync, openSync, readFileSync, readdirSync, renameSync, statSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
+import { withStorageLock } from './settings/storage-lock.js';
 import { ensureDir, homePath } from './paths.js';
 import type { RunStatus, SessionEvent, SessionEventBody, SessionSummary } from './types.js';
+import type { WorktreeInfo } from './worktree.js';
 
 /**
  * Append-only JSONL session log. One file per session; the file is the source of truth.
@@ -13,19 +15,25 @@ export class SessionLog {
   readonly id: string;
   readonly file: string;
   private events: SessionEvent[] = [];
+  private bytes = 0;
 
   private constructor(id: string, file: string) {
     this.id = id;
     this.file = file;
-    if (existsSync(file)) {
-      const text = readFileSync(file, 'utf8');
-      for (const line of text.split('\n')) {
-        if (!line.trim()) continue;
-        try {
-          this.events.push(JSON.parse(line));
-        } catch {
-          // A torn final line (crash mid-write) is ignored; earlier lines stay valid.
-        }
+    if (existsSync(file)) this.reload();
+  }
+
+  private reload(): void {
+    const raw = readFileSync(this.file);
+    this.bytes = raw.length;
+    this.events = [];
+    const text = raw.toString('utf8');
+    for (const line of text.split('\n')) {
+      if (!line.trim()) continue;
+      try {
+        this.events.push(JSON.parse(line));
+      } catch {
+        // A torn final line (crash mid-write) is ignored; earlier lines stay valid.
       }
     }
   }
@@ -34,11 +42,41 @@ export class SessionLog {
     return ensureDir(homePath('sessions'));
   }
 
-  static open(id: string): SessionLog {
-    return new SessionLog(id, join(SessionLog.dir(), `${id}.jsonl`));
+  private static path(id: string): string {
+    if (!/^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$/.test(id)) throw new Error('Invalid session ID.');
+    const dir = SessionLog.dir();
+    const installed = join(dir, id);
+    return lstatSync(installed, { throwIfNoEntry: false })?.isDirectory()
+      ? join(installed, 'session.jsonl')
+      : join(dir, `${id}.jsonl`);
   }
 
-  static create(meta: { title?: string; mode: string; cwd: string; model: string; parent?: string; worktree?: { repo: string; path: string; branch: string; base: string }; approval?: 'suggest' | 'auto-edit' | 'full-auto'; sandbox?: 'off' | 'auto' | 'seatbelt' | 'bwrap' | 'docker'; forkOf?: { session: string; seq: number } }): SessionLog {
+  static open(id: string): SessionLog {
+    return new SessionLog(id, SessionLog.path(id));
+  }
+
+  static publishImport(id: string, staging: string): void {
+    withStorageLock(() => {
+      const target = join(SessionLog.dir(), id);
+      if (SessionLog.exists(id) || lstatSync(target, { throwIfNoEntry: false })) throw new Error('Session ID already exists.');
+      renameSync(staging, target);
+      if (process.platform === 'win32') return;
+      try {
+        const fd = openSync(SessionLog.dir(), 'r');
+        try { fsyncSync(fd); } finally { closeSync(fd); }
+      } catch {
+        // Publication already committed. Some filesystems do not support directory synchronization.
+      }
+    });
+  }
+
+  attachmentDir(): string {
+    return this.file === join(SessionLog.dir(), this.id, 'session.jsonl')
+      ? join(SessionLog.dir(), this.id, 'attachments')
+      : homePath('attachments', this.id);
+  }
+
+  static create(meta: { title?: string; mode: string; cwd: string; model: string; parent?: string; worktree?: WorktreeInfo; approval?: 'suggest' | 'auto-edit' | 'full-auto'; sandbox?: 'off' | 'auto' | 'seatbelt' | 'bwrap' | 'docker'; forkOf?: { session: string; seq: number }; importedThrough?: number }): SessionLog {
     const id = `${localDate().replace(/-/g, '')}-${randomUUID().slice(0, 8)}`;
     const log = SessionLog.open(id);
     log.append({
@@ -54,24 +92,27 @@ export class SessionLog {
       ...(meta.approval ? { approval: meta.approval } : {}),
       ...(meta.sandbox ? { sandbox: meta.sandbox } : {}),
       ...(meta.forkOf ? { forkOf: meta.forkOf } : {}),
+      ...(meta.importedThrough === undefined ? {} : { importedThrough: meta.importedThrough }),
     });
     return log;
   }
 
   static exists(id: string): boolean {
-    return existsSync(join(SessionLog.dir(), `${id}.jsonl`));
+    return existsSync(SessionLog.path(id));
   }
 
   static delete(id: string): void {
-    rmSync(join(SessionLog.dir(), `${id}.jsonl`), { force: true });
+    withStorageLock(() => rmSync(SessionLog.path(id), { force: true }));
   }
 
   static list(): SessionSummary[] {
     const dir = SessionLog.dir();
     const out: SessionSummary[] = [];
-    for (const f of readdirSync(dir)) {
-      if (!f.endsWith('.jsonl')) continue;
-      const log = SessionLog.open(f.slice(0, -6));
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const id = entry.isDirectory() ? entry.name : entry.isFile() && entry.name.endsWith('.jsonl') ? entry.name.slice(0, -6) : '';
+      if (!/^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$/.test(id)) continue;
+      if (entry.isDirectory() && !lstatSync(join(dir, id, 'session.jsonl'), { throwIfNoEntry: false })?.isFile()) continue;
+      const log = SessionLog.open(id);
       const s = log.summary();
       if (s) {
         s.updatedAt = statSync(log.file).mtime.toISOString();
@@ -81,11 +122,18 @@ export class SessionLog {
     return out.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
   }
 
-  append(body: SessionEventBody): SessionEvent {
-    const event = { seq: this.events.length, ts: new Date().toISOString(), ...body } as SessionEvent;
-    appendFileSync(this.file, JSON.stringify(event) + '\n');
-    this.events.push(event);
-    return event;
+  append(body: SessionEventBody, flush = false): SessionEvent {
+    return withStorageLock(() => {
+      const current = statSync(this.file, { throwIfNoEntry: false });
+      if (body.type !== 'session/meta' && !current) throw new Error('Session is no longer available.');
+      if (current && current.size !== this.bytes) this.reload();
+      const event = { seq: this.events.length, ts: new Date().toISOString(), ...body } as SessionEvent;
+      const line = JSON.stringify(event) + '\n';
+      appendFileSync(this.file, line, { flush });
+      this.bytes += Buffer.byteLength(line);
+      this.events.push(event);
+      return event;
+    });
   }
 
   all(): readonly SessionEvent[] {

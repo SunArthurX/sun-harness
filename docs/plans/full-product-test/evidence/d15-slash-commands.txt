@@ -1,0 +1,172 @@
+$ node --test --test-name-pattern='interactive slash commands' packages/cli/e2e/product.mjs
+✖ interactive slash commands inspect, revert, report, export and rewind a session (770.533208ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 832.788083
+
+✖ failing tests:
+
+test at packages/cli/e2e/product.mjs:267:1
+✖ interactive slash commands inspect, revert, report, export and rewind a session (770.533208ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /Rewound into session [0-9a-f-]{36}\. Message 1 was:/. Input:
+  
+  '\x1B[1msun-harness\x1B[0m\x1B[2m  session 20261110-2fd97f6a · coding · fixture/one · /private/var/folders/4c/_fqg96ms18dc7mrmk9dfq32c0000gp/T/sun-cli-product-OA4ve4/workspace\x1B[0m\n' +
+    '\x1B[2mType /help for commands. Ctrl+C aborts a run; /exit quits.\x1B[0m\n' +
+    '\x1B[1m\n' +
+    '› \x1B[0m\x1B[36m  ⏺ write_file\x1B[0m\x1B[2m {"path":"fixture.txt","content":"isolated fixture bytes"}\x1B[0m\n' +
+    '\x1B[32m  ✓\x1B[0m \x1B[2mwrite_file\x1B[0m \x1B[2mCreated fixture.txt (1 lines)\x1B[0m\n' +
+    'Observed fixture result.\n' +
+    '\x1B[1m1 file changed\x1B[0m in this turn \x1B[32m+1\x1B[0m \x1B[31m−0\x1B[0m\n' +
+    '  \x1B[32mA\x1B[0m fixture.txt  \x1B[2m+1 −0\x1B[0m\n' +
+    '\x1B[2m  /diff [path] shows the diff · /revert <path> restores a file · /changes all for the whole session\x1B[0m\n' +
+    '\x1B[2mfixture/one · coding · 0.0k tok\x1B[0m\n' +
+    '\x1B[1m\n' +
+    '› \x1B[0m/changes\n' +
+    '\x1B[1m1 file changed\x1B[0m in the last turn \x1B[32m+1\x1B[0m \x1B[31m−0\x1B[0m\n' +
+    '  \x1B[32mA\x1B[0m fixture.txt  \x1B[2m+1 −0\x1B[0m\n' +
+    '\x1B[2m  /diff [path] shows the diff · /revert <path> restores a file · /changes all for the whole session\x1B[0m\n' +
+    '\x1B[1m\n' +
+    '› \x1B[0m/diff fixture.txt\n' +
+    '--- a/fixture.txt\n' +
+    '+++ b/fixture.txt\n' +
+    '\x1B[36m@@ -1,0 +1,1 @@\x1B[0m\n' +
+    '\x1B[32m+isolated fixture bytes\x1B[0m\n' +
+    '\x1B[1m\n' +
+    '› \x1B[0m/revert fixture.txt\n' +
+    'Reverted fixture.txt to its state before this session (/undo brings the edit back).\n' +
+    '\x1B[1m\n' +
+    '› \x1B[0m/undo\n' +
+    'Undid 1 edit step; restored 1 file:\n' +
+    '\x1B[2m  /private/var/folders/4c/_fqg96ms18dc7mrmk9dfq32c0000gp/T/sun-cli-product-OA4ve4/workspace/fixture.txt\x1B[0m\n' +
+    '\x1B[1m\n' +
+    '› \x1B[0m/review\n' +
+    'The review could not be completed. Run Review again.\n' +
+    '\x1B[1m\n' +
+    '› \x1B[0m/context\n' +
+    'Context · fixture/one · 4.0k / 128k tokens (3.1%) · compacts at 96k\n' +
+    '█░░░░░░░░░░░░░░░░░░░░░░░░░░░░░  ░░░░░░░░░░ of compaction threshold\n' +
+    'No request yet.\n' +
+    '\n' +
+    'System prompt           423   11%\n' +
+    '       247  Coding mode instructions\n' +
+    '        92  Environment\n' +
+    '        17  Knowledge base\n' +
+    '        67  Untrusted content\n' +
+    'Tool definitions       3.4k   86%\n' +
+    '       158  memory_save\n' +
+    '       146  apply_patch\n' +
+    '       141  make_slides\n' +
+    '       125  wide_research\n' +
+    '       124  bash\n' +
+    '       122  python\n' +
+    'User messages            72    2%\n' +
+    '        35  (system) [The user reverted fixture.txt to its state before this sess\n' +
+    '        29  (system) [The user undid your last 1 change: fixture.txt restored. Re\n' +
+    '         8  exercise edit\n' +
+    'Assistant messages       45    1%\n' +
+    '        35  → write_file\n' +
+    '        10  Observed fixture result.\n' +
+    'Tool results             12    0%\n' +
+    '        12  write_file (1×)\n' +
+    '\n' +
+    '→ 39 tool definitions take 86%: disable MCP servers you do not need in this project.\n' +
+    '\x1B[1m\n' +
+    '› \x1B[0m/cost\n' +
+    '\x1B[2mfixture/one · coding · 0.0k tok\x1B[0m\n' +
+    '\x1B[1m\n' +
+    '› \x1B[0m/compact\n' +
+    '\x1B[2m  [context compacted]\x1B[0m\n' +
+    'Compacted older history into a summary.\n' +
+    '\x1B[1m\n' +
+    '› \x1B[0m/export jsonl /var/folders/4c/_fqg96ms18dc7mrmk9dfq32c0000gp/T/sun-cli-product-OA4ve4/slash-export.jsonl\n' +
+    'Exported to /var/folders/4c/_fqg96ms18dc7mrmk9dfq32c0000gp/T/sun-cli-product-OA4ve4/slash-export.jsonl\n' +
+    '\x1B[1m\n' +
+    '› \x1B[0m/sessions\n' +
+    '  20261110-2fd97f6a  \x1B[2midle\x1B[0m         \x1B[2mcoding   \x1B[0m exercise edit                                      \x1B[2m     ctx · fixture/one\x1B[0m\n' +
+    '\x1B[1m\n' +
+    '› \x1B[0m/reflect\n' +
+    '\x1B[31m✗ /reflect failed: Reflection returned no JSON proposals: Fixture response.\x1B[0m\n' +
+    '\x1B[1m\n' +
+    '› \x1B[0m/help\n' +
+    'sun — personal agent harness\n' +
+    '\n' +
+    'Usage:\n' +
+    '  sun [chat] [--mode coding|plan|agent|assistant] [--model provider/model] [--cwd dir] [--worktree]   Interactive session\n' +
+    '  sun run "<prompt>" [--mode ..] [--model ..] [--approval suggest|auto-edit|full-auto] [--worktree] [--json]\n' +
+    `  sun run "<prompt>" --best-of N [--model a,b] [--apply]   N parallel worktree attempts judged by the project's tests\n` +
+    "  sun undo <sessionId> [--steps n]   Revert the session's last file edits (checkpoints)\n" +
+    '  sun browser status | login [url] [--profile name] | stop\n' +
+    '  sun browser permissions [set <origin> <browse|upload|download> <allow|deny|ask>] [--remote name | --local]\n' +
+    '  sun export <sessionId> [--format markdown|html|jsonl|bundle] [-o file]\n' +
+    '  sun import <file.jsonl|file.sunbundle> [--cwd workspace] | sun search <text> | sun commands\n' +
+    "  sun context <sessionId> [--format html -o report.html]   What fills the session's context (and how to shrink it)\n" +
+    '  sun changes <sessionId> [--diff | --json]   Files the session changed (A/M/D, +/−); diffs\n' +
+    '  sun automations list | add "<when>" "<prompt>" | preview <when> | run <id> | pause | resume | edit <id> [--schedule --prompt --title] | rm | history <id>\n' +
+    '  sun pin | unpin | archive | unarchive <sessionId>        Organize sessions (sun sessions --all shows archived)\n' +
+    '  sun run "<prompt>" --output stream-json [--image shot.png]   JSON lines for scripts; attach images\n' +
+    '  sun memory list | search <query> | add <text> [--kind preference] | rm <id> | extract <sessionId>   Long-term memory\n' +
+    '  sun briefing run | show [date] | enable [--at 08:30] | disable    Daily briefing (runs in the gateway/desktop background)\n' +
+    '  sun hooks list | trust <id> <digest> | revoke <id> <digest> [--cwd dir]\n' +
+    '  sun hooks preview <id> <digest> [--fixture read|shell|edit] [--cwd dir]\n' +
+    '  sun hooks test <id> <digest> --execute [--fixture read|shell|edit] [--cwd dir]\n' +
+    '  sun trigger list | fire <id> [payload]    Event triggers (file watches, webhooks: POST /trigger/<id>)\n' +
+    '  sun metrics [--days 7]      Conversation efficiency per mode\n' +
+    '  sun voice transcribe <audio-file> | record [--seconds 8]   Speech to text (config.voice.stt)\n' +
+    '  sun sandbox status | test   Shell sandbox in use (seatbelt / bwrap / docker / none) and a quick self-test\n' +
+    '  Session flags: --sandbox off|auto|seatbelt|bwrap|docker  (per session; default from config.sandbox.mode)\n' +
+    '  sun resume <sessionId> [--model provider/model] [--chat]\n' +
+    '  sun sessions | sun show <sessionId>\n' +
+    '  sun models | sun modes\n' +
+    '  sun init                         Scaffold AGENTS.md, specs/, .sun/ in the current project\n' +
+    '  sun intel run [--force] | analyze <date> | list | show [date] | install-schedule | uninstall-schedule\n' +
+    '  sun kb search <query> | add <title> <file> | index | stats\n' +
+    '  sun evolve reflect <sessionId> | list | accept <id> | reject <id>\n' +
+    '  sun worktree list | status <id> | diff <id> | merge <id> [--strategy squash|merge] | discard <id>\n' +
+    '  sun worktree preview <id...> | cleanup <revision> <id...> | setup <id> <hook-id> <digest> | reconcile <id>\n' +
+    '  sun skills | sun mcp [presets | add <preset>] | sun schedules\n' +
+    '  sun plugins [list | enable <name> | disable <name>] [--local | --remote <name>]\n' +
+    '  sun serve [--port 4471] [--host 127.0.0.1]   Run the gateway (owns sessions; web UI; CLI/desktop attach)\n' +
+    '  sun serve --tls [--host 0.0.0.0]              HTTPS with a self-signed, client-pinned certificate (required off localhost)\n' +
+    '  sun gateway status | url | install [--tls --host ..] | uninstall   Gateway as a login service (launchd)\n' +
+    '  sun gateway token create <device> | list | revoke <id|name>      Per-device tokens for remote clients and bots\n' +
+    '  sun remote add <name> <url> --token <t> [--fingerprint <sha256>] | list | use <name> | off | remove <name>\n' +
+    '  sun eval validate | run [--label x] [--model ..] [--only a,b] [--concurrency 4] [--best-of N] | list | report [run] | compare <a> <b>\n' +
+    '  sun doctor\n' +
+    '  sun capabilities                     # machine-readable settings capability states\n' +
+    '  sun desktop                      Launch the desktop app (from a source checkout)\n' +
+    '\n' +
+    'Session commands (chat, run, resume, sessions) use --remote <name>, else the default remote, else a local gateway; --local runs in-process.\n' +
+    '\n' +
+    'Chat commands: /model <ref>  /mode <id> (coding|plan|agent|assistant)  /undo [n]  /rewind [n] [files]  /changes [all]  /diff [path]  /revert <path>  /review  /context  /compact  /cost  /export [md|html|jsonl] [file]  /voice [seconds]  /<custom>  /resume  /abort  /reflect  /sessions  /help  /exit\n' +
+    'Home: /var/folders/4c/_fqg96ms18dc7mrmk9dfq32c0000gp/T/sun-cli-product-OA4ve4\n' +
+    '\x1B[1m\n' +
+    '› \x1B[0m/rewind\n' +
+    '  1  exercise edit\n' +
+    '\x1B[2m/rewind <n> [files] — new session with the conversation before message n; "files" also undoes its file edits.\x1B[0m\n' +
+    '\x1B[1m\n' +
+    '› \x1B[0m/rewind 1\n' +
+    'Rewound into session 20261110-35e72a72. Message 1 was:\n' +
+    '\x1B[2mexercise edit\x1B[0m\n' +
+    'Type it again (edited) or anything else.\n' +
+    '\x1B[1m\n' +
+    '› \x1B[0m/not-a-command\n' +
+    'Unknown command /not-a-command\n' +
+    '\x1B[1m\n' +
+    '› \x1B[0m/exit\n'
+  
+      at TestContext.<anonymous> (file:///Users/sunqingguang/Downloads/06.code/sun-harness/packages/cli/e2e/product.mjs:284:12)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1208:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:385:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: `\x1B[1msun-harness\x1B[0m\x1B[2m  session 20261110-2fd97f6a · coding · fixture/one · /private/var/folders/4c/_fqg96ms18dc7mrmk9dfq32c0000gp/T/sun-cli-product-OA4ve4/workspace\x1B[0m\n\x1B[2mType /help for commands. Ctrl+C aborts a run; /exit quits.\x1B[0m\n\x1B[1m\n› \x1B[0m\x1B[36m  ⏺ write_file\x1B[0m\x1B[2m {"path":"fixture.txt","content":"isolated fixture bytes"}\x1B[0m\n\x1B[32m  ✓\x1B[0m \x1B[2mwrite_file\x1B[0m \x1B[2mCreated fixture.txt (1 lines)\x1B[0m\nObserved fixture result.\n\x1B[1m1 file changed\x1B[0m in this turn \x1B[32m+1\x1B[0m \x1B[31m−0\x1B[0m\n  \x1B[32mA\x1B[0m fixture.txt  \x1B[2m+1 −0\x1B[0m\n\x1B[2m  /diff [path] shows the diff · /revert <path> restores a file · /changes all for the whole session\x1B[0m\n\x1B[2mfixture/one · coding · 0.0k tok\x1B[0m\n\x1B[1m\n› \x1B[0m/changes\n\x1B[1m1 file changed\x1B[0m in the last turn \x1B[32m+1\x1B[0m \x1B[31m−0\x1B[0m\n  \x1B[32mA\x1B[0m fixture.txt  \x1B[2m+1 −0\x1B[0m\n\x1B[2m  /diff [path] shows the diff · /revert <path> restores a file · /changes all for the whole session\x1B[0m\n\x1B[1m\n› \x1B[0m/diff fixture.txt\n--- a/fixture.txt\n+++ b/fixture.txt\n\x1B[36m@@ -1,0 +1,1 @@\x1B[0m\n\x1B[32m+isolated fixture bytes\x1B[0m\n\x1B[1m\n› \x1B[0m/revert fixture.txt\nReverted fixture.txt to its state before this session (/undo brings the edit back).\n\x1B[1m\n› \x1B[0m/undo\nUndid 1 edit step; restored 1 file:\n\x1B[2m  /private/var/folders/4c/_fqg96ms18dc7mrmk9dfq32c0000gp/T/sun-cli-product-OA4ve4/workspace/fixture.txt\x1B[0m\n\x1B[1m\n› \x1B[0m/review\nThe review could not be completed. Run Review again.\n\x1B[1m\n› \x1B[0m/context\nContext · fixture/one · 4.0k / 128k tokens (3.1%) · compacts at 96k\n█░░░░░░░░░░░░░░░░░░░░░░░░░░░░░  ░░░░░░░░░░ of compaction threshold\nNo request yet.\n\nSystem prompt           423   11%\n       247  Coding mode instructions\n        92  Environment\n        17  Knowledge base\n        67  Untrusted content\nTool definitions       3.4k   86%\n       158  memory_save\n       146  apply_patch\n       141  make_slides\n       125  wide_research\n       124  bash\n       122  python\nUser messages            72    2%\n        35  (system) [The user reverted fixture.txt to its state before this sess\n        29  (system) [The user undid your last 1 change: fixture.txt restored. Re\n         8  exercise edit\nAssistant messages       45    1%\n        35  → write_file\n        10  Observed fixture result.\nTool results             12    0%\n        12  write_file (1×)\n\n→ 39 tool definitions take 86%: disable MCP servers you do not need in this project.\n\x1B[1m\n› \x1B[0m/cost\n\x1B[2mfixture/one · coding · 0.0k tok\x1B[0m\n\x1B[1m\n› \x1B[0m/compact\n\x1B[2m  [context compacted]\x1B[0m\nCompacted older history into a summary.\n\x1B[1m\n› \x1B[0m/export jsonl /var/folders/4c/_fqg96ms18dc7mrmk9dfq32c0000gp/T/sun-cli-product-OA4ve4/slash-export.jsonl\nExported to /var/folders/4c/_fqg96ms18dc7mrmk9dfq32c0000gp/T/sun-cli-product-OA4ve4/slash-export.jsonl\n\x1B[1m\n› \x1B[0m/sessions\n  20261110-2fd97f6a  \x1B[2midle\x1B[0m         \x1B[2mcoding   \x1B[0m exercise edit                                      \x1B[2m     ctx · fixture/one\x1B[0m\n\x1B[1m\n› \x1B[0m/reflect\n\x1B[31m✗ /reflect failed: Reflection returned no JSON proposals: Fixture response.\x1B[0m\n\x1B[1m\n› \x1B[0m/help\nsun — personal agent harness\n\nUsage:\n  sun [chat] [--mode coding|plan|agent|assistant] [--model provider/model] [--cwd dir] [--worktree]   Interactive session\n  sun run "<prompt>" [--mode ..] [--model ..] [--approval suggest|auto-edit|full-auto] [--worktree] [--json]\n  sun run "<prompt>" --best-of N [--model a,b] [--apply]   N parallel worktree attempts judged by the project's tests\n  sun undo <sessionId> [--steps n]   Revert the session's last file edits (checkpoints)\n  sun browser status | login [url] [--profile name] | stop\n  sun browser permissions [set <origin> <browse|upload|download> <allow|deny|ask>] [--remote name | --local]\n  sun export <sessionId> [--format markdown|html|jsonl|bundle] [-o file]\n  sun import <file.jsonl|file.sunbundle> [--cwd workspace] | sun search <text> | sun commands\n  sun context <sessionId> [--format html -o report.html]   What fills the session's context (and how to shrink it)\n  sun changes <sessionId> [--diff | --json]   Files the session changed (A/M/D, +/−); diffs\n  sun automations list | add "<when>" "<prompt>" | preview <when> | run <id> | pause | resume | edit <id> [--schedule --prompt --title] | rm | history <id>\n  sun pin | unpin | archive | unarchive <sessionId>        Organize sessions (sun sessions --all shows archived)\n  sun run "<prompt>" --output stream-json [--image shot.png]   JSON lines for scripts; attach images\n  sun memory list | search <query> | add <text> [--kind preference] | rm <id> | extract <sessionId>   Long-term memory\n  sun briefing run | show [date] | enable [--at 08:30] | disable    Daily briefing (runs in the gateway/desktop background)\n  sun hooks list | trust <id> <digest> | revoke <id> <digest> [--cwd dir]\n  sun hooks preview <id> <digest> [--fixture read|shell|edit] [--cwd dir]\n  sun hooks test <id> <digest> --execute [--fixture read|shell|edit] [--cwd dir]\n  sun trigger list | fire <id> [payload]    Event triggers (file watches, webhooks: POST /trigger/<id>)\n  sun metrics [--days 7]      Conversation efficiency per mode\n  sun voice transcribe <audio-file> | record [--seconds 8]   Speech to text (config.voice.stt)\n  sun sandbox status | test   Shell sandbox in use (seatbelt / bwrap / docker / none) and a quick self-test\n  Session flags: --sandbox off|auto|seatbelt|bwrap|docker  (per session; default from config.sandbox.mode)\n  sun resume <sessionId> [--model provider/model] [--chat]\n  sun sessions | sun show <sessionId>\n  sun models | sun modes\n  sun init                         Scaffold AGENTS.md, specs/, .sun/ in the current project\n  sun intel run [--force] | analyze <date> | list | show [date] | install-schedule | uninstall-schedule\n  sun kb search <query> | add <title> <file> | index | stats\n  sun evolve reflect <sessionId> | list | accept <id> | reject <id>\n  sun worktree list | status <id> | diff <id> | merge <id> [--strategy squash|merge] | discard <id>\n  sun worktree preview <id...> | cleanup <revision> <id...> | setup <id> <hook-id> <digest> | reconcile <id>\n  sun skills | sun mcp [presets | add <preset>] | sun schedules\n  sun plugins [list | enable <name> | disable <name>] [--local | --remote <name>]\n  sun serve [--port 4471] [--host 127.0.0.1]   Run the gateway (owns sessions; web UI; CLI/desktop attach)\n  sun serve --tls [--host 0.0.0.0]              HTTPS with a self-signed, client-pinned certificate (required off localhost)\n  sun gateway status | url | install [--tls --host ..] | uninstall   Gateway as a login service (launchd)\n  sun gateway token create <device> | list | revoke <id|name>      Per-device tokens for remote clients and bots\n  sun remote add <name> <url> --token <t> [--fingerprint <sha256>] | list | use <name> | off | remove <name>\n  sun eval validate | run [--label x] [--model ..] [--only a,b] [--concurrency 4] [--best-of N] | list | report [run] | compare <a> <b>\n  sun doctor\n  sun capabilities                     # machine-readable settings capability states\n  sun desktop                      Launch the desktop app (from a source checkout)\n\nSession commands (chat, run, resume, sessions) use --remote <name>, else the default remote, else a local gateway; --local runs in-process.\n\nChat commands: /model <ref>  /mode <id> (coding|plan|agent|assistant)  /undo [n]  /rewind [n] [files]  /changes [all]  /diff [path]  /revert <path>  /review  /context  /compact  /cost  /export [md|html|jsonl] [file]  /voice [seconds]  /<custom>  /resume  /abort  /reflect  /sessions  /help  /exit\nHome: /var/folders/4c/_fqg96ms18dc7mrmk9dfq32c0000gp/T/sun-cli-product-OA4ve4\n\x1B[1m\n› \x1B[0m/rewind\n  1  exercise edit\n\x1B[2m/rewind <n> [files] — new session with the conversation before message n; "files" also undoes its file edits.\x1B[0m\n\x1B[1m\n› \x1B[0m/rewind 1\nRewound into session 20261110-35e72a72. Message 1 was:\n\x1B[2mexercise edit\x1B[0m\nType it again (edited) or anything else.\n\x1B[1m\n› \x1B[0m/not-a-command\nUnknown command /not-a-command\n\x1B[1m\n› \x1B[0m/exit\n`,
+    expected: /Rewound into session [0-9a-f-]{36}\. Message 1 was:/,
+    operator: 'match',
+    diff: 'simple'
+  }

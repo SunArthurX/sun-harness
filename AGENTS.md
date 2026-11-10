@@ -5,8 +5,9 @@ They exist to prevent drift: the product must keep matching its specs.
 
 ## 1. Language
 
-- **All documentation, specs, comments, commit messages, UI copy, and generated reports are written in English.**
-- Chat with the owner may be in any language; artifacts stay English.
+- **Documentation, specs, comments, commit messages, and generated reports are written in English.**
+- **Desktop and web UI copy is authored in English and must ship with Simplified Chinese** in the same change (`t()` / `tk()`, `apps/desktop/src/renderer/src/locale-zh-CN.ts`). `apps/desktop/test/i18n.test.ts` fails if a string is missing. See `specs/028-ui-i18n.md` and `apps/desktop/AGENTS.md`.
+- Chat with the owner may be in any language; artifacts stay English. The CLI is not localized.
 
 ## 2. Source of truth (anti-drift)
 
@@ -53,3 +54,7 @@ A milestone is done only when all of these are true:
 - User home: `~/.sun/` (override with `SUN_HOME`): `config.json`, `sessions/`, `skills/`, `plugins/`, `kb/`, `memory/`, `evolution/`, `intel/`.
 - Project: `.sun/` in the workspace: `rules/`, `skills/`, `mcp.json`, `hooks.json`.
 - Compatibility: `AGENTS.md`, `CLAUDE.md`, `.claude/skills`, `.cursor/rules` are read too.
+
+## 7. Settings initiative execution
+
+For settings/competitor-adoption work, read `specs/032-settings-and-capability-management.md` and `docs/plans/settings-competitors/README.md` before implementation. Follow the dependency-ready task and evidence protocol in that pack. Run `node scripts/check-settings-plan.mjs`; it is also enforced by `pnpm test`. Plan integrity does not replace behavioral acceptance. Preserve existing dirty changes and never mark planned features implemented based on documentation alone.

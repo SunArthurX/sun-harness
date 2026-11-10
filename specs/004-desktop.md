@@ -20,11 +20,28 @@ Status: implemented (M3). Code: `apps/desktop`.
 | Skills · MCP · Plugins | Skills with scope, MCP server status/tools with reconnect, plugin status/contributions, schedules |
 | Evolution | Pending proposals (accept/reject), history, reflect on current session |
 | Harness Intel | Daily reports, run now, analyze pending |
-| Settings | Default model, fallback chain, auto-resume, approval mode, deny-instead-of-prompting, max steps, providers, KB roots, company KB, intel time |
+| Settings | Language (system / English / Simplified Chinese), default model, fallback chain, auto-resume, approval mode, deny-instead-of-prompting, max steps, providers, KB roots, company KB, intel time |
 
 ## Rendering rule
 
 Every live event must be applied to the transcript; the chat view subscribes directly and merges by `seq` with its initial snapshot (a shared React state value drops batched events).
+
+Decision — The current task plan is pinned above the scrolling transcript on
+desktop and gateway web. The plan has its own bounded scroll area so long
+plans and short windows keep the transcript and approval actions reachable.
+The chat header wraps its controls in narrow windows so the worktree button
+remains reachable when titles or workspace paths are long.
+
+Decision — Quitting the desktop app waits for host disposal before the
+process exits, bounded to five seconds. Disposal closes browser tabs and
+stops the managed Chromium, sandboxes, Python kernels and MCP servers, which
+are not terminated with the Electron process on macOS. Without the wait, a
+managed Chromium outlived the app and kept writing to its profile. Browser
+disposal itself waits up to five seconds for the managed Chromium process to
+exit after `SIGTERM`, then sends `SIGKILL`, and only then releases the
+profile (see 022). After disposal, the app requests the quit again in a later
+event-loop task. When the quit started from a `SIGTERM`, a quit requested in
+the same task closed the windows but left the app running.
 
 ## Visual language
 

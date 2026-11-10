@@ -1,0 +1,15 @@
+✔ missing attachments keep the turn and healthy images in order (0.911875ms)
+✔ missing attachment keeps user message and appends count (0.837875ms)
+✔ successful images keep original order and missing ones are counted (0.100375ms)
+✔ user and assistant events replay in order without mutation (0.135833ms)
+✔ other reader errors propagate (0.239291ms)
+✔ unrelated event types are ignored (0.068958ms)
+✔ intact attachment replay (0.668292ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 7
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 47.670084

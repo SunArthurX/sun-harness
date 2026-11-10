@@ -21,7 +21,7 @@ Each surface used to run its own `HarnessHost`. Two hosts on one `SUN_HOME` can 
 
 - **CLI**: `chat`, `run`, `resume`, `sessions` attach through `RemoteHost` when a gateway is found (`--local` forces in-process). Interactive terminals connect as approvers.
 - **Desktop**: on start, attaches if a gateway is found (handlers proxy to `GatewayClient`; events stream with `approver=1`), otherwise hosts in-process as before. The sidebar shows "via gateway".
-- **Web**: opening `http://127.0.0.1:4471/#token=…` loads the same React app; `web-bridge.ts` implements `window.sun` over fetch + EventSource, stores the token in `localStorage` and clears it from the URL. Folder picking is a text prompt; "open path" copies the path.
+- **Web**: opening `http://127.0.0.1:4471/#token=…` loads the same React app. Decision (T08): `web-bridge.ts` exchanges the token for a gateway-issued HttpOnly session cookie, removes the fragment and erases the legacy local-storage token. Folder picking is a text prompt. Opening a path copies it.
 
 ## Per-session approval
 

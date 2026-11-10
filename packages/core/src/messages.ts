@@ -1,4 +1,6 @@
 import { readFileSync } from 'node:fs';
+import { isAppshotMetadata, readAppshot } from './settings/capture.js';
+import { scanInjection, wrapUntrusted } from './research/taint.js';
 import type { ChatMessage, SessionEvent, ToolCall } from './types.js';
 
 /**
@@ -32,15 +34,26 @@ export function deriveMessages(events: readonly SessionEvent[]): ChatMessage[] {
     switch (e.type) {
       case 'user/message': {
         flushPending();
+        const captions: string[] = [];
         const images = (e.images ?? []).flatMap((i) => {
           try {
+            if (i.appshot !== undefined) {
+              const metadata = i.appshot;
+              if (!isAppshotMetadata(metadata)) return [];
+              const caption = [`Captured window: ${metadata.title || '(untitled)'} (${metadata.appId}).`,
+                metadata.text, metadata.textTruncated ? '[Captured text was truncated.]' : ''].filter(Boolean).join('\n');
+              captions.push(wrapUntrusted('appshot', caption, scanInjection(caption)));
+              const bytes = readAppshot(i.path, i.mime, metadata);
+              return bytes ? [{ mime: i.mime, data: bytes.toString('base64') }] : [];
+            }
             return [{ mime: i.mime, data: readFileSync(i.path).toString('base64') }];
           } catch {
             return [];
           }
         });
         const missing = (e.images?.length ?? 0) - images.length;
-        out.push({ role: 'user', content: missing ? `${e.text}\n[${missing} attached image(s) no longer available]` : e.text, ...(images.length ? { images } : {}) });
+        const content = [e.text, ...captions, ...(missing ? [`[${missing} attached image(s) no longer available]`] : [])].join('\n');
+        out.push({ role: 'user', content, ...(images.length ? { images } : {}) });
         break;
       }
       case 'assistant/message':
@@ -70,8 +83,10 @@ export function deriveMessages(events: readonly SessionEvent[]): ChatMessage[] {
 
 /** Tool calls of the last assistant message that still have no result. */
 export function pendingToolCalls(events: readonly SessionEvent[]): ToolCall[] {
+  const importedThrough = events[0]?.type === 'session/meta' ? events[0].importedThrough ?? -1 : -1;
   let pending: ToolCall[] = [];
   for (const e of events) {
+    if (e.seq <= importedThrough) continue;
     if (e.type === 'assistant/message') pending = [...e.toolCalls];
     else if (e.type === 'user/message') pending = [];
     else if (e.type === 'tool/result') pending = pending.filter((c) => c.id !== e.callId);

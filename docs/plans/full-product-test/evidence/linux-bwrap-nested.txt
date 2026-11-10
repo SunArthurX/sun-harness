@@ -1,0 +1,5 @@
+debconf: delaying package configuration, since apt-utils is not installed
+bubblewrap 0.8.0
+mode bwrap → [1mbwrap[0m: bubblewrap (writes: workspace + caches; network off)
+[2mnetwork off · scrub secrets true · auto-approve false[0m
+bwrap: Creating new namespace failed: Operation not permitted

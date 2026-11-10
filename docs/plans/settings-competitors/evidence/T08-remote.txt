@@ -1,0 +1,7 @@
+Gateway rejected the token (revoked or wrong).
+CLI checks the pinned protocol and credentials before persisting a remote profile.
+Electron confirms the real TLS fingerprint before attaching and exposes only redacted connection metadata.
+Desktop user preference and host setting writes change only their respective configuration files.
+The selected remote and the local preferences survive an Electron restart.
+After an actual disconnect, host writes pause. Reconnect refreshes state and retains the draft revision.
+Revocation rejects old approvals, and an old renderer cannot dispatch to the newly selected local host.

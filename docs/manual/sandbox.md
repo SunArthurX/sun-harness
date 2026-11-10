@@ -42,6 +42,10 @@ or set `"sandbox": { "mode": "docker", "docker": { "image": "node:22-bookworm-sl
 
 Commands that cannot write outside the workspace are much less risky. With `"sandbox": { "autoApprove": true }` and approval mode `auto-edit`, sandboxed shell commands run without asking (like Codex's workspace-write mode). Settings → Shell sandbox has the same switch.
 
+`sun sandbox test` checks both a workspace write and an outside write. It
+exits with an error when the backend fails to start or either probe produces
+an unexpected result.
+
 ## When a command needs more
 
 - One more writable folder: add it to `sandbox.writable`.

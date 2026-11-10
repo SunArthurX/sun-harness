@@ -1,0 +1,3 @@
+$ node apps/desktop/e2e/execution-docker.mjs
+# started 2026-11-10T05:46:20Z
+Local Docker ran a reviewed command in an isolated container and durably acknowledged cancellation of only that container. No delayed write survived.

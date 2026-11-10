@@ -1,0 +1,338 @@
+$ vitest run --reporter=verbose
+
+ RUN  v5.1.0 /Users/sunqingguang/Downloads/06.code/sun-harness
+
+ ✓ packages/core/test/settings-hooks.test.ts > hook review boundary > keeps a legacy hook inert, requires its displayed digest, and invalidates trust after editing 132ms
+ ✓ packages/core/test/browser.test.ts > accessibility snapshot rendering > assigns refs to interactive nodes and keeps text 1ms
+ ✓ packages/core/test/browser.test.ts > browser origin permissions > normalizes origins, isolates actions, handles stale revisions, and audits without URL details 182ms
+ ✓ packages/core/test/settings-hooks.test.ts > hook review boundary > rechecks trust between hooks in the same event 71ms
+ ✓ packages/core/test/settings-hooks.test.ts > hook review boundary > validates matchers and fails closed for malformed or unreviewed policy hooks 6ms
+ ✓ packages/core/test/settings-hooks.test.ts > hook review boundary > reviews a batch atomically and refuses duplicate explicit IDs 14ms
+ ✓ packages/core/test/browser.test.ts > browser transfer limits > expires the approved bytes and rejects files beyond the upload limit 5ms
+ ✓ packages/core/test/browser.test.ts > browser transfer limits > requires explicit delegation before using an external browser profile 1ms
+ ✓ packages/core/test/coding.test.ts > repo map > extracts definitions and ranks referenced files first 19ms
+ ✓ packages/core/test/coding.test.ts > post-edit diagnostics > reports syntax errors for js, py, and json 313ms
+ ✓ packages/core/test/settings-hooks.test.ts > bounded hook process execution > scrubs inherited variables and bounds the combined output 35ms
+ ✓ packages/core/test/edit.test.ts > tolerant replace > exact, CRLF-normalized, and whitespace-insensitive matches 3ms
+ ✓ packages/core/test/edit.test.ts > tolerant replace > explains ambiguity and missing text with the closest region 1ms
+ ✓ packages/core/test/edit.test.ts > tolerant replace > wraps malformed tool-call JSON so strict providers accept the history 1ms
+ ✓ packages/core/test/edit.test.ts > apply_patch > parses add/update/delete/move and applies hunks with context 1ms
+ ✓ packages/core/test/agent.test.ts > agent loop > runs tools, logs every step, and ends idle 685ms
+ ✓ packages/core/test/agent.test.ts > agent loop > reports unknown tools and invalid JSON back to the model 273ms
+ ✓ packages/core/test/settings-hooks.test.ts > bounded hook process execution > kills a delayed descendant when the hook times out 728ms
+ ✓ packages/core/test/edit.test.ts > edit tools in sessions > allows anchored edits of unread files, refuses blind overwrites, and detects stale reads 1139ms
+ ✓ packages/core/test/coding.test.ts > post-edit diagnostics > reports TypeScript type errors through the language service, incrementally 822ms
+ ✓ packages/core/test/agent.test.ts > agent loop > asks for approval in suggest mode; deny is fed back, allow_always is remembered 390ms
+ ✓ packages/core/test/edit.test.ts > edit tools in sessions > apply_patch is atomic across files and checkpoints support undo 253ms
+ ✓ packages/core/test/execution-targets.test.ts > execution target job reconciliation > recovers an accepted launch after a lost acknowledgement and gateway restart 1333ms
+ ✓ packages/core/test/jobs.test.ts > background jobs > bash background returns at once and the result is delivered into the session later 1548ms
+ ✓ packages/core/test/edit.test.ts > edit tools in sessions > capability gating hides tools whose backend is unavailable 198ms
+ ✓ packages/core/test/settings-hooks.test.ts > bounded hook process execution > kills a delayed descendant when a running hook is cancelled 616ms
+ ✓ packages/core/test/agent.test.ts > agent loop > auto-edit allows workspace writes without asking but asks for writes outside 195ms
+ ✓ packages/core/test/agent.test.ts > agent loop > denies instead of hanging when no approver is attached (headless), with a reason for the model 129ms
+ ✓ packages/core/test/coding.test.ts > post-edit diagnostics > appends a warning to the edit tool result 587ms
+ ✓ packages/core/test/agent.test.ts > agent loop > denyInsteadOfPrompting denies even with an approver attached 104ms
+ ✓ packages/core/test/settings-hooks.test.ts > hook fixture host contract > previews without execution, checks trust, and redacts credentials in the view and result 43ms
+ ✓ packages/core/test/jobs.test.ts > background jobs > job_status shows output; job_kill stops a job without a delivery run 328ms
+ ✓ packages/core/test/coding.test.ts > plan mode > is read-only and switches to coding with todos when the plan is approved 100ms
+ ✓ packages/core/test/agent.test.ts > agent loop > pauses durably on quota and resumes on another model 146ms
+ ✓ packages/core/test/agent.test.ts > agent loop > resumes on the same model once quota is restored (auto-resume tick) 152ms
+ ✓ packages/core/test/jobs.test.ts > background jobs > promotes slow tool calls to background jobs and reports their result later 166ms
+ ✓ packages/core/test/settings-hooks.test.ts > hook fixture host contract > cancels a host fixture by its execution ID 594ms
+ ✓ packages/core/test/agent.test.ts > agent loop > switches to fallback models automatically on quota 98ms
+ ✓ packages/core/test/agent.test.ts > agent loop > retries transient errors with backoff 88ms
+ ✓ packages/core/test/agent.test.ts > agent loop > pauses after max steps and can be resumed 237ms
+ ✓ packages/core/test/edit.test.ts > eval runner > validates a suite and scores a run from the session log 1160ms
+ ✓ packages/core/test/settings-hooks.test.ts > hook fixture host contract > aborts a running session-start hook before its delayed child or model call can run 596ms
+ ✓ packages/core/test/edit.test.ts > loop breakers > shows the whole file after a second miss and flags identical failing calls 89ms
+ ✓ packages/core/test/jobs.test.ts > background jobs > slow MCP tools are promoted through the host and delivered 796ms
+ ✓ packages/core/test/agent.test.ts > agent loop > aborts a running bash command 376ms
+ ✓ packages/core/test/settings-hooks.test.ts > hook fixture host contract > keeps the trust store outside a macOS hook workspace write grant 119ms
+ ✓ packages/core/test/jobs.test.ts > background jobs > marks jobs that were running when the app stopped as lost 5ms
+ ✓ packages/core/test/coding.test.ts > plan mode > asks for approval of the plan outside full-auto 87ms
+ ✓ packages/core/test/coding.test.ts > plan mode > parses plan steps into todos 0ms
+ ✓ packages/core/test/coding.test.ts > prompt cache telemetry > sums cached input tokens 0ms
+ ✓ packages/core/test/agent.test.ts > agent loop > queues messages sent during a run 194ms
+ ✓ packages/core/test/browser.test.ts > browser over CDP (local Chrome, headless) > navigates, types, clicks by ref, follows links, goes back, and screenshots 3089ms
+ ✓ packages/core/test/agent.test.ts > agent loop > delivers messages after the run when steering is "after-run" 309ms
+ ✓ packages/core/test/sandbox.test.ts > sandbox policy pieces > matches allowlist hosts with wildcards 1ms
+ ✓ packages/core/test/sandbox.test.ts > sandbox policy pieces > collects secret env names from the config and credential-looking variables 1ms
+ ✓ packages/core/test/sandbox.test.ts > sandbox policy pieces > builds bubblewrap arguments: workspace writable, secrets hidden, network unshared when off 88ms
+ ✓ packages/core/test/sandbox.test.ts > sandbox policy pieces > auto-approves sandboxed shell commands in auto-edit only when allowed 0ms
+ ✓ packages/core/test/sandbox.test.ts > seatbelt sandbox (macOS) > allows workspace writes, blocks writes elsewhere, hides denied paths, scrubs secrets 401ms
+ ✓ packages/core/test/lsp.test.ts > LSP diagnostics (typescript-language-server) > reports type errors after an edit and clears them after the fix 3703ms
+ ✓ packages/core/test/sandbox.test.ts > seatbelt sandbox (macOS) > denies outbound network when the policy is off but keeps loopback 232ms
+ ✓ packages/core/test/agent.test.ts > agent loop > steers between steps, never between a tool call and its result 541ms
+ ✓ packages/core/test/browser.test.ts > browser over CDP (local Chrome, headless) > blocks an unapproved redirect before the target origin receives a request 765ms
+ ✓ packages/core/test/agent.test.ts > agent loop > compacts long history into a summary event 261ms
+ ✓ packages/core/test/ux.test.ts > session export > redacts configured credentials in all export formats without changing the log 29ms
+ ✓ packages/core/test/ux.test.ts > session export > renders untrusted HTML and code fence attributes as inert text 0ms
+ ✓ packages/core/test/ux.test.ts > custom slash commands > loads project, user and compat commands with frontmatter and fills arguments 4ms
+ ✓ packages/core/test/agent.test.ts > agent loop > marks sessions interrupted by a crash as paused on init 4ms
+ ✓ packages/core/test/agent.test.ts > agent loop > edit_file enforces unique matches 176ms
+ ✓ packages/core/test/verify.test.ts > verify loop (done gate) > feeds a failing verification back to the model and finishes when it passes 1133ms
+ ✓ packages/core/test/sandbox.test.ts > seatbelt sandbox (macOS) > runs the bash tool and verify commands inside the session sandbox 585ms
+ ✓ packages/core/test/ux.test.ts > custom slash commands > expands commands in sessions, switches mode, and logs what was typed 530ms
+ ✓ packages/core/test/agent.test.ts > agent loop > runs a subagent through the task tool and returns its report 185ms
+ ✓ packages/core/test/jobs.test.ts > jobs survive restarts > a job still running when the host stops is re-attached by the next host and delivered there 1779ms
+ ✓ packages/core/test/ux.test.ts > @mentions and path completion > attaches files, lists folders, collects images, ignores emails and outside paths 2ms
+ ✓ packages/core/test/ux.test.ts > @mentions and path completion > completes paths by prefix, base name, and subsequence 167ms
+ ✓ packages/core/test/worktree.test.ts > git worktree sessions > isolates edits on a branch, reports status/diff, and squash-merges into the main checkout 4785ms
+ ✓ packages/core/test/execution-targets.test.ts > execution target job reconciliation > retains a cancellation request before dispatch and reconciles a lost acknowledgement 3365ms
+ ✓ packages/core/test/execution-targets.test.ts > execution target job reconciliation > preserves a launch reservation when no provider acknowledgement exists 204ms
+ ✓ packages/core/test/agent.test.ts > approval race guard > answers must match the current prompt; unknown or stale answers are rejected 285ms
+ ✓ packages/core/test/ux.test.ts > diffs, pricing, vision > produces a unified diff with context 0ms
+ ✓ packages/core/test/ux.test.ts > diffs, pricing, vision > prices sessions with cache discounts and prefix rules 0ms
+ ✓ packages/core/test/ux.test.ts > diffs, pricing, vision > knows which models see images 1ms
+ ✓ packages/core/test/ux.test.ts > sessions: images, diffs on tool results, cost, rewind, export/import, search, compact > stores pasted images as attachments and sends them only to vision models 280ms
+ ✓ packages/core/test/sandbox.test.ts > allowlist proxy > forwards allowed hosts and refuses others 7ms
+ ✓ packages/core/test/sandbox.test.ts > docker sandbox > runs commands in a per-session container with only the workspace mounted 633ms
+ ✓ packages/core/test/agent.test.ts > approval race guard > a re-issued prompt after a restart gets a new prompt id, so an answer to the old one cannot apply 276ms
+ ✓ packages/core/test/ux.test.ts > sessions: images, diffs on tool results, cost, rewind, export/import, search, compact > logs diffs for edits, estimates cost, rewinds with file restore, exports and imports, searches 237ms
+ ✓ packages/core/test/verify.test.ts > verify loop (done gate) > stops after maxAttempts and does not verify when nothing was edited 955ms
+ ✓ packages/core/test/remote.test.ts > device tokens > stores only a hash, matches in constant time, and can be revoked 28ms
+ ✓ packages/core/test/remote.test.ts > remote gateway over TLS > refuses a non-loopback address without TLS 18ms
+ ✓ packages/core/test/verify.test.ts > verify loop (done gate) > detects verify commands from project conventions, and .sun/project.json overrides them 19ms
+ ✓ packages/core/test/jobs.test.ts > jobs survive restarts > a job that finished while no host was running is delivered on the next start 977ms
+ ✓ packages/core/test/verify.test.ts > parallel read-only tool calls > runs consecutive read calls concurrently and logs them in order 306ms
+ ✓ packages/core/test/extensions.test.ts > rules loader (anti-drift context) > collects AGENTS.md hierarchy, .sun/rules, cursor rules and specs 4ms
+ ✓ packages/core/test/browser.test.ts > browser over CDP (local Chrome, headless) > blocks unreviewed subframe navigations and suppresses a tab opened by a managed page 1708ms
+ ✓ packages/core/test/extensions.test.ts > rules loader (anti-drift context) > puts rules, specs, skills and memory into the system prompt 550ms
+ ✓ packages/core/test/gateway.test.ts > gateway > requires the token, advertises itself, and is discoverable 75ms
+ ✓ packages/core/test/ux.test.ts > sessions: images, diffs on tool results, cost, rewind, export/import, search, compact > compacts on demand 827ms
+ ✓ packages/core/test/extensions.test.ts > knowledge base > tokenizes CJK into bigrams 1ms
+ ✓ packages/core/test/extensions.test.ts > knowledge base > ranks markdown chunks with BM25 and supports adding notes 4ms
+ ✓ packages/core/test/extensions.test.ts > knowledge base > kb_search tool works through the host, company provider is reserved/off by default 113ms
+ ✓ packages/core/test/ux.test.ts > bots: custom commands and /cost > expands a custom command typed in chat and answers /cost 82ms
+ ✓ packages/core/test/ux.test.ts > ui.language > defaults to system and round-trips en / zh-CN through config.json 33ms
+ ✓ packages/core/test/jobs.test.ts > jobs survive restarts > a job whose process vanished without an exit status is reported lost 574ms
+ ✓ packages/core/test/extensions.test.ts > memory > appends facts under sections and dedupes 1ms
+ ✓ packages/core/test/extensions.test.ts > schedules > parses cron and finds due tasks 1ms
+ ✓ packages/core/test/extensions.test.ts > schedules > host runs due scheduled tasks as new sessions 113ms
+ ✓ packages/core/test/extensions.test.ts > evolution > reflects a session into proposals and applies accepted ones 98ms
+ ✓ packages/core/test/extensions.test.ts > evolution > dedupes proposals by type+title 1ms
+ ✓ packages/core/test/remote.test.ts > remote gateway over TLS > serves HTTPS; pinned clients with a device token work, wrong pins and revoked tokens fail 906ms
+ ✓ packages/core/test/extensions.test.ts > plugins > loads an ESM plugin that contributes a tool, a mode and a prompt section 120ms
+ ✓ packages/core/test/extensions.test.ts > plugins > respects the disabled list 1ms
+ ✓ packages/core/test/bots.test.ts > chat bots > Telegram: allowlist, one session per chat, approvals answered in the chat, replies sent back 1050ms
+ ✓ packages/core/test/remote.test.ts > remote gateway over TLS > closes an open stream and denies approvals when its last approver is revoked 339ms
+ ✓ packages/core/test/cursor-coding.test.ts > ignore files and rule globs > matches gitignore-like patterns and Cursor rule globs 2ms
+ ✓ packages/core/test/cursor-coding.test.ts > ignore files and rule globs > refuses to read an ignored file and skips it in @mentions 7ms
+ ✓ packages/core/test/cursor-coding.test.ts > codebase search and cursor mentions > finds a symbol and a phrase, and expands @codebase, @rule, and @git 37ms
+ ✓ packages/core/test/jobs.test.ts > jobs survive restarts > killOnExit stops jobs when the host shuts down 583ms
+ ✓ packages/core/test/gateway.test.ts > gateway > runs a session for a remote client and streams its events 686ms
+ ✓ packages/core/test/extensions.test.ts > hooks > preToolUse exit 2 blocks the call; postToolUse adds context 380ms
+ ✓ packages/core/test/bots.test.ts > chat bots > a bot only approves its own chats; other sessions still fail closed 270ms
+ ✓ packages/core/test/bots.test.ts > chat bots > DingTalk: verifies the callback signature and replies through the session webhook 178ms
+ ✓ packages/core/test/cursor-coding.test.ts > file-scoped rules and /review > attaches a glob rule after the matching file is read 510ms
+ ✓ packages/core/test/remote.test.ts > remote gateway over TLS > refuses to replace a saved pin when the gateway serves a different certificate 210ms
+ ✓ packages/core/test/coding.test.ts > best-of-N > runs candidates in worktrees, picks the one whose tests pass, and applies it 5188ms
+ ✓ packages/core/test/bots.test.ts > chat bots > webhook: device-token auth, allowlist, and synchronous replies with ?wait=1 240ms
+ ✓ packages/core/test/remote.test.ts > reconnect receipts > refuses a request bound to another installation and a prompt issued by another host 282ms
+ ✓ packages/core/test/extensions.test.ts > hooks > onFailure "block" makes a crashing policy hook fail closed; default ignores it 316ms
+ ✓ packages/core/test/extensions.test.ts > mcp > connects to a stdio MCP server and exposes namespaced tools 144ms
+ ✓ packages/core/test/remote.test.ts > reconnect receipts > reuses a receipt after the server commits a send but its response is lost 142ms
+ ✓ packages/core/test/remote.test.ts > reconnect receipts > exchanges a device token for an opaque browser session and enforces origin and revocation 38ms
+ ✓ packages/core/test/remote.test.ts > reconnect receipts > deduplicates concurrent work, rejects changed or expired IDs, and invalidates IDs on restart 142ms
+ ✓ packages/core/test/cursor-coding.test.ts > file-scoped rules and /review > reviews the session diff and logs the report 389ms
+ ✓ packages/core/test/assistant.test.ts > long-term memory store > adds, deduplicates, searches (including CJK), touches and removes 9ms
+ ✓ packages/core/test/assistant.test.ts > long-term memory store > parses extraction output defensively 1ms
+ ✓ packages/core/test/browser.test.ts > browser over CDP (local Chrome, headless) > isolates live frames and revokes stale control and agent actions after takeover 1647ms
+ ✓ packages/core/test/settings-capabilities.test.ts > capability transport > exposes the same descriptor IDs and redacted settings shape on host, IPC and HTTP 74ms
+ ✓ packages/core/test/bots.test.ts > chat bots > isolates a waiting webhook reply from concurrent same-chat requests 317ms
+ ✓ packages/core/test/cursor-coding.test.ts > file-scoped rules and /review > logs the exact provider request before dispatch and makes an edited result stale 190ms
+ ✓ packages/core/test/settings-capabilities.test.ts > capability transport > checks protocol before reading configuration or committing a settings edit 29ms
+ ✓ packages/core/test/settings-capabilities.test.ts > capability transport > checks native status again at dispatch and never forwards native calls over HTTP 35ms
+ ✓ packages/core/test/settings-capabilities.test.ts > extension lifecycle > inspects static declarations without running plugin code or exposing private manifest data 53ms
+ ✓ packages/core/test/gateway.test.ts > gateway > a remote approver answers approvals; with none attached the gateway denies instead of hanging 899ms
+ ✓ packages/core/test/gateway.test.ts > gateway > authenticates portable bundles and validates invalid streams before publishing 77ms
+ ✓ packages/core/test/gateway.test.ts > gateway > serves the web UI and blocks path traversal 28ms
+ ✓ packages/core/test/assistant.test.ts > assistant sessions: recall, extraction, routing > attaches relevant memories before the user message and extracts new ones after the run 584ms
+ ✓ packages/core/test/bots.test.ts > chat bots > webhook keeps a denied user from replacing an authorized reply destination 166ms
+ ✓ packages/core/test/bots.test.ts > chat bots > dingtalk keeps a denied user from replacing an authorized reply destination 180ms
+ ✓ packages/core/test/bots.test.ts > chat bots > reports bots that cannot start for lack of credentials 10ms
+ ✓ packages/core/test/research.test.ts > readable extraction > keeps the article, drops boilerplate and hidden text, converts to markdown 3ms
+ ✓ packages/core/test/research.test.ts > search providers > parses Bing results and unwraps redirect links 1ms
+ ✓ packages/core/test/research.test.ts > search providers > auto-selects a keyed provider, then searxng, then bing 0ms
+ ✓ packages/core/test/research.test.ts > pdf > extracts text from a PDF 121ms
+ ✓ packages/core/test/cursor-coding.test.ts > file-scoped rules and /review > rejects paths, unchanged lines and fabricated evidence without publishing findings 251ms
+ ✓ packages/core/test/assistant.test.ts > assistant sessions: recall, extraction, routing > routes "auto" sessions between a fast and a strong model 201ms
+ ✓ packages/core/test/assist-manus.test.ts > user profile and daily notes > keeps the user profile under the cap and records a daily line once 6ms
+ ✓ packages/core/test/assist-manus.test.ts > slides > renders an HTML deck and escapes notes 3ms
+ ✓ packages/core/test/settings-store.test.ts > configuration file transactions > bases revisions on the exact bytes and detects a stale edit 4ms
+ ✓ packages/core/test/settings-store.test.ts > configuration file transactions > rejects invalid JSON without calling the edit or touching the original 2ms
+ ✓ packages/core/test/settings-store.test.ts > configuration file transactions > preserves existing unknown keys and uses private file permissions 17ms
+ ✓ packages/core/test/settings-store.test.ts > configuration file transactions > leaves the original and releases the lock if write fails 22ms
+ ✓ packages/core/test/settings-store.test.ts > configuration file transactions > leaves the original and releases the lock if replace fails 20ms
+ ✓ packages/core/test/research.test.ts > prompt-injection guard > detects common injection patterns and invisible text 3ms
+ ✓ packages/core/test/cursor-coding.test.ts > file-scoped rules and /review > pauses a coding run when the candidate exceeds the review budget and can resume after a complete review 240ms
+ ✓ packages/core/test/cursor-coding.test.ts > file-scoped rules and /review > lists the workspace for the Files pane and refuses to leave it 3ms
+ ✓ packages/core/test/settings-store.test.ts > configuration file transactions > leaves the original valid and recovers a lock after a process dies before rename 117ms
+ ✓ packages/core/test/assist-manus.test.ts > skill slash, wide research, session search > loads a skill when the message is /name 509ms
+ ✓ packages/core/test/automation.test.ts > natural-language schedules > parses "Every weekday at 9am summarize my unread emails" 2ms
+ ✓ packages/core/test/automation.test.ts > natural-language schedules > parses "every monday and thursday at 10:30 check the PR queue" 1ms
+ ✓ packages/core/test/automation.test.ts > natural-language schedules > parses "every 30 minutes check if the site is up" 0ms
+ ✓ packages/core/test/automation.test.ts > natural-language schedules > parses "every month on the 1st at 8am send me the invoice summary" 0ms
+ ✓ packages/core/test/automation.test.ts > natural-language schedules > parses "daily at 18:00 write a short report" 0ms
+ ✓ packages/core/test/automation.test.ts > natural-language schedules > parses "每个工作日早上9点帮我总结邮件" 1ms
+ ✓ packages/core/test/automation.test.ts > natural-language schedules > parses "每周一下午3点半检查一下PR" 0ms
+ ✓ packages/core/test/automation.test.ts > natural-language schedules > parses "每天晚上8点提醒我写日报" 0ms
+ ✓ packages/core/test/automation.test.ts > natural-language schedules > parses "每隔15分钟检查一下网站" 0ms
+ ✓ packages/core/test/automation.test.ts > natural-language schedules > parses "每月1号上午10点汇总发票" 0ms
+ ✓ packages/core/test/automation.test.ts > natural-language schedules > parses one-shot times only with a scheduling verb 15ms
+ ✓ packages/core/test/automation.test.ts > natural-language schedules > does not mistake ordinary coding prompts for schedules 0ms
+ ✓ packages/core/test/automation.test.ts > natural-language schedules > computes next runs, missed runs, and descriptions 1ms
+ ✓ packages/core/test/automation.test.ts > automations in the host > turns a scheduling message into a proposal instead of answering, then creates the automation 13ms
+ ✓ packages/core/test/assistant.test.ts > DingTalk connector (dws) > classifies read and write commands 1ms
+ ✓ packages/core/test/assist-manus.test.ts > skill slash, wide research, session search > researches each item in its own subagent and writes one file 261ms
+ ✓ packages/core/test/assistant.test.ts > DingTalk connector (dws) > runs dws, gates on login, and refuses writes through the read tool 397ms
+ ✓ packages/core/test/assistant.test.ts > briefing, triggers, voice, metrics > builds the briefing prompt and saves the briefing 79ms
+ ✓ packages/core/test/assistant.test.ts > briefing, triggers, voice, metrics > fires webhook triggers with the payload marked as untrusted 108ms
+ ✓ packages/core/test/research.test.ts > web tools, taint, and deliverables through a session > wraps fetched pages as untrusted, reads PDFs, and escalates approval after an injection 728ms
+ ✓ packages/core/test/automation.test.ts > automations in the host > answers normally when the user chooses "run" (and skips detection when asked) 539ms
+ ✓ packages/core/test/research.test.ts > web tools, taint, and deliverables through a session > lists created and modified files as deliverables 102ms
+ ✓ packages/core/test/settings-store.test.ts > configuration file transactions > leaves the replacement valid and recovers a lock after a process dies after rename 62ms
+ ✓ packages/core/test/settings-capabilities.test.ts > extension lifecycle > revokes queued dispatch while a started call drains and persists both lifecycle outcomes 937ms
+ ✓ packages/core/test/settings-capabilities.test.ts > extension lifecycle > discards registrations when a plugin is disabled during asynchronous activation 92ms
+ ✓ packages/core/test/assist-manus.test.ts > skill slash, wide research, session search > finds an earlier conversation 179ms
+ ✓ packages/core/test/settings-store.test.ts > configuration file transactions > never takes a lock away from a live process even with an old marker 503ms
+ ✓ packages/core/test/settings-store.test.ts > configuration file transactions > detects a manual edit made while a replacement is being prepared 8ms
+ ✓ packages/core/test/settings-store.test.ts > configuration file transactions > allows only one of two subprocesses to save the same revision 71ms
+ ✓ packages/core/test/automation.test.ts > automations in the host > creates, previews, pauses, edits, runs, and catches up automations 210ms
+ ✓ packages/core/test/assistant.test.ts > briefing, triggers, voice, metrics > debounces file-watch triggers 322ms
+ ✓ packages/core/test/assistant.test.ts > briefing, triggers, voice, metrics > transcribes audio through a chat-completions ASR endpoint 13ms
+ ✓ packages/core/test/assistant.test.ts > briefing, triggers, voice, metrics > computes conversation efficiency per mode 2ms
+ ✓ packages/core/test/settings-capabilities.test.ts > extension lifecycle > publishes loaded, disabled, and error states without publishing failed tools 112ms
+ ✓ packages/core/test/settings-capabilities.test.ts > extension lifecycle > revokes a stale approved tool call after reloading a disabled plugin 190ms
+ ✓ packages/core/test/settings-capture.test.ts > Appshot draft and durable replay > sends only the prepared image, verifies it on replay, and preserves the receipt in portable history 544ms
+ ✓ packages/core/test/settings-capture.test.ts > Appshot draft and durable replay > projects the approved text on text-only models and reports permission denial 130ms
+ ✓ packages/core/test/settings-capture.test.ts > Appshot draft and durable replay > expires private drafts and bounds the extracted text 4ms
+ ✓ packages/core/test/automation.test.ts > file changes per session and per turn > reports added, modified and deleted files, per turn and for the session, and reverts one file 293ms
+ ✓ packages/core/test/settings-import.test.ts > legacy transcript import boundary > rejects foreign and symlinked image paths before publishing a log 24ms
+ ✓ packages/core/test/settings-import.test.ts > legacy transcript import boundary > requires an explicit workspace when the old directory is absent 25ms
+ ✓ packages/core/test/settings-import.test.ts > legacy transcript import boundary > cannot reuse historical approvals, jobs, tools, or proposals 31ms
+ ✓ packages/core/test/context.test.ts > context report > breaks the next request into categories and honors compaction 27ms
+ ✓ packages/core/test/settings-preferences.test.ts > everyday preference persistence > fills legacy defaults, applies user settings and restores them from disk 69ms
+ ✓ packages/core/test/settings-preferences.test.ts > everyday preference persistence > rejects invalid time zones, scale, and reserved or colliding shortcuts without a write 17ms
+ ✓ packages/core/test/settings-import.test.ts > portable session bundles > round-trips image bytes across homes and restart, under a new session ID 70ms
+ ✓ packages/core/test/settings-computer.test.ts > native computer control boundary > limits observation to one owner and one action to the current snapshot 4ms
+ ✓ packages/core/test/settings-computer.test.ts > native computer control boundary > refuses missing permission, revoked grants, window switches, and an undurable dispatch 1ms
+ ✓ packages/core/test/settings-computer.test.ts > native computer control boundary > stops a blocked action, drains the adapter, and refuses to replay after restart 54ms
+ ✓ packages/core/test/settings-service.test.ts > settings service and transport > hides legacy secrets at the gateway and rejects both obsolete RPCs 69ms
+ ✓ packages/core/test/bots-cn.test.ts > Feishu and WeChat bots > matches the vendors’ published test vectors 9ms
+ ✓ packages/core/test/bots-cn.test.ts > Feishu and WeChat bots > WeChat/WeCom crypto round-trips and signatures sort their inputs 5ms
+ ✓ packages/core/test/settings-preferences.test.ts > everyday preference persistence > respects the configured default mode and preserves explicit overrides 37ms
+ ✓ packages/core/test/settings-preferences.test.ts > everyday preference persistence > blocks transcription before provider access when voice is disabled 31ms
+ ✓ packages/core/test/settings-computer.test.ts > native computer control boundary > drops a snapshot that arrives after emergency stop and expires an idle lease 52ms
+ ✓ packages/core/test/context.test.ts > host: context usage, flags, titles > measures a real session, including the system prompt and tools 652ms
+ ✓ packages/core/test/settings-service.test.ts > settings service and transport > rejects a stale page and leaves unrelated unknown fields intact 42ms
+ ✓ packages/core/test/settings-service.test.ts > settings service and transport > rejects unknown, invalid, mixed-scope and credential-bearing edits as a unit 9ms
+ ✓ packages/core/test/settings-service.test.ts > settings service and transport > keeps private legacy values on disk and audits only key names and revisions 53ms
+ ✓ packages/core/test/settings-service.test.ts > settings service and transport > refuses to save when the audit cannot be prepared 9ms
+ ✓ packages/core/test/context.test.ts > host: context usage, flags, titles > pins and archives sessions 43ms
+ ✓ packages/core/test/context.test.ts > host: context usage, flags, titles > writes a model title after the first run, but never over a rename 116ms
+ ✓ packages/core/test/settings-import.test.ts > portable session bundles > rejects paths, links, size bombs, bad digests, extra bytes and missing references without publishing 385ms
+ ✓ packages/core/test/settings-import.test.ts > portable session bundles > exports rewound compactions with sequence pointers that survive reimport 42ms
+ ✓ packages/core/test/settings-service.test.ts > settings service and transport > keeps host changes out of an active run while applying language immediately 499ms
+ ✓ packages/core/test/settings-service.test.ts > settings service and transport > preserves invalid and future-version documents for manual recovery 10ms
+ ✓ packages/core/test/bots-cn.test.ts > Feishu and WeChat bots > Feishu: url_verification, token check, encrypted events, dedupe, reply via IM API 664ms
+ ✓ packages/core/test/settings-import.test.ts > portable session bundles > keeps a rewind of historical pending tools inert until a new user turn 485ms
+ ✓ packages/core/test/settings-preferences.test.ts > everyday preference persistence > omits new memory input and extraction while keeping the explicit profile 678ms
+ ✓ packages/core/test/settings-preferences.test.ts > everyday preference persistence > keeps extracted facts out of the profile and rejects stale note replacements 119ms
+ ✓ packages/core/test/settings-preferences.test.ts > local clock and shortcuts > wraps overnight and honors exact local boundaries 1ms
+ ✓ packages/core/test/settings-preferences.test.ts > local clock and shortcuts > evaluates both repeated hours and handles the skipped spring hour 1ms
+ ✓ packages/core/test/settings-preferences.test.ts > local clock and shortcuts > detects platform alias collisions and permits multiple unbound shortcuts 1ms
+ ✓ packages/core/test/worktree.test.ts > git worktree sessions > creates a merge commit and preserves a dirty worktree and its unmerged branch 5295ms
+ ✓ packages/core/test/settings-storage.test.ts > managed storage > protects active sessions, unfinished jobs, and attachments shared by a retained session 55ms
+ ✓ packages/core/test/settings-storage.test.ts > managed storage > rejects stale confirmation and restores an archive without changing the ID 14ms
+ ✓ packages/core/test/settings-computer.test.ts > routes native input through runtime approval and persists its receipt before dispatch 683ms
+ ✓ packages/core/test/settings-storage.test.ts > managed storage > reconciles a rename before its progress record and preserves a new source at the same path 75ms
+ ✓ packages/core/test/settings-storage.test.ts > managed storage > keeps automatic retention off until configured, then selects only expired eligible data 43ms
+ ✓ packages/core/test/bots-cn.test.ts > Feishu and WeChat bots > WeChat Official Account: URL verification, signed XML, retry dedupe, allowlist, customer-service reply 177ms
+ ✓ packages/core/test/bots-cn.test.ts > Feishu and WeChat bots > WeCom: encrypted URL verification and messages, receiver check, reply with agentid 195ms
+ ✓ packages/core/test/bots-cn.test.ts > Feishu and WeChat bots > reports missing credentials for each platform 12ms
+ ✓ packages/core/test/settings-storage.test.ts > managed storage > finishes a partially purged private directory without touching a new live profile 70ms
+ ✓ packages/core/test/settings-storage.test.ts > managed storage > requires specific browser-profile confirmation and purges only after the grace period 101ms
+ ✓ packages/core/test/settings-plan.test.ts > settings execution pack integrity > validates coverage and task evidence offline 53ms
+ ✓ packages/core/test/settings-plan.test.ts > settings execution pack integrity > rejects plan drift using adversarial mutations 132ms
+ ✓ packages/core/test/providers.test.ts > providers > OpenAI-compatible: streams text, reasoning, and assembles tool calls 26ms
+ ✓ packages/core/test/providers.test.ts > providers > OpenAI-compatible with cacheControl marks the system prompt and the newest message 4ms
+ ✓ packages/core/test/providers.test.ts > providers > sends images as image_url (OpenAI-compatible) and base64 image blocks (Anthropic) 17ms
+ ✓ apps/desktop/test/preference-adapters.test.ts > notification delivery > seeds without alerting, deduplicates, and never replays a muted status 2ms
+ ✓ apps/desktop/test/preference-adapters.test.ts > notification delivery > filters muted event types and subagent alerts 0ms
+ ✓ apps/desktop/test/preference-adapters.test.ts > global shortcut transaction > keeps the prior shortcut after OS rejection and persistence rollback 1ms
+ ✓ apps/desktop/test/preference-adapters.test.ts > voice capture > honors microphone denial before opening the stream 1ms
+ ✓ apps/desktop/test/preference-adapters.test.ts > voice capture > stops tracks and discards audio cancelled during recording 0ms
+ ✓ apps/desktop/test/preference-adapters.test.ts > voice capture > cancels a submitted request and ignores its late result 53ms
+ ✓ packages/core/test/settings-credentials.test.ts > private credential broker > exposes references and status, sends the password once to the bound sink, and sanitizes sink failures 41ms
+ ✓ packages/core/test/settings-credentials.test.ts > private credential broker > rejects expired and revoked grants, including revocation while a vault read is pending 35ms
+ ✓ packages/core/test/settings-credentials.test.ts > private credential broker > does not persist plaintext when the vault is unavailable and can remove an entry without decryption 38ms
+ ✓ packages/core/test/settings-contract.test.ts > settings compatibility fixtures > fills absent settings from defaults 29ms
+ ✓ packages/core/test/settings-contract.test.ts > settings compatibility fixtures > reads legacy config and preserves unknown keys during a preference edit 34ms
+ ✓ packages/core/test/settings-contract.test.ts > settings compatibility fixtures > rejects malformed JSON without changing the original bytes 3ms
+ ✓ packages/core/test/settings-contract.test.ts > settings compatibility fixtures > exercises all three independent credential carriers in the legacy format 7ms
+ ✓ packages/core/test/settings-contract.test.ts > attachment and native fixtures > replays owned bytes from disk and reports missing bytes after restart 30ms
+ ✓ packages/core/test/settings-contract.test.ts > attachment and native fixtures > models capture denial, missing support and cancellation without touching the desktop 3ms
+ ✓ packages/core/test/intel.test.ts > intel > parses changelogs and feeds 7ms
+ ✓ packages/core/test/intel.test.ts > intel > fetches, dedupes across runs, analyzes, and files proposals 256ms
+ ✓ packages/core/test/settings-credentials.test.ts > private credential broker > invalidates old revisions and refuses ciphertext relabelled with a different origin 37ms
+ ✓ packages/core/test/intel.test.ts > intel > keeps raw items when analysis fails (quota) and can analyze later 4ms
+ ✓ packages/core/test/intel.test.ts > intel > files at most 8 ideas, highest priority first, and strips the JSON block 12ms
+ ✓ packages/core/test/intel.test.ts > intel > uses the local calendar date for report names 2ms
+ ✓ packages/core/test/intel.test.ts > intel > renders markdown with mermaid and builds a launchd plist 1ms
+ ✓ packages/core/test/mcp-http.test.ts > connects authenticated HTTP and legacy SSE, invokes tools, and reconnects after changing configuration 86ms
+ ✓ packages/core/test/voice-cancellation.test.ts > transcription cancellation > honors cancellation arriving before the audio request 2ms
+ ✓ packages/core/test/voice-cancellation.test.ts > transcription cancellation > aborts the active operation and suppresses a late reply 0ms
+ ✓ packages/core/test/voice-cancellation.test.ts > transcription cancellation > aborts an in-flight ASR HTTP request 17ms
+ ✓ packages/core/test/providers.test.ts > providers > aborts a stalled stream with a retryable network error 322ms
+ ✓ packages/core/test/providers.test.ts > providers > Anthropic: streams text and tool_use blocks; merges tool results into user turns 4ms
+ ✓ packages/core/test/providers.test.ts > providers > classifies quota errors (DeepSeek 402, GLM 429 余额不足) as quota 4ms
+ ✓ packages/core/test/providers.test.ts > providers > classifies HTTP errors 1ms
+ ✓ packages/core/test/providers.test.ts > providers > network failures become retryable network errors 0ms
+ ✓ packages/core/test/providers.test.ts > providers > parses model refs 0ms
+ ✓ packages/core/test/search-providers.test.ts > tavily uses the configured credential and normalizes the vendor response 23ms
+ ✓ packages/core/test/search-providers.test.ts > brave uses the configured credential and normalizes the vendor response 1ms
+ ✓ packages/core/test/search-providers.test.ts > serper uses the configured credential and normalizes the vendor response 0ms
+ ✓ packages/core/test/search-providers.test.ts > bocha uses the configured credential and normalizes the vendor response 0ms
+ ✓ packages/core/test/search-providers.test.ts > normalizes SearXNG, Bing, and DuckDuckGo responses and honors the query limit 2ms
+ ✓ packages/core/test/search-providers.test.ts > surfaces provider HTTP failures and caches an unavailable keyless probe 0ms
+ ✓ apps/desktop/test/settings-navigation.test.ts > settings navigation > finds the same control in both languages 2ms
+ ✓ apps/desktop/test/settings-navigation.test.ts > settings navigation > keeps absent and disabled capabilities out of navigation and search 0ms
+ ✓ apps/desktop/test/settings-navigation.test.ts > settings navigation > searches personal controls and exposes native Mini only with a desktop adapter 1ms
+ ✓ apps/desktop/test/settings-navigation.test.ts > settings navigation > ties searchable setting IDs to the host write allowlist 0ms
+ ✓ apps/desktop/test/settings-navigation.test.ts > settings navigation > normalizes legacy, invalid, and direct field routes without trusting unknown IDs 0ms
+ ✓ packages/core/test/hybrid.test.ts > hybrid knowledge retrieval > finds semantically related notes that BM25 alone misses 6ms
+ ✓ packages/core/test/hybrid.test.ts > hybrid knowledge retrieval > fuses lexical and semantic ranks (a note strong in both wins) 2ms
+ ✓ packages/core/test/hybrid.test.ts > hybrid knowledge retrieval > caches embeddings by content and only re-embeds changed chunks 5ms
+ ✓ packages/core/test/hybrid.test.ts > hybrid knowledge retrieval > falls back to BM25 when embeddings fail (quota) and reports the reason 1ms
+ ✓ packages/core/test/hybrid.test.ts > hybrid knowledge retrieval > the host uses hybrid retrieval only when enabled in config 19ms
+ ✓ apps/desktop/test/i18n.test.ts > desktop UI i18n (specs/028) > wraps every user-visible renderer string in t() / tk() 1ms
+ ✓ apps/desktop/test/i18n.test.ts > desktop UI i18n (specs/028) > has a Simplified Chinese string for every English key, with the same placeholders 3ms
+ ✓ apps/desktop/test/i18n.test.ts > desktop UI i18n (specs/028) > translates real UI copy into Chinese (not a copy of the English) 0ms
+ ✓ apps/desktop/test/i18n.test.ts > desktop UI i18n (specs/028) > resolves system / en / zh-CN and interpolates placeholders 0ms
+ ✓ apps/desktop/test/i18n.test.ts > desktop UI i18n (specs/028) > describes schedules in the current language 0ms
+ ✓ packages/core/test/log.test.ts > session log > appends, reloads, and survives a torn last line 7ms
+ ✓ packages/core/test/log.test.ts > session log > derives paired messages and fills interrupted tool calls 4ms
+ ✓ packages/core/test/log.test.ts > session log > approval policy by mode and risk 1ms
+ ✓ packages/core/test/env.test.ts > PATH augmentation for GUI and launchd processes > appends user tool dirs after the existing PATH, without duplicates 2ms
+ ✓ packages/core/test/env.test.ts > credential env import > parses simple exports and skips anything that needs a shell 1ms
+ ✓ packages/core/test/research.test.ts > python kernel > keeps state between cells, echoes the last expression, and reports errors 2475ms
+ ✓ packages/core/test/worktree.test.ts > git worktree sessions > two sessions edit the same file in parallel without interfering 1166ms
+ ✓ packages/core/test/browser.test.ts > browser over CDP (local Chrome, headless) > uses only a confirmed in-memory file for the owning document and revokes prior handles 5600ms
+ ✓ packages/core/test/worktree.test.ts > git worktree sessions > refuses worktrees outside git repos 34ms
+ ✓ packages/core/test/worktree.test.ts > git worktree sessions > reviews Git changes without checkpoints and leaves the real index untouched 2725ms
+ ✓ packages/core/test/browser.test.ts > browser over CDP (local Chrome, headless) > stages authenticated binary downloads, checks every origin, and blocks native blob downloads 1227ms
+ ✓ packages/core/test/browser.test.ts > browser over CDP (local Chrome, headless) > rejects unsafe staging and cleans partial downloads after size limits, cancellation, or takeover 1555ms
+ ✓ packages/core/test/worktree.test.ts > git worktree sessions > uses an explicit base and bounds branch name collisions 2064ms
+ ✓ packages/core/test/browser.test.ts > browser over CDP (local Chrome, headless) > exposes browser tools to a session through the host 1468ms
+ ✓ packages/core/test/worktree.test.ts > git worktree sessions > recovers a squash conflict without losing either branch 2958ms
+ ✓ packages/core/test/worktree.test.ts > git worktree sessions > recovers a merge conflict without losing either branch 2703ms
+ ✓ packages/core/test/worktree.test.ts > git worktree sessions > rejects stale cleanup, live descendants, dirty destinations, and replaced worktrees 4272ms
+ ✓ packages/core/test/worktree.test.ts > git worktree sessions > runs a reviewed setup once and reconciles a started marker after a restart 3614ms
+ ✓ packages/core/test/worktree.test.ts > git worktree sessions > protects a running job and a replacement checkout registered on the same branch 2390ms
+
+ Test Files  45 passed (45)
+      Tests  328 passed (328)
+   Start at  21:37:24
+   Duration  32.53s (tests 92%, import 6%, transform 1%)
+

@@ -1,0 +1,100 @@
+
+ RUN  v5.1.0 /Users/sunqingguang/Downloads/06.code/sun-harness
+
+ ❯ packages/core/test/settings-service.test.ts (6 tests | 6 failed) 45ms
+   ❯ settings service and transport (6)
+     × hides legacy secrets at the gateway and rejects both obsolete RPCs 28ms
+     × rejects a stale page and leaves unrelated unknown fields intact 3ms
+     × rejects unknown, invalid, mixed-scope and credential-bearing edits as a unit 3ms
+     × keeps private legacy values on disk and audits only key names and revisions 3ms
+     × refuses to save when the audit cannot be prepared 3ms
+     × preserves invalid and future-version documents for manual recovery 5ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 6 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/core/test/settings-service.test.ts > settings service and transport > hides legacy secrets at the gateway and rejects both obsolete RPCs
+Error: Unknown method getSettings
+ ❯ GatewayClient.call packages/core/src/gateway.ts:403:25
+    401|     if (r.status === 401) throw new Error('Gateway rejected the token …
+    402|     const body = (await r.json()) as { ok: boolean; result?: T; error?…
+    403|     if (!body.ok) throw new Error(body.error ?? `gateway call ${method…
+       |                         ^
+    404|     return body.result as T;
+    405|   }
+ ❯ packages/core/test/settings-service.test.ts:31:22
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/6]⎯
+
+ FAIL  packages/core/test/settings-service.test.ts > settings service and transport > rejects a stale page and leaves unrelated unknown fields intact
+TypeError: calls.getSettings is not a function
+ ❯ packages/core/test/settings-service.test.ts:42:25
+     40|     writeFileSync(config, configFixtures.legacy);
+     41|     const calls = hostMethods(openHost(), { mode: 'local' });
+     42|     const first = calls.getSettings();
+       |                         ^
+     43|     expect(first.origins['ui.language']).toMatchObject({ source: 'defa…
+     44|     const change = { expectedRevision: first.revision, scope: 'user', …
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/6]⎯
+
+ FAIL  packages/core/test/settings-service.test.ts > settings service and transport > rejects unknown, invalid, mixed-scope and credential-bearing edits as a unit
+TypeError: host.getSettings is not a function
+ ❯ packages/core/test/settings-service.test.ts:56:35
+     54|     writeFileSync(config, configFixtures.legacy);
+     55|     const host = openHost();
+     56|     const expectedRevision = host.getSettings().revision;
+       |                                   ^
+     57|     for (const [key, value] of [
+     58|       ['maxSteps', -1], ['maxSteps', Infinity], ['ui.language', 'en'],…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/6]⎯
+
+ FAIL  packages/core/test/settings-service.test.ts > settings service and transport > keeps private legacy values on disk and audits only key names and revisions
+TypeError: host.getSettings is not a function
+ ❯ packages/core/test/settings-service.test.ts:72:35
+     70|     writeFileSync(config, configFixtures.secretBearing);
+     71|     const host = openHost();
+     72|     const expectedRevision = host.getSettings().revision;
+       |                                   ^
+     73|     expect(host.updateSettings({ expectedRevision, scope: 'host', chan…
+     74|     const audit = readFileSync(join(root, 'settings', 'audit.jsonl'), …
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/6]⎯
+
+ FAIL  packages/core/test/settings-service.test.ts > settings service and transport > refuses to save when the audit cannot be prepared
+TypeError: host.getSettings is not a function
+ ❯ packages/core/test/settings-service.test.ts:87:57
+     85|     const host = openHost();
+     86|     mkdirSync(join(root, 'settings', 'audit.jsonl'), { recursive: true…
+     87|     expect(host.updateSettings({ expectedRevision: host.getSettings().…
+       |                                                         ^
+     88|     expect(readFileSync(config, 'utf8')).toBe(configFixtures.legacy);
+     89|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/6]⎯
+
+ FAIL  packages/core/test/settings-service.test.ts > settings service and transport > preserves invalid and future-version documents for manual recovery
+AssertionError: expected [Function openHost] to throw an error
+
+- Expected:
+null
+
++ Received:
+undefined
+
+ ❯ packages/core/test/settings-service.test.ts:94:24
+     92|     for (const bytes of [configFixtures.invalidJson, configFixtures.in…
+     93|       writeFileSync(config, bytes);
+     94|       expect(openHost).toThrow(/configuration|invalid JSON/i);
+       |                        ^
+     95|       expect(readFileSync(config, 'utf8')).toBe(bytes);
+     96|     }
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/6]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  6 failed (6)
+   Start at  19:00:03
+   Duration  331ms (import 55%, transform 25%, tests 19%, worker 1%)
+

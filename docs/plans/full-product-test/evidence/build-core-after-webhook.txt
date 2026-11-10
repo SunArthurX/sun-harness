@@ -1,0 +1,4 @@
+$ pnpm --filter @sun/core run build && pnpm --filter @sun/cli run build
+$ tsc -p tsconfig.json
+$ tsc -p tsconfig.json && chmod +x dist/index.js && node ../../scripts/bundle-cli.mjs
+bundled packages/cli/dist/sun.mjs

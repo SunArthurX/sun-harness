@@ -1,0 +1,114 @@
+diff --git a/src/locale.mjs b/src/locale.mjs
+index a7a7d64..4be8c1f 100644
+--- a/src/locale.mjs
++++ b/src/locale.mjs
+@@ -1,4 +1,12 @@
+ export const labels = {
+-  en: { available: 'Capture window', unavailable: 'Capture is unavailable' },
+-  zh: { available: '捕获窗口', unavailable: '捕获不可用' },
++  en: {
++    available: 'Capture window',
++    unavailable: 'Capture is unavailable',
++    denied: 'Screen recording permission denied',
++  },
++  zh: {
++    available: '捕获窗口',
++    unavailable: '捕获不可用',
++    denied: '屏幕录制权限被拒绝',
++  },
+ };
+diff --git a/src/panel.mjs b/src/panel.mjs
+index 30a5d7c..61f9bb8 100644
+--- a/src/panel.mjs
++++ b/src/panel.mjs
+@@ -1,6 +1,7 @@
+ import { labels } from './locale.mjs';
+ 
+ export function render(status, locale) {
++  if (status === 'denied') return { state: 'denied', label: labels[locale].denied, actionEnabled: false };
+   if (status === 'unavailable') return { state: status, label: labels[locale].unavailable, actionEnabled: false };
+   return { state: 'available', label: labels[locale].available, actionEnabled: true };
+ }
+@@ -8,6 +9,11 @@ export function render(status, locale) {
+ export async function capture(adapter, locale) {
+   const state = render(adapter.status(), locale);
+   if (!state.actionEnabled) return state;
+-  await adapter.capture();
++  try {
++    await adapter.capture();
++  } catch (error) {
++    if (error && error.code === 'PERMISSION_DENIED') return render('denied', locale);
++    throw error;
++  }
+   return state;
+ }
+diff --git a/test/additions.test.mjs b/test/additions.test.mjs
+new file mode 100644
+index 0000000..ef59bf5
+--- /dev/null
++++ b/test/additions.test.mjs
+@@ -0,0 +1,64 @@
++import { test } from 'node:test';
++import assert from 'node:assert/strict';
++import { render, capture } from '../src/panel.mjs';
++
++test('denied status renders bilingual denial and is disabled', () => {
++  assert.deepEqual(render('denied', 'en'), {
++    state: 'denied',
++    label: 'Screen recording permission denied',
++    actionEnabled: false,
++  });
++  assert.deepEqual(render('denied', 'zh'), {
++    state: 'denied',
++    label: '屏幕录制权限被拒绝',
++    actionEnabled: false,
++  });
++});
++
++test('denied status never calls capture', async () => {
++  let calls = 0;
++  const adapter = { status: () => 'denied', capture: async () => { calls += 1; } };
++  const state = await capture(adapter, 'zh');
++  assert.equal(calls, 0);
++  assert.equal(state.state, 'denied');
++});
++
++test('capture-time PERMISSION_DENIED returns the denial state without raw text', async () => {
++  const adapter = {
++    status: () => 'available',
++    capture: async () => {
++      const error = new Error('macOS TCC raw failure');
++      error.code = 'PERMISSION_DENIED';
++      throw error;
++    },
++  };
++  const state = await capture(adapter, 'en');
++  assert.deepEqual(state, {
++    state: 'denied',
++    label: 'Screen recording permission denied',
++    actionEnabled: false,
++  });
++});
++
++test('other adapter failures still reject', async () => {
++  const adapter = {
++    status: () => 'available',
++    capture: async () => {
++      throw new Error('stream crashed');
++    },
++  };
++  await assert.rejects(() => capture(adapter, 'en'), /stream crashed/);
++});
++
++test('available behavior is preserved', async () => {
++  let calls = 0;
++  const adapter = { status: () => 'available', capture: async () => { calls += 1; } };
++  assert.deepEqual(render('available', 'en'), {
++    state: 'available',
++    label: 'Capture window',
++    actionEnabled: true,
++  });
++  const state = await capture(adapter, 'en');
++  assert.equal(calls, 1);
++  assert.equal(state.state, 'available');
++});

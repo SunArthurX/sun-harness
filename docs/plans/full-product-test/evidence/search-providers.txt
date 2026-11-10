@@ -1,0 +1,23 @@
+
+ RUN  v5.1.0 /Users/sunqingguang/Downloads/06.code/sun-harness
+
+ ✓ packages/core/test/search-providers.test.ts > tavily uses the configured credential and normalizes the vendor response 16ms
+ ✓ packages/core/test/search-providers.test.ts > brave uses the configured credential and normalizes the vendor response 1ms
+ ✓ packages/core/test/search-providers.test.ts > serper uses the configured credential and normalizes the vendor response 0ms
+ ✓ packages/core/test/search-providers.test.ts > bocha uses the configured credential and normalizes the vendor response 0ms
+ ✓ packages/core/test/search-providers.test.ts > normalizes SearXNG, Bing, and DuckDuckGo responses and honors the query limit 1ms
+ ✓ packages/core/test/search-providers.test.ts > surfaces provider HTTP failures and caches an unavailable keyless probe 1ms
+ ✓ packages/core/test/research.test.ts > readable extraction > keeps the article, drops boilerplate and hidden text, converts to markdown 2ms
+ ✓ packages/core/test/research.test.ts > search providers > parses Bing results and unwraps redirect links 1ms
+ ✓ packages/core/test/research.test.ts > search providers > auto-selects a keyed provider, then searxng, then bing 0ms
+ ✓ packages/core/test/research.test.ts > pdf > extracts text from a PDF 72ms
+ ✓ packages/core/test/research.test.ts > prompt-injection guard > detects common injection patterns and invisible text 3ms
+ ✓ packages/core/test/research.test.ts > web tools, taint, and deliverables through a session > wraps fetched pages as untrusted, reads PDFs, and escalates approval after an injection 610ms
+ ✓ packages/core/test/research.test.ts > web tools, taint, and deliverables through a session > lists created and modified files as deliverables 80ms
+ ✓ packages/core/test/research.test.ts > python kernel > keeps state between cells, echoes the last expression, and reports errors 491ms
+
+ Test Files  2 passed (2)
+      Tests  14 passed (14)
+   Start at  21:32:25
+   Duration  1.65s (tests 79%, import 15%, transform 6%)
+

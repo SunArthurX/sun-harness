@@ -1,0 +1,22 @@
+
+ RUN  v5.1.0 /Users/sunqingguang/Downloads/06.code/sun-harness
+
+ ✓ packages/core/test/bots-cn.test.ts > Feishu and WeChat bots > matches the vendors’ published test vectors 6ms
+ ✓ packages/core/test/bots-cn.test.ts > Feishu and WeChat bots > WeChat/WeCom crypto round-trips and signatures sort their inputs 3ms
+ ✓ packages/core/test/bots-cn.test.ts > Feishu and WeChat bots > Feishu: url_verification, token check, encrypted events, dedupe, reply via IM API 671ms
+ ✓ packages/core/test/bots-cn.test.ts > Feishu and WeChat bots > WeChat Official Account: URL verification, signed XML, retry dedupe, allowlist, customer-service reply 152ms
+ ✓ packages/core/test/bots-cn.test.ts > Feishu and WeChat bots > WeCom: encrypted URL verification and messages, receiver check, reply with agentid 108ms
+ ✓ packages/core/test/bots-cn.test.ts > Feishu and WeChat bots > reports missing credentials for each platform 2ms
+ ✓ packages/core/test/bots.test.ts > chat bots > Telegram: allowlist, one session per chat, approvals answered in the chat, replies sent back 865ms
+ ✓ packages/core/test/bots.test.ts > chat bots > a bot only approves its own chats; other sessions still fail closed 198ms
+ ✓ packages/core/test/bots.test.ts > chat bots > DingTalk: verifies the callback signature and replies through the session webhook 123ms
+ ✓ packages/core/test/bots.test.ts > chat bots > webhook: device-token auth, allowlist, and synchronous replies with ?wait=1 198ms
+ ✓ packages/core/test/bots.test.ts > chat bots > isolates a waiting webhook reply from concurrent same-chat requests 301ms
+ ✓ packages/core/test/bots.test.ts > chat bots > does not let a denied webhook user replace an authorized reply destination 137ms
+ ✓ packages/core/test/bots.test.ts > chat bots > reports bots that cannot start for lack of credentials 2ms
+
+ Test Files  2 passed (2)
+      Tests  13 passed (13)
+   Start at  21:28:07
+   Duration  2.17s (tests 84%, import 11%, transform 6%)
+

@@ -1,0 +1,5 @@
+# D18 observation 2026-11-10 ~14:08. Orphan from the first post-D13 unit run (post-d13-unit.txt), in which
+# browser.test.ts launches timed out with "Chrome did not open a DevTools port". ps -o pid,ppid,etime,command -p 37000:
+  PID  PPID ELAPSED COMMAND
+37000     1   31:52 /Applications/Google Chrome.app/Contents/MacOS/Google Chrome --user-data-dir=/var/folders/4c/_fqg96ms18dc7mrmk9dfq32c0000gp/T/sun-test-ufnhcW/home/browser/profiles/test-23721 --remote-debugging-port=0 --no-first-run --no-default-browser-che
+# Parent 1 (launchd), still running ~32 minutes later on its test profile. Stopped with kill afterwards.

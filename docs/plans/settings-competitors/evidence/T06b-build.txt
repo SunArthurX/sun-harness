@@ -1,0 +1,41 @@
+$ pnpm run build:core && pnpm --filter @sun/desktop run build
+$ pnpm --filter @sun/core run build && pnpm --filter @sun/cli run build
+$ tsc -p tsconfig.json
+$ tsc -p tsconfig.json && chmod +x dist/index.js && node ../../scripts/bundle-cli.mjs
+bundled packages/cli/dist/sun.mjs
+$ electron-vite build
+vite v8.3.6 building ssr environment for production...
+transforming...
+✓ 357 modules transformed.
+rendering chunks...
+out/main/index.js  1,182.87 kB
+
+✓ built in 252ms
+vite v8.3.6 building ssr environment for production...
+transforming...
+✓ 2 modules transformed.
+rendering chunks...
+out/preload/index.cjs  0.76 kB
+
+✓ built in 6ms
+vite v8.3.6 building client environment for production...
+transforming...
+✓ 45 modules transformed.
+rendering chunks...
+out/renderer/index.html                                                     0.48 kB
+out/renderer/assets/jetbrains-mono-vietnamese-wght-normal-Bt-aOZkq.woff2    7.50 kB
+out/renderer/assets/jetbrains-mono-greek-wght-normal-Bw9x6K1M.woff2         9.00 kB
+out/renderer/assets/hanken-grotesk-vietnamese-wght-normal-CHiFlh_0.woff2    9.32 kB
+out/renderer/assets/instrument-serif-latin-ext-400-normal-CFCUzsTy.woff     9.86 kB
+out/renderer/assets/instrument-serif-latin-ext-400-normal-C2je3j2s.woff2   11.60 kB
+out/renderer/assets/jetbrains-mono-cyrillic-wght-normal-D73BlboJ.woff2     12.10 kB
+out/renderer/assets/jetbrains-mono-latin-ext-wght-normal-DBQx-q_a.woff2    15.19 kB
+out/renderer/assets/instrument-serif-latin-400-normal-BVbkICAY.woff        18.33 kB
+out/renderer/assets/hanken-grotesk-latin-ext-wght-normal-Dg-wlmqe.woff2    19.58 kB
+out/renderer/assets/instrument-serif-latin-400-normal-DnYpCC2O.woff2       21.03 kB
+out/renderer/assets/hanken-grotesk-latin-wght-normal-CaVRRdDk.woff2        34.70 kB
+out/renderer/assets/jetbrains-mono-latin-wght-normal-B9CIFXIH.woff2        40.40 kB
+out/renderer/assets/index-Cuw3YcOq.css                                     49.11 kB
+out/renderer/assets/index-H7-_MHmm.js                                     980.14 kB
+
+✓ built in 85ms

@@ -63,6 +63,19 @@ function listFiles(dir: string, base = dir, out: string[] = []): string[] {
   return out;
 }
 
+/**
+ * Hermes-style: `/skill-name rest` loads that skill when no custom command owns the name.
+ * The returned prompt contains the skill body so the logged message is what the model sees.
+ */
+export function expandSkillCommand(text: string, skills: Skill[]): { name: string; prompt: string } | undefined {
+  const m = /^\/([A-Za-z0-9][\w-]*)(?:\s+([\s\S]*))?$/.exec(text.trim());
+  if (!m) return undefined;
+  const skill = skills.find((s) => s.name === m[1]);
+  if (!skill) return undefined;
+  const request = m[2]?.trim() || 'The user invoked this skill with no extra text. Ask what they need, or do the skill\'s default task.';
+  return { name: skill.name, prompt: `Follow this skill (${skill.name}).\n\n${loadSkillBody(skill)}\n\nUser request: ${request}` };
+}
+
 /** Progressive disclosure: the index is in the prompt, the body is loaded on demand. */
 export function loadSkillBody(skill: Skill): string {
   const { body } = parseFrontmatter(readFileSync(skill.file, 'utf8'));

@@ -39,6 +39,11 @@ Status: implemented (M1). Code: `packages/core/src/{log,messages,agent,host,prov
 - Paused sessions keep everything on disk. Recovery paths: `resume(id)` (same model, after quota restore), `resume(id, {model})` (logs `model/switch`), automatic fallback chain, and the auto-resume tick (`autoResume.intervalMinutes`, default 15) for `quota`/`rate_limit`/`network` pauses.
 - On host start, sessions left `running`/`awaiting_approval` become `paused: interrupted`.
 
+Decision — CLI process status. `sun run` and `sun resume` use the same
+exit-code contract. A finished run exits with `0`, a paused run with `3`,
+and an error or abort with `1`. This preserves the distinction between a
+recoverable pause and a terminal failure for shell callers.
+
 ## Compaction
 
 - When the derived history exceeds `compaction.thresholdTokens`, older history up to a clean boundary (no outstanding tool calls) is summarized into a `context/compaction` event; the most recent `keepRecent` events stay verbatim.

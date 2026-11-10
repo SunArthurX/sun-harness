@@ -1,0 +1,19 @@
+✔ defaults, UI labels, boundary validation and shared revision (1.054042ms)
+✔ pageSize defaults to 25 with default provenance (0.887042ms)
+✔ cli accepts decimal digit strings for pageSize (0.165958ms)
+✔ cli accepts inclusive range bounds (0.112375ms)
+✔ cli refuses partial numbers and out-of-range values without side effects (0.581333ms)
+✔ host rejects non-integer or out-of-range pageSize values (0.134417ms)
+✔ pageSize is exposed through ipc and gateway transports (0.140833ms)
+✔ renderer labels pageSize in English and Simplified Chinese (0.137792ms)
+✔ persistence keeps user pageSize, verbose and unknown keys (0.0695ms)
+✔ verbose stays editable and revision conflicts are preserved (0.104666ms)
+✔ verbose remains editable (0.467667ms)
+ℹ tests 11
+ℹ suites 0
+ℹ pass 11
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 47.753916

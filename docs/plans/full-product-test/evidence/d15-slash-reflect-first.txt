@@ -1,0 +1,26 @@
+# D15 first observation, 2026-11-10, built CLI before the fix.
+# $ node --test --test-name-pattern='interactive slash commands' packages/cli/e2e/product.mjs
+# The piped chat input was: exercise edit, /changes, /diff fixture.txt, /revert fixture.txt,
+# /undo, /review, /context, /cost, /compact, /export jsonl <file>, /sessions, /reflect,
+# /help, /rewind, /rewind 1, /not-a-command, /exit.
+# The loopback model answers /reflect with plain text, so reflection raises an error.
+# That error escaped the chat loop: the process exited 1 and the remaining commands,
+# including /exit, never ran. Excerpt of the node:test report (exit 1):
+✖ interactive slash commands inspect, revert, report, export and rewind a session (739.169875ms)
+ℹ tests 1
+ℹ pass 0
+ℹ fail 1
+
+test at packages/cli/e2e/product.mjs:267:1
+✖ interactive slash commands inspect, revert, report, export and rewind a session (739.169875ms)
+  AssertionError [ERR_ASSERTION]: [31mReflection returned no JSON proposals: Fixture response.[0m
+
+  1 !== 0
+
+      at succeed (file:///Users/sunqingguang/Downloads/06.code/sun-harness/packages/cli/e2e/product.mjs:101:10)
+      at async TestContext.<anonymous> (file:///Users/sunqingguang/Downloads/06.code/sun-harness/packages/cli/e2e/product.mjs:275:20)
+  generatedMessage: false, code: 'ERR_ASSERTION', actual: 1, expected: 0, operator: 'strictEqual'
+# After the fix, d15-slash-commands.txt shows the full session transcript with
+# "✗ /reflect failed: Reflection returned no JSON proposals: Fixture response." followed by
+# /help, /rewind, /rewind 1, the unknown command and /exit (that run failed only on a fixture
+# regex for session IDs). d15-slash-commands-regression.txt is the passing rerun.

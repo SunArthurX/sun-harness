@@ -1,0 +1,134 @@
+diff --git a/src/locale.mjs b/src/locale.mjs
+index a7a7d64..4be8c1f 100644
+--- a/src/locale.mjs
++++ b/src/locale.mjs
+@@ -1,4 +1,12 @@
+ export const labels = {
+-  en: { available: 'Capture window', unavailable: 'Capture is unavailable' },
+-  zh: { available: '捕获窗口', unavailable: '捕获不可用' },
++  en: {
++    available: 'Capture window',
++    unavailable: 'Capture is unavailable',
++    denied: 'Screen recording permission denied',
++  },
++  zh: {
++    available: '捕获窗口',
++    unavailable: '捕获不可用',
++    denied: '屏幕录制权限被拒绝',
++  },
+ };
+diff --git a/src/panel.mjs b/src/panel.mjs
+index 30a5d7c..d237c1e 100644
+--- a/src/panel.mjs
++++ b/src/panel.mjs
+@@ -1,13 +1,25 @@
+ import { labels } from './locale.mjs';
+ 
++export const PERMISSION_DENIED = 'PERMISSION_DENIED';
++
++function denial(locale) {
++  return { state: 'denied', label: labels[locale].denied, actionEnabled: false };
++}
++
+ export function render(status, locale) {
+   if (status === 'unavailable') return { state: status, label: labels[locale].unavailable, actionEnabled: false };
++  if (status === 'denied') return denial(locale);
+   return { state: 'available', label: labels[locale].available, actionEnabled: true };
+ }
+ 
+ export async function capture(adapter, locale) {
+   const state = render(adapter.status(), locale);
+   if (!state.actionEnabled) return state;
+-  await adapter.capture();
++  try {
++    await adapter.capture();
++  } catch (error) {
++    if (error?.code === PERMISSION_DENIED) return denial(locale);
++    throw error;
++  }
+   return state;
+ }
+diff --git a/test/additions.test.mjs b/test/additions.test.mjs
+new file mode 100644
+index 0000000..f382170
+--- /dev/null
++++ b/test/additions.test.mjs
+@@ -0,0 +1,78 @@
++import { test } from 'node:test';
++import assert from 'node:assert/strict';
++import { render, capture } from '../src/panel.mjs';
++
++const DENIED_EN = 'Screen recording permission denied';
++const DENIED_ZH = '屏幕录制权限被拒绝';
++
++test('denied renders the English denial label and disables the action', () => {
++  assert.deepEqual(render('denied', 'en'), {
++    state: 'denied',
++    label: DENIED_EN,
++    actionEnabled: false,
++  });
++});
++
++test('denied renders the Chinese denial label and disables the action', () => {
++  assert.deepEqual(render('denied', 'zh'), {
++    state: 'denied',
++    label: DENIED_ZH,
++    actionEnabled: false,
++  });
++});
++
++test('denied status does not call capture', async () => {
++  let called = 0;
++  const adapter = {
++    status: () => 'denied',
++    capture: async () => {
++      called += 1;
++      return {};
++    },
++  };
++  const state = await capture(adapter, 'en');
++  assert.equal(called, 0);
++  assert.deepEqual(state, { state: 'denied', label: DENIED_EN, actionEnabled: false });
++});
++
++test('a PERMISSION_DENIED rejection during capture returns the denial state', async () => {
++  let called = 0;
++  const error = new Error('raw os text that must not surface');
++  error.code = 'PERMISSION_DENIED';
++  const adapter = {
++    status: () => 'available',
++    capture: async () => {
++      called += 1;
++      throw error;
++    },
++  };
++  const state = await capture(adapter, 'zh');
++  assert.equal(called, 1);
++  assert.deepEqual(state, { state: 'denied', label: DENIED_ZH, actionEnabled: false });
++});
++
++test('other capture failures reject with the original error', async () => {
++  const error = new Error('display unplugged');
++  error.code = 'CAPTURE_FAILED';
++  const adapter = {
++    status: () => 'available',
++    capture: async () => {
++      throw error;
++    },
++  };
++  await assert.rejects(capture(adapter, 'en'), (err) => err === error);
++});
++
++test('available behavior is preserved', async () => {
++  let called = 0;
++  const adapter = {
++    status: () => 'available',
++    capture: async () => {
++      called += 1;
++      return { frame: 1 };
++    },
++  };
++  const state = await capture(adapter, 'en');
++  assert.equal(called, 1);
++  assert.deepEqual(state, { state: 'available', label: 'Capture window', actionEnabled: true });
++});

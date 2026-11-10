@@ -8,7 +8,9 @@ sun resume <sessionId> [--model provider/model] [--chat]
 sun undo <sessionId> [--steps n]                         revert the last edit steps (checkpoints)
 sun sandbox status | test                                which shell sandbox is used; self-test
 sun browser status | login [url] [--profile name] | stop  agent browser; sign in to a profile
-sun export <session> [--format markdown|html|jsonl] [-o file] | sun import <file.jsonl>
+sun browser permissions [set <origin> <browse|upload|download> <allow|deny|ask>]
+sun export <session> [--format markdown|html|jsonl|bundle] [-o file]
+sun import <file.jsonl|file.sunbundle> [--cwd workspace]
 sun search <text> | sun commands
 sun context <session> [--json | --format html -o report.html]   what fills the context
 sun changes <session> [--diff | --json]                         files the session changed
@@ -28,7 +30,12 @@ sun intel run [--force] | analyze <date> | list | show [date] | install-schedule
 sun kb search <query> | add <title> <file|-> | index | stats
 sun evolve reflect <sessionId> | list [pending|accepted|rejected] | accept <id> | reject <id>
 sun worktree list | status <id> | diff <id> | merge <id> [--strategy squash|merge] | discard <id>
-sun skills | sun mcp | sun plugins | sun schedules
+sun worktree preview <id...> | cleanup <revision> <id...> | setup <id> <hook-id> <digest> | reconcile <id>
+sun skills | sun mcp | sun schedules
+sun plugins [list | enable NAME | disable NAME] [--local | --remote NAME]
+sun hooks list | trust HOOK_ID DIGEST | revoke HOOK_ID DIGEST [--cwd dir]
+sun hooks preview HOOK_ID DIGEST [--fixture read|shell|edit] [--cwd dir]
+sun hooks test HOOK_ID DIGEST --execute [--fixture read|shell|edit] [--cwd dir]
 sun serve [--port 4471] [--host 127.0.0.1]
 sun serve --tls [--host 0.0.0.0] [--insecure]
 sun gateway status | url | install [--tls --host ..] | uninstall
@@ -39,6 +46,28 @@ sun desktop
 ```
 
 Session commands (`chat`, `run`, `resume`, `sessions`) use `--remote <name>`, else the default remote, else a running local gateway; `--local` runs them in-process. See [Gateway](gateway.md).
+
+Piped input to `sun chat` is queued while the gateway connects and processed
+in order, including when the pipe closes during connection setup.
+
+### Transfer a session with attachments
+
+```bash
+sun export SESSION_ID --format bundle -o conversation.sunbundle
+sun import conversation.sunbundle --cwd /path/to/workspace
+```
+
+The portable bundle includes the transcript and its saved images. The
+receiving host validates the bundle and assigns a new session ID. It uses the
+original workspace if that directory exists. Use `--cwd` to select an existing
+directory on the execution host. Imported history is available in the chat.
+Send a new message to continue under that host's current approval settings.
+
+The existing JSONL command imports text transcripts and can copy images
+already stored in the receiving host's attachment directories. Use a portable
+bundle to transfer images between hosts. Import and export follow the
+selected host. Use `--local` for the local store or `--remote NAME` to select a
+configured remote.
 
 ## Exit codes (`run`, `resume`)
 
@@ -62,6 +91,7 @@ In an interactive terminal, approvals prompt `[y]es / [n]o / [a]lways`. Anything
 | `/mode <id>` | switch mode (`coding`, `plan`, `agent`, `assistant`) |
 | `/changes [all]` | files changed in the last turn (or the whole session) |
 | `/diff [path]` · `/revert <path>` | show a diff · restore a file to before the session |
+| `/review` | review this session's diff for bugs and missing tests (no edits) |
 | `/context` | what fills the context: categories, largest items, suggestions |
 | `/compact` | summarize older history now |
 | `/cost` (`/status`) | tokens, cache share and estimated cost per model |
@@ -75,3 +105,7 @@ In an interactive terminal, approvals prompt `[y]es / [n]o / [a]lways`. Anything
 | `/reflect` | create evolution proposals from this session |
 | `/sessions` | list sessions |
 | `/exit` | quit |
+
+If a slash command fails, the CLI prints `✗ /<command> failed: <reason>` and
+stays in the same session. For example, `/reflect` reports a model reply
+without proposals and the next command still runs.

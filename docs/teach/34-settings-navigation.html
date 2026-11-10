@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>34 — Searchable settings</title>
+<body>
+<p><a href="index.html">Teaching index</a></p>
+<h1>Searchable settings</h1>
+<p>Desktop and web use a shared section registry. Stable section and field IDs
+support deep links and tests. Host capabilities determine the visible sections.</p>
+<pre class="mermaid">flowchart LR
+  C[Host capabilities] --> R[Section registry]
+  T[English and Chinese labels] --> S[Search index]
+  R --> S
+  S --> U[Route and field focus]
+  U --> D[Section draft]
+  D --> P[Revision checked save]
+  P -->|Conflict| V[Reload and compare]
+  V --> D
+  P -->|Success| F[Update snapshot]
+</pre>
+<h2>What survives a conflict?</h2>
+<p>The form keeps typed values independently of the saved snapshot. Reload replaces
+the snapshot while preserving the draft. Applying that draft remains a separate
+action. Returning with Back follows the same dirty-state guard as clicking a section.</p>
+<h2>How does translation coverage follow the code?</h2>
+<p>The scanner traverses renderer subdirectories. Moving a settings component
+into its own folder keeps its English keys and Chinese translations in the
+normal test gate. Search matches both dictionaries regardless of display locale.</p>
+<p><a href="../plans/settings-competitors/evidence/T04.json">T04 evidence</a></p>
+<script type="module">import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';mermaid.initialize({startOnLoad:true});</script>
+</body>
+</html>

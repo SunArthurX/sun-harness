@@ -1,0 +1,6 @@
+[
+  "src/schema.mjs",
+  "src/renderer.mjs",
+  "src/cli.mjs",
+  "test/additions.test.mjs"
+]

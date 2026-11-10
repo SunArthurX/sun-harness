@@ -1,0 +1,18 @@
+✔ defaults, UI labels, boundary validation and shared revision (1.080458ms)
+✔ pageSize default is 25 with default provenance (1.297333ms)
+✔ pageSize check accepts the inclusive integer range 10 through 100 (0.119958ms)
+✔ CLI accepts decimal digit strings for pageSize including bounds (0.2395ms)
+✔ CLI refuses partial numbers and out-of-range pageSize leaving state intact (0.490959ms)
+✔ CLI still rejects non-boolean verbose input (0.071917ms)
+✔ pageSize flows through Electron IPC and gateway with revision checks and persistence (0.168583ms)
+✔ host keeps verbose behavior, default provenance and unknown persisted keys (0.078209ms)
+✔ renderer exposes pageSize labels in English and Simplified Chinese (0.153875ms)
+✔ verbose remains editable (0.471084ms)
+ℹ tests 10
+ℹ suites 0
+ℹ pass 10
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 51.196458

@@ -1,0 +1,17 @@
+✔ current plan is coherent (1.915708ms)
+✔ missing screenshot entry is rejected (0.3935ms)
+✔ unknown dependency is rejected (0.297667ms)
+✔ dependency cycle is rejected (0.287916ms)
+✔ fake completion without evidence is rejected (1.000458ms)
+✔ unknown acceptance is rejected (0.479292ms)
+✔ unimplemented dependency blocks starting work (0.295042ms)
+✔ unexplained deferral is rejected (0.2805ms)
+✔ outside-repository specification is rejected (0.227584ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 9
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 51.221541

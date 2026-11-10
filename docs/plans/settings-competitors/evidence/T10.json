@@ -1,0 +1,55 @@
+{
+  "task": "T10",
+  "result": "pass",
+  "acceptance": ["AC-11"],
+  "commands": [
+    { "command": "pnpm test", "exitCode": 0, "outputFile": "docs/plans/settings-competitors/evidence/T10-test.txt" },
+    { "command": "pnpm build", "exitCode": 0, "outputFile": "docs/plans/settings-competitors/evidence/T10-build.txt" },
+    { "command": "pnpm typecheck", "exitCode": 0, "outputFile": "docs/plans/settings-competitors/evidence/T10-types.txt" },
+    { "command": "node apps/desktop/e2e/settings.mjs", "exitCode": 0, "outputFile": "docs/plans/settings-competitors/evidence/T10-e2e.txt" },
+    { "command": "node apps/desktop/e2e/browser-backends.mjs", "exitCode": 0, "outputFile": "docs/plans/settings-competitors/evidence/T10-backends.txt" }
+  ],
+  "artifacts": [
+    "packages/core/src/browser/browser.ts",
+    "packages/core/src/browser/cdp.ts",
+    "packages/core/src/browser/permissions.ts",
+    "packages/core/src/browser/uploads.ts",
+    "packages/core/src/browser/downloads.ts",
+    "packages/core/src/browser/tools.ts",
+    "packages/core/src/host.ts",
+    "packages/core/src/gateway.ts",
+    "packages/core/test/browser.test.ts",
+    "packages/cli/src/index.ts",
+    "apps/desktop/src/renderer/src/Browser.tsx",
+    "apps/desktop/src/renderer/src/BrowserUpload.tsx",
+    "apps/desktop/src/renderer/src/settings/BrowserPermissionsPanel.tsx",
+    "apps/desktop/src/renderer/src/locale-zh-CN.ts",
+    "apps/desktop/e2e/settings.mjs",
+    "apps/desktop/e2e/browser-backends.mjs",
+    "specs/022-browser.md",
+    "specs/032-settings-and-capability-management.md",
+    "docs/adr/0011-browser-transfer-boundaries.md",
+    "docs/manual/browser.md",
+    "docs/manual/desktop.md",
+    "docs/manual/cli.md",
+    "docs/manual/configuration.md",
+    "docs/teach/40-browser-ownership.html",
+    "docs/teach/index.html",
+    "docs/plan.md",
+    "CHANGELOG.md"
+  ],
+  "manualChecks": [
+    "Local Chromium sent zero requests to unapproved redirect, embedded-document, and popup destinations. Source, action, scheme, and port are independent. Rule updates use compare-and-swap, and permission audit records contain normalized origins.",
+    "Two sessions cannot acquire control with each other's frames. A queued action fails on takeover, the handback requires a fresh snapshot, and old control tokens, element refs, and frames cannot act.",
+    "Electron and gateway web previewed the exact selected bytes, showed the destination origin, required explicit confirmation, and completed a one-time upload and a staged download through ordinary agent tools. The fixture verified no payload bytes appeared in the session log.",
+    "Tests rejected raw paths, malformed bytes, expired or consumed handles, approvals from other sessions, and approvals invalidated by navigation, takeover, or permission changes. The approved file appeared with its exact bytes in a real Chromium file input.",
+    "Real Chromium streamed a binary response and an authenticated download without exposing cookies. A hostile suggested filename could not select the staging path. An unapproved redirect received zero requests. Tests covered symlinks, redirect loops, chunked oversize, same-session concurrency, cancellation, takeover, and grant revocation.",
+    "The Docker fixture verified native blob downloads stayed blocked with an active owner and that a concurrent controller was refused. A later controller reused the existing profile and login. The external fixture exercised explicit delegation, concurrent owner rejection, original-tab preservation, and real transfers using the existing login."
+  ],
+  "limitations": [
+    "External Chromium requires explicit delegation of its dedicated context through browser.cdpAllowDownloadPolicy. The setting affects native downloads in that context.",
+    "Uploads target a current top-level HTML file input and expire after five minutes. Downloads support HTTP and HTTPS GET and stage files on the execution host.",
+    "The real fixtures ran on macOS with local Chromium, Docker Chromium, Electron, and gateway web. One pre-existing unit test was skipped."
+  ],
+  "rollback": "Close the active controller before switching versions or changing external browser delegation. A version rollback preserves browser profiles, session logs, staged files, and the separate browser-permissions store."
+}

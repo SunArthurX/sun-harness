@@ -1,0 +1,52 @@
+{
+  "task": "T08",
+  "result": "pass",
+  "acceptance": ["AC-08", "AC-16"],
+  "commands": [
+    { "command": "pnpm test", "exitCode": 0, "outputFile": "docs/plans/settings-competitors/evidence/T08-test.txt" },
+    { "command": "pnpm build", "exitCode": 0, "outputFile": "docs/plans/settings-competitors/evidence/T08-build.txt" },
+    { "command": "pnpm typecheck", "exitCode": 0, "outputFile": "docs/plans/settings-competitors/evidence/T08-types.txt" },
+    { "command": "node apps/desktop/e2e/settings-remote.mjs", "exitCode": 0, "outputFile": "docs/plans/settings-competitors/evidence/T08-remote.txt" },
+    { "command": "node apps/desktop/e2e/settings.mjs", "exitCode": 0, "outputFile": "docs/plans/settings-competitors/evidence/T08-e2e.txt" }
+  ],
+  "artifacts": [
+    "packages/core/src/remote.ts",
+    "packages/core/src/gateway.ts",
+    "packages/core/src/gateway-receipts.ts",
+    "packages/core/src/settings/protocol.ts",
+    "packages/core/test/remote.test.ts",
+    "packages/core/test/gateway.test.ts",
+    "packages/cli/src/index.ts",
+    "apps/desktop/src/main/connections.ts",
+    "apps/desktop/src/main/index.ts",
+    "apps/desktop/src/preload/index.ts",
+    "apps/desktop/src/renderer/src/web-bridge.ts",
+    "apps/desktop/src/renderer/src/settings/ConnectionsPanel.tsx",
+    "apps/desktop/src/renderer/src/locale-zh-CN.ts",
+    "apps/desktop/e2e/settings-remote.mjs",
+    "apps/desktop/e2e/settings.mjs",
+    "specs/012-gateway.md",
+    "specs/017-remote-gateway.md",
+    "specs/032-settings-and-capability-management.md",
+    "docs/adr/0010-settings-capability-boundaries.md",
+    "docs/manual/gateway.md",
+    "docs/manual/desktop.md",
+    "docs/teach/38-remote-connections.html",
+    "docs/teach/index.html",
+    "docs/plan.md",
+    "CHANGELOG.md"
+  ],
+  "manualChecks": [
+    "Pinned HTTPS fixtures reject a changed certificate, a wrong installation ID, an unauthenticated handshake and a mismatched protocol. CLI refuses to save an invalid token and records the authenticated installation on success.",
+    "A live device stream closes on revocation. Pending approval is denied when its last approver disappears. A real prompt issued by another host with the same call ID cannot answer the current host's prompt.",
+    "A real response socket was destroyed after dispatch. The retry produced one send and one logged user message. Concurrent automation starts share the receipt. Different payloads, expired IDs and previous gateway instances cannot replay a write.",
+    "Electron previewed the real TLS fingerprint and required confirmation before receiving the token. The redacted renderer response omitted the credential and the selected profile survived app restart. The separate CLI default remained unchanged.",
+    "Separate local and remote homes retained different values. Desktop appearance writes affected the local file and host setting writes affected the remote file. An actual disconnect disabled host writes, preserved the draft, refreshed the sessions and settings on reconnect, and rejected the stale draft revision. A previous renderer could not dispatch into the new local host.",
+    "The web renderer used an opaque HttpOnly SameSite Strict cookie and removed the URL token and legacy storage key. An interrupted event stream paused writes and reloaded sessions before writes resumed."
+  ],
+  "limitations": [
+    "Electron and the served renderer were exercised on macOS. One pre-existing unit test remained skipped.",
+    "Retry receipts are live for a bounded period on the issuing gateway instance. After restart, check the session or automation history before starting new work. Browser sessions require a new sign-in after gateway restart."
+  ],
+  "rollback": "Use Settings → Connections → Use this computer or clear the CLI selection with sun remote off. Revoke a device token on the gateway to close its streams and stop further authorization."
+}

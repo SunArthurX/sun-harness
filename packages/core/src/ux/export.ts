@@ -1,6 +1,28 @@
 import type { SessionEvent } from '../types.js';
 
-const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+export function credentialRedactor(values: readonly (string | undefined)[]): (text: string) => string {
+  const candidates = new Set<string>();
+  for (const value of values) {
+    if (typeof value !== 'string' || !value) continue;
+    candidates.add(value);
+    candidates.add(JSON.stringify(value).slice(1, -1));
+  }
+  const alternatives = [...candidates].sort((a, b) => b.length - a.length).map(value => {
+    const escaped = value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return value.length >= 8 ? escaped : `(?<![\\p{L}\\p{N}_])${escaped}(?![\\p{L}\\p{N}_])`;
+  });
+  const secret = new RegExp([...alternatives, 'sund_[A-Za-z0-9_-]{32}(?![A-Za-z0-9_-])'].join('|'), 'gu');
+  return text => text.replace(secret, '[REDACTED]');
+}
+
+/** Redact export copies while keeping JSON syntax and event boundaries intact. */
+export function redactSessionEvents(events: readonly SessionEvent[], values: readonly (string | undefined)[]): SessionEvent[] {
+  const redact = credentialRedactor(values);
+  return events.map(event => JSON.parse(JSON.stringify(event, (_key, value) =>
+    typeof value === 'string' ? redact(value) : value)) as SessionEvent);
+}
 
 function toolArgs(raw: string): string {
   try {
@@ -37,6 +59,7 @@ export function sessionToMarkdown(events: readonly SessionEvent[]): string {
     else if (e.type === 'mode/switch') out.push(`> mode ${e.from} → ${e.to}`, '');
     else if (e.type === 'verify/result') out.push(`> ${e.passed ? '✓ verified' : '✗ verification failed'}: ${e.results.map((r) => r.command).join(' && ')}`, '');
     else if (e.type === 'context/compaction') out.push(`> context compacted`, '');
+    else if (e.type === 'review/report') out.push(`> review`, '', e.text, '');
   }
   return out.join('\n');
 }
@@ -56,10 +79,11 @@ export function sessionToHtml(events: readonly SessionEvent[]): string {
     else if (l.startsWith('## ')) html.push(`<h2>${esc(l.slice(3))}</h2>`);
     else if (l.startsWith('> ')) html.push(`<p class="event">${esc(l.slice(2))}</p>`);
     else if (l.startsWith('- ')) html.push(`<p class="meta">${esc(l.slice(2))}</p>`);
-    else if (/^<\/?details|^<summary/.test(l)) html.push(l.replace(/<summary>(.*)<\/summary>/, (_m, t: string) => `<summary>${esc(t)}</summary>`));
+    else if (l === '<details>' || l === '</details>') html.push(l);
+    else if (l.startsWith('<summary>') && l.endsWith('</summary>')) html.push(`<summary>${esc(l.slice(9, -10))}</summary>`);
     else if (l.trim()) html.push(`<p>${esc(l)}</p>`);
   }
-  return `<!doctype html><html><head><meta charset="utf-8"><title>sun-harness session</title><style>
+  return `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'"><title>sun-harness session</title><style>
 body{font:15px/1.6 -apple-system,BlinkMacSystemFont,sans-serif;max-width:860px;margin:40px auto;padding:0 20px;color:#1f1a14;background:#fbf8f3}
 h1{font-weight:500}h2{font-size:15px;margin:28px 0 6px;color:#e8862a;text-transform:uppercase;letter-spacing:.06em}
 pre{background:#201a13;color:#f3e9da;padding:12px;border-radius:8px;overflow:auto;font:12.5px/1.5 Menlo,monospace}

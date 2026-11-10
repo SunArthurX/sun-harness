@@ -1,0 +1,2 @@
+External Chromium requires delegation, reuses its existing authenticated profile, transfers approved files, and preserves the original tab.
+Docker Chromium refuses a concurrent policy owner, blocks native downloads, and transfers approved bytes after reusing the authenticated profile.

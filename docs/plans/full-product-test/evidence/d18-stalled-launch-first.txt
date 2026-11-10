@@ -1,0 +1,35 @@
+$ pnpm exec vitest run packages/core/test/browser.test.ts -t 'never opens its DevTools port'   # before the fix
+
+ RUN  v5.1.0 /Users/sunqingguang/Downloads/06.code/sun-harness
+
+ ❯ packages/core/test/browser.test.ts (13 tests | 1 failed | 12 skipped) 10185ms
+   ❯ browser transfer limits (3)
+     × stops a managed browser that never opens its DevTools port 10184ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/core/test/browser.test.ts > browser transfer limits > stops a managed browser that never opens its DevTools port
+AssertionError: expected [Function] to throw an error
+
+- Expected:
+null
+
++ Received:
+undefined
+
+ ❯ packages/core/test/browser.test.ts:113:42
+    111|       await expect(b.navigate('s', 'https://example.com')).rejects.toT…
+    112|       const pid = Number(readFileSync(pidFile, 'utf8'));
+    113|       expect(() => process.kill(pid, 0)).toThrow(/ESRCH/);
+       |                                          ^
+    114|     } finally {
+    115|       await b.dispose();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 12 skipped (13)
+   Start at  14:09:25
+   Duration  10.51s (tests 98%, import 1%, transform 1%)
+

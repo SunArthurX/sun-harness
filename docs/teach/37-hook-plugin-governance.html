@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>37 — Hook trust and plugin lifecycle</title>
+<body>
+<p><a href="index.html">Teaching index</a></p>
+<h1>Hook trust and plugin lifecycle</h1>
+<p>The work began with static hook discovery and digest-based review. The
+fixture runner then reused the runtime sandbox and bounded process runner.
+The renderer exposes the same review and fixture operations as the CLI.
+Plugins gained static manifests and a host-owned lifecycle for their
+registrations.</p>
+<pre class="mermaid">flowchart TD
+  A[Hook source] --> B[Validate event, matcher and command]
+  B --> C[Compare reviewed digest]
+  C -->|Current| D[Run in bounded sandbox]
+  C -->|Missing or stale| E[Skip or block by hook policy]
+  D --> F[Persist outcome and model-visible feedback]
+  G[Plugin manifest] --> H[Inspect requested actions]
+  H --> I[Activate and publish a registration generation]
+  I --> J[Commit disabled setting at current revision]
+  J --> K[Revoke this generation]
+  K --> L[Reject new and queued calls]
+  K --> M[Drain started calls]
+  M --> N[Audit settlement and publish disabled state]
+</pre>
+<h2>What invalidates hook review?</h2>
+<p>Trust is tied to the reviewed identity, canonical source path and exact
+source bytes. A change after preview requires another review. Matching
+policy hooks with a block policy fail closed. Timeout and cancellation
+terminate the hook process tree, and output has a fixed byte budget.</p>
+<h2>What happens to an approved call when the plugin is disabled?</h2>
+<p>An approval can arrive after the registration was revoked. The tool
+wrapper checks its own generation at dispatch. A re-enable can publish a
+new generation, and the old wrapper still fails. Work that entered before
+revocation releases its in-flight count when it settles.</p>
+<h2>What do requested actions tell the user?</h2>
+<p>A fixed vocabulary describes the author's declaration before any plugin
+code runs. Registration names show the contributions of the current
+generation. Enabled local JavaScript has host process privileges.</p>
+<p><a href="../plans/settings-competitors/evidence/T07.json">T07 evidence</a></p>
+<script type="module">import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';mermaid.initialize({startOnLoad:true});</script>
+</body>
+</html>

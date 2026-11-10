@@ -1,0 +1,25 @@
+
+ RUN  v5.1.0 /Users/sunqingguang/Downloads/06.code/sun-harness
+
+ ✓ packages/core/test/mcp-http.test.ts > connects authenticated HTTP and legacy SSE, invokes tools, and reconnects after changing configuration 100ms
+ ✓ packages/core/test/extensions.test.ts > rules loader (anti-drift context) > collects AGENTS.md hierarchy, .sun/rules, cursor rules and specs 5ms
+ ✓ packages/core/test/extensions.test.ts > rules loader (anti-drift context) > puts rules, specs, skills and memory into the system prompt 507ms
+ ✓ packages/core/test/extensions.test.ts > knowledge base > tokenizes CJK into bigrams 0ms
+ ✓ packages/core/test/extensions.test.ts > knowledge base > ranks markdown chunks with BM25 and supports adding notes 2ms
+ ✓ packages/core/test/extensions.test.ts > knowledge base > kb_search tool works through the host, company provider is reserved/off by default 75ms
+ ✓ packages/core/test/extensions.test.ts > memory > appends facts under sections and dedupes 1ms
+ ✓ packages/core/test/extensions.test.ts > schedules > parses cron and finds due tasks 2ms
+ ✓ packages/core/test/extensions.test.ts > schedules > host runs due scheduled tasks as new sessions 75ms
+ ✓ packages/core/test/extensions.test.ts > evolution > reflects a session into proposals and applies accepted ones 77ms
+ ✓ packages/core/test/extensions.test.ts > evolution > dedupes proposals by type+title 1ms
+ ✓ packages/core/test/extensions.test.ts > plugins > loads an ESM plugin that contributes a tool, a mode and a prompt section 85ms
+ ✓ packages/core/test/extensions.test.ts > plugins > respects the disabled list 1ms
+ ✓ packages/core/test/extensions.test.ts > hooks > preToolUse exit 2 blocks the call; postToolUse adds context 368ms
+ ✓ packages/core/test/extensions.test.ts > hooks > onFailure "block" makes a crashing policy hook fail closed; default ignores it 250ms
+ ✓ packages/core/test/extensions.test.ts > mcp > connects to a stdio MCP server and exposes namespaced tools 121ms
+
+ Test Files  2 passed (2)
+      Tests  16 passed (16)
+   Start at  21:18:50
+   Duration  2.14s (tests 71%, transform 16%, import 13%)
+

@@ -1,0 +1,5 @@
+$ node apps/desktop/e2e/appshot.mjs apps/desktop/release/full-product-d17/mac-arm64/sun-harness.app --boundary-only
+# started 2026-11-10T06:16:04Z
+(node:12179) ExperimentalWarning: stripTypeScriptTypes is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+Signed app passed default-off and OS shortcut checks. Native Electron masking passed on synthetic pixels. Packaged Screen Recording preflight: permission-required.

@@ -17,6 +17,8 @@ export interface MemoryItem {
 }
 
 export interface MemoryConfig {
+  /** Turn off new automatic memory context and extraction. */
+  enabled?: boolean;
   /** Modes whose user messages get relevant long-term memories attached. */
   recallModes: string[];
   /** Modes whose finished runs are mined for new memories by a background model call. */
@@ -25,7 +27,7 @@ export interface MemoryConfig {
   recallK: number;
 }
 
-export const DEFAULT_MEMORY: MemoryConfig = { recallModes: ['assistant', 'agent'], extractModes: ['assistant'], autoExtract: true, recallK: 4 };
+export const DEFAULT_MEMORY: MemoryConfig = { enabled: true, recallModes: ['assistant', 'agent'], extractModes: ['assistant'], autoExtract: true, recallK: 4 };
 
 /** Function words carry no topic; with a small memory they would otherwise dominate BM25 (high IDF). */
 const STOP = new Set(

@@ -124,14 +124,14 @@ export const MCP_PRESETS: Record<string, McpPreset> = {
 };
 
 /** Add a preset to ~/.sun/mcp.json and mark its tools as untrusted content. Returns the setup hint. */
-export function addMcpPreset(name: string, saveTaint: (globs: string[]) => void): string {
+export async function addMcpPreset(name: string, saveTaint: (globs: string[]) => void | Promise<void>): Promise<string> {
   const p = MCP_PRESETS[name];
   if (!p) throw new Error(`Unknown preset ${name}. Presets: ${Object.keys(MCP_PRESETS).join(', ')}`);
   ensureDir(sunHome());
   const file = homePath('mcp.json');
   const data = existsSync(file) ? JSON.parse(readFileSync(file, 'utf8')) : {};
   data.mcpServers = { ...(data.mcpServers ?? {}), [name]: p.config };
+  await saveTaint([`mcp__${name.replace(/[^a-zA-Z0-9_-]/g, '_')}__*`]);
   writeFileSync(file, JSON.stringify(data, null, 2) + '\n');
-  saveTaint([`mcp__${name.replace(/[^a-zA-Z0-9_-]/g, '_')}__*`]);
   return p.setup;
 }

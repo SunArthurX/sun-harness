@@ -1,0 +1,12 @@
+✔ missing attachments keep the turn and healthy images in order (0.878417ms)
+✔ keeps user message and successful images when one attachment is missing (0.751458ms)
+✔ propagates non-ENOENT reader errors (0.205625ms)
+✔ intact attachment replay (0.711959ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 46.357375

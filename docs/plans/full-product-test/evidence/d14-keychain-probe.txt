@@ -1,0 +1,14 @@
+# D14 isolation probe: BrowserManager.navigate to a loopback page via managed headless Chrome 156.0.8078.81
+## real HOME
+server hit /page
+  ok Page.navigate 7ms
+server hit /favicon.ico
+NAV OK URL: http://127.0.0.1:56487/page
+## fresh HOME (as the Electron fixture launches it)
+  ERR Page.navigate 60002ms CDP Page.navigate timed out
+NAV FAIL CDP Page.navigate timed out
+## fresh HOME + --use-mock-keychain launcher
+server hit /page
+  ok Page.navigate 8ms
+server hit /favicon.ico
+NAV OK URL: http://127.0.0.1:56594/page

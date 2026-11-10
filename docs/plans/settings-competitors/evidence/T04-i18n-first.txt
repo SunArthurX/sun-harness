@@ -1,0 +1,81 @@
+
+ RUN  v5.1.0 /Users/sunqingguang/Downloads/06.code/sun-harness
+
+ ❯ apps/desktop/test/i18n.test.ts (5 tests | 1 failed) 10ms
+   ❯ desktop UI i18n (specs/028) (5)
+     × has a Simplified Chinese string for every English key, with the same placeholders 6ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  apps/desktop/test/i18n.test.ts > desktop UI i18n (specs/028) > has a Simplified Chinese string for every English key, with the same placeholders
+AssertionError: expected { missing: [], extra: [ …(42) ], …(1) } to deeply equal { missing: [], extra: [], ph: [] }
+
+- Expected
++ Received
+
+  {
+-   "extra": [],
++   "extra": [
++     "Allowed hosts (comma separated, *.domain for subdomains)",
++     "Approval",
++     "Auto-resume paused sessions every",
++     "Company knowledge base (reserved HTTP provider)",
++     "Daily briefing",
++     "Default model",
++     "Deny instead of prompting (the agent is told why and keeps going; headless runs always do this)",
++     "Fallback chain (used when a model runs out of quota)",
++     "Hybrid retrieval (BM25 + embeddings; note chunks are sent to the embedding provider)",
++     "In auto-edit, run sandboxed shell commands without asking",
++     "Intel schedule",
++     "Max steps per run",
++     "Models",
++     "Models (comma separated)",
++     "Personal KB folders (comma separated)",
++     "Preferences",
++     "Prepare a briefing every day at",
++     "Providers",
++     "Shell sandbox",
++     "Stored in {path}. API keys are read from environment variables (your login shell is imported at launch).",
++     "System",
++     "System follows the language of your OS or browser.",
++     "auto: macOS seatbelt or Linux bubblewrap when available · docker: one container per session ({image}) · commands can write only the workspace and package caches; credentials and the harness's tokens are hidden",
++     "https://kb.company.internal/api",
++     "minutes",
++     "network {mode}",
++     "no key",
++     "qwen/text-embedding-v4",
++     "suggest: ask before any write or command · auto-edit: workspace edits are free, commands and network ask · full-auto: never ask",
++     "{n} sources · run `sun intel install-schedule` after changing",
++     "Loading settings…",
++     "Reload settings",
++     "Current value",
++     "Your edit",
++     "Endpoint edit",
++     "Apply my edit",
++     "Discard edit",
++     "Environment credential",
++     "Stored credential",
++     "No credential configured",
++     "Edit this endpoint in the local configuration file.",
++     "The save could not be confirmed. Reload settings before trying again.",
++   ],
+    "missing": [],
+    "ph": [],
+  }
+
+ ❯ apps/desktop/test/i18n.test.ts:33:36
+     31|     const extra = Object.keys(zhCN).filter((k) => !keys.includes(k));
+     32|     const ph = keys.filter((k) => zhCN[k] && placeholders(k).join() !=…
+     33|     expect({ missing, extra, ph }).toEqual({ missing: [], extra: [], p…
+       |                                    ^
+     34|   });
+     35|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 1 passed (2)
+      Tests  1 failed | 7 passed (8)
+   Start at  19:24:53
+   Duration  187ms (import 65%, transform 22%, tests 9%, worker 3%)
+

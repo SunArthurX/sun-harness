@@ -33,6 +33,10 @@ An assistant is efficient when the user says less and waits less: it already kno
 
 `briefing {enabled, hour, minute, chats, extra}`. The background tick (gateway, desktop) runs it once per day after the configured time: a new assistant session with a read-only briefing prompt (calendar, todos, approvals, unread messages via `dingtalk_read` when available; follow-ups from memory; the day's intel report; up to three priorities). The answer is saved to `~/.sun/briefings/<date>.md`, broadcast as `LiveEvent {kind: 'briefing'}` and a notice, and sent to bot chats listed as `"platform:chatId"`.
 
+Decision — Briefing lookup accepts a valid calendar date in `YYYY-MM-DD`
+format. The prompt links to the completed report in `intel/reports/` when
+one exists for that date.
+
 ## Event triggers
 
 `triggers: [{id, kind: 'watch' | 'webhook', prompt, mode?, cwd?, path?, match?, debounceMs?, secretEnv?, enabled?}]`.

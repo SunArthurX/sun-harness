@@ -1,0 +1,15 @@
+✔ both locales use the denied state without exposing the adapter error (1.036083ms)
+✔ denied probe renders bilingual denial states (0.728292ms)
+✔ denied probe never calls capture (0.118792ms)
+✔ capture rejection with PERMISSION_DENIED becomes denial state without raw text (0.102625ms)
+✔ capture rejection without PERMISSION_DENIED still rejects (0.253458ms)
+✔ available capture still returns available state (0.093333ms)
+✔ unavailable remains disabled (0.360667ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 7
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 47.559375

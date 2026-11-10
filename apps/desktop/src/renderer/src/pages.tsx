@@ -1,7 +1,10 @@
-import type { Automation, KnowledgeHit, McpServerState, PluginState, Proposal, ScheduledTask, Skill, SunConfig } from '@sun/core';
+import { describeSchedule, fmtDate, t, tk } from './i18n';
+import { modeLabel } from './App';
+import type { Automation, KnowledgeHit, McpServerState, Proposal, ScheduledTask, Skill } from '@sun/core';
 import { useEffect, useState, type ReactNode } from 'react';
 import { api } from './api';
 import { Markdown } from './markdown';
+import { PluginsPanel } from './settings/PluginsPanel';
 
 function PageShell({ eyebrow, title, intro, children, actions }: { eyebrow: string; title: ReactNode; intro?: string; children: ReactNode; actions?: ReactNode }) {
   return (
@@ -32,43 +35,39 @@ function useAsync<T>(fn: () => Promise<T>, deps: unknown[] = []): [T | undefined
 
 // ---------------- Knowledge ----------------
 
-export function KnowledgePage() {
+export function KnowledgePage({ onMemory }: { onMemory(): void }) {
   const [stats, reload] = useAsync(() => api.kbStats());
   const [q, setQ] = useState('');
   const [hits, setHits] = useState<(KnowledgeHit & { provider: string })[]>();
   const [title, setTitle] = useState('');
   const [text, setText] = useState('');
-  const [memory, setMemory] = useState('');
   const [saved, setSaved] = useState('');
-  useEffect(() => {
-    api.getMemory().then(setMemory);
-  }, []);
   return (
     <PageShell
-      eyebrow="Context"
+      eyebrow={t("Context")}
       title={
         <>
-          Knowledge <em>&amp; memory</em>
+          {t('Knowledge')} <em>{t('& memory')}</em>
         </>
       }
-      intro="Notes the agents can search (kb_search), plus the memory file every session reads. Add folders of Markdown in Settings; company knowledge plugs in as another provider."
+      intro={t("Search your knowledge providers and manage recalled facts. Add Markdown folders in Settings.")}
     >
       <div className="grid2">
         <section className="card">
-          <h3>Search</h3>
+          <h3>{t("Search")}</h3>
           <div className="row">
-            <input value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={async (e) => e.key === 'Enter' && setHits(await api.kbSearch(q))} placeholder="Search your notes…" />
+            <input value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={async (e) => e.key === 'Enter' && setHits(await api.kbSearch(q))} placeholder={t("Search your notes…")} />
             <button className="btn-primary" onClick={async () => setHits(await api.kbSearch(q))}>
-              Search
+              {t("Search")}
             </button>
           </div>
           {stats && (
             <p className="muted small">
-              {stats.personal.documents} documents · {stats.personal.chunks} chunks
-              {stats.personal.model ? ` · ${stats.personal.embedded} embedded (${stats.personal.model})` : ' · keyword search (BM25)'} · providers: {stats.providers.map((p) => p.name).join(', ')}
-              {stats.personal.lastError && <span className="err-text"> · embeddings unavailable, using BM25: {stats.personal.lastError}</span>}
+              {t('{documents} documents · {chunks} chunks', { documents: stats.personal.documents, chunks: stats.personal.chunks })}
+              {stats.personal.model ? ` · ${t('{n} embedded ({model})', { n: stats.personal.embedded, model: stats.personal.model })}` : ` · ${t('keyword search (BM25)')}`} · {t('providers:')} {stats.providers.map((p) => p.name).join(', ')}
+              {stats.personal.lastError && <span className="err-text"> · {t('embeddings unavailable, using BM25:')} {stats.personal.lastError}</span>}
               <br />
-              roots: <span className="mono">{stats.roots.join(', ')}</span>
+              {t('roots:')} <span className="mono">{stats.roots.join(', ')}</span>
             </p>
           )}
           <div className="hits">
@@ -86,13 +85,13 @@ export function KnowledgePage() {
                 </button>
               </div>
             ))}
-            {hits && !hits.length && <p className="muted">No results.</p>}
+            {hits && !hits.length && <p className="muted">{t("No results.")}</p>}
           </div>
         </section>
         <section className="card">
-          <h3>Add a note</h3>
-          <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Title" />
-          <textarea value={text} onChange={(e) => setText(e.target.value)} rows={7} placeholder="Markdown…" />
+          <h3>{t("Add a note")}</h3>
+          <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder={t("Title")} />
+          <textarea value={text} onChange={(e) => setText(e.target.value)} rows={7} placeholder={t("Markdown…")} />
           <button
             className="btn-primary"
             disabled={!title || !text}
@@ -104,15 +103,11 @@ export function KnowledgePage() {
               reload();
             }}
           >
-            Save to personal KB
+            {t("Save to personal KB")}
           </button>
-          {saved && <p className="muted small mono">Saved {saved}</p>}
+          {saved && <p className="muted small mono">{t('Saved {what}', { what: saved })}</p>}
           <LongTermMemory />
-          <h3 className="mt">Core memory (always in the prompt)</h3>
-          <textarea className="mono" value={memory} onChange={(e) => setMemory(e.target.value)} rows={10} placeholder="# Memory&#10;## Profile&#10;- …" />
-          <button className="btn-ghost" onClick={() => api.setMemory(memory).then(() => setSaved('memory saved'))}>
-            Save memory
-          </button>
+          <button type="button" className="btn-ghost" onClick={onMemory}>{t('Open memory settings')}</button>
         </section>
       </div>
     </PageShell>
@@ -120,7 +115,7 @@ export function KnowledgePage() {
 }
 
 /** Long-term memories: recalled by relevance, extracted automatically after assistant conversations. */
-function LongTermMemory() {
+export function LongTermMemory() {
   const [items, setItems] = useState<Awaited<ReturnType<typeof api.listMemories>>>([]);
   const [q, setQ] = useState('');
   const load = () => api.listMemories().then((l) => setItems([...l].reverse()), () => setItems([]));
@@ -131,21 +126,21 @@ function LongTermMemory() {
   return (
     <>
       <h3 className="mt">
-        Long-term memory <span className="muted">({items.length})</span>
+        {t("Long-term memory")} <span className="muted">({items.length})</span>
       </h3>
-      <input placeholder="Filter…" value={q} onChange={(e) => setQ(e.target.value)} />
+      <input placeholder={t("Filter…")} value={q} onChange={(e) => setQ(e.target.value)} />
       <div className="memory-list">
         {shown.slice(0, 200).map((m) => (
           <div key={m.id} className="memory-row">
-            <span className="tag">{m.kind}</span>
+            <span className="tag">{t(m.kind)}</span>
             <span className="memory-text">{m.text}</span>
             <span className="muted small">{m.created.slice(0, 10)}</span>
-            <button className="btn-ghost small" title="Forget" onClick={() => api.removeMemory(m.id).then(load)}>
+            <button className="btn-ghost small" title={t("Forget")} onClick={() => api.removeMemory(m.id).then(load)}>
               ✕
             </button>
           </div>
         ))}
-        {!shown.length && <p className="muted small">Nothing yet. The assistant saves durable facts and preferences as you talk.</p>}
+        {!shown.length && <p className="muted small">{t("Nothing yet. The assistant saves durable facts and preferences as you talk.")}</p>}
       </div>
     </>
   );
@@ -153,41 +148,48 @@ function LongTermMemory() {
 
 // ---------------- Extensions ----------------
 
+const MCP_EXAMPLE = '{ "mcpServers": { "name": { "command": "npx", "args": ["-y", "pkg"] } } }';
+
 export function ExtensionsPage({ cwd }: { cwd?: string }) {
   const [dir, setDir] = useState<string | undefined>(cwd);
   const [info] = useAsync(() => api.appInfo());
   const target = dir ?? info?.defaultCwd ?? '';
   const [skills] = useAsync(() => (target ? api.listSkills(target) : Promise.resolve([] as Skill[])), [target]);
   const [mcp, setMcp] = useState<McpServerState[]>();
-  const [plugins, setPlugins] = useState<PluginState[]>();
   const [schedules, reloadSchedules] = useAsync(() => api.listSchedules());
   useEffect(() => {
-    if (target) api.listMcp(target).then(setMcp);
-    api.listPlugins().then(setPlugins);
+    if (target) api.listMcp(target).then(setMcp, () => undefined);
   }, [target]);
   return (
     <PageShell
-      eyebrow="Capabilities"
+      eyebrow={t("Capabilities")}
       title={
         <>
-          Skills, MCP <em>&amp; plugins</em>
+          {t('Skills, MCP')} <em>{t('& plugins')}</em>
         </>
       }
-      intro="Everything the agent can do beyond the built-in tools. Skills load on demand; MCP servers come from ~/.sun/mcp.json, .mcp.json and .sun/mcp.json; plugins live in ~/.sun/plugins."
+      intro={t("Everything the agent can do beyond the built-in tools. Skills load on demand; MCP servers come from ~/.sun/mcp.json, .mcp.json and .sun/mcp.json; plugins live in ~/.sun/plugins.")}
       actions={
-        <button className="chip mono" onClick={async () => setDir((await api.pickFolder()) ?? dir)}>
-          {target.replace(/^\/Users\/[^/]+/, '~') || 'choose workspace'}
+        info?.mode === 'remote' ? <form onSubmit={event => {
+          event.preventDefault();
+          const path = new FormData(event.currentTarget).get('cwd');
+          setDir(typeof path === 'string' && path.trim() ? path.trim() : undefined);
+        }}>
+          <label>{t('Workspace on the execution host')} <input name="cwd" defaultValue={dir} /></label>
+          <button type="submit" className="chip">{t('Refresh')}</button>
+        </form> : <button className="chip mono" onClick={async () => setDir((await api.pickFolder()) ?? dir)}>
+          {target.replace(/^\/Users\/[^/]+/, '~') || t("choose workspace")}
         </button>
       }
     >
       <div className="grid2">
         <section className="card">
-          <h3>Skills {skills && <span className="muted">({skills.length})</span>}</h3>
+          <h3>{t("Skills")} {skills && <span className="muted">({skills.length})</span>}</h3>
           <div className="list">
             {skills?.map((s) => (
               <div key={s.name} className="item">
                 <div>
-                  <strong>{s.name}</strong> <span className={`scope s-${s.scope}`}>{s.scope}</span>
+                  <strong>{s.name}</strong> <span className={`scope s-${s.scope}`}>{t(s.scope)}</span>
                 </div>
                 <p className="muted small">{s.description}</p>
               </div>
@@ -197,40 +199,26 @@ export function ExtensionsPage({ cwd }: { cwd?: string }) {
         <div className="stack">
           <section className="card">
             <div className="card-head">
-              <h3>MCP servers</h3>
+              <h3>{t("MCP servers")}</h3>
               <button className="btn-ghost small" onClick={async () => setMcp(await api.reloadMcp(target))}>
-                Reconnect
+                {t("Reconnect")}
               </button>
             </div>
-            {mcp?.length === 0 && <p className="muted small">No servers configured. Add one to ~/.sun/mcp.json: {'{ "mcpServers": { "name": { "command": "npx", "args": ["-y", "pkg"] } } }'}</p>}
+            {mcp?.length === 0 && <p className="muted small">{t('No servers configured. Add one to ~/.sun/mcp.json:')} <code>{MCP_EXAMPLE}</code></p>}
             {mcp?.map((s) => (
               <div key={s.name} className="item">
                 <div>
                   <span className={`dot dot-${s.status === 'ready' ? 'idle' : s.status === 'error' ? 'error' : 'paused'}`} /> <strong>{s.name}</strong>{' '}
-                  <span className="muted small">{s.status}</span>
+                  <span className="muted small">{t(s.status)}</span>
                 </div>
                 <p className="muted small mono">{s.error ?? s.tools.join(', ')}</p>
               </div>
             ))}
           </section>
+          <PluginsPanel />
           <section className="card">
-            <div className="card-head">
-              <h3>Plugins</h3>
-              <button className="btn-ghost small" onClick={async () => setPlugins(await api.reloadPlugins())}>
-                Reload
-              </button>
-            </div>
-            {plugins?.length === 0 && <p className="muted small">No plugins in ~/.sun/plugins. See docs/manual/extensions.md for the plugin API.</p>}
-            {plugins?.map((p) => (
-              <div key={p.name} className="item">
-                <strong>{p.name}</strong> <span className="muted small">{p.status}</span>
-                <p className="muted small mono">{p.error ?? Object.entries(p.contributes).filter(([, v]) => v.length).map(([k, v]) => `${k}: ${v.join(', ')}`).join(' · ')}</p>
-              </div>
-            ))}
-          </section>
-          <section className="card">
-            <h3>Schedules</h3>
-            <p className="muted small">Scheduled prompts are now Automations: open ⏲ in the left rail (or say “every weekday at 9 …” in any chat).</p>
+            <h3>{t("Schedules")}</h3>
+            <p className="muted small">{t("Scheduled prompts are now Automations: open ⏲ in the left rail (or say “every weekday at 9 …” in any chat).")}</p>
           </section>
         </div>
       </div>
@@ -238,7 +226,7 @@ export function ExtensionsPage({ cwd }: { cwd?: string }) {
   );
 }
 
-function BriefingNow() {
+export function BriefingNow() {
   const [state, setState] = useState('');
   return (
     <div className="row">
@@ -248,12 +236,12 @@ function BriefingNow() {
         onClick={() => {
           setState('running');
           api.runBriefing().then(
-            (r) => setState(`saved ${r.path}`),
+            (r) => setState(t('Saved {what}', { what: r.path })),
             (e) => setState(String(e.message ?? e)),
           );
         }}
       >
-        {state === 'running' ? 'Preparing…' : 'Run briefing now'}
+        {state === 'running' ? t("Preparing…") : t("Run briefing now")}
       </button>
       {state && state !== 'running' && <span className="muted small mono">{state}</span>}
     </div>
@@ -261,7 +249,7 @@ function BriefingNow() {
 }
 
 /** Conversation efficiency over the last 7 days (from session logs). */
-function Efficiency() {
+export function Efficiency() {
   const [rows, setRows] = useState<any[]>([]);
   useEffect(() => {
     api.metrics(7).then(setRows, () => setRows([]));
@@ -269,26 +257,26 @@ function Efficiency() {
   const pct = (x: number) => `${Math.round(x * 100)}%`;
   return (
     <section className="card">
-      <h3>Efficiency · last 7 days</h3>
-      {!rows.length && <p className="muted small">No sessions yet.</p>}
+      <h3>{t("Efficiency · last 7 days")}</h3>
+      {!rows.length && <p className="muted small">{t("No sessions yet.")}</p>}
       {rows.length > 0 && (
         <table className="metrics">
           <thead>
             <tr>
-              <th>Mode</th>
-              <th title="user turns">Turns</th>
-              <th title="median time to the first reply">First reply</th>
-              <th title="approval prompts per turn">Asks/turn</th>
-              <th title="final answers that were questions">Clarify</th>
-              <th title="tool calls that failed">Tool err</th>
-              <th title="input served from the prompt cache">Cached</th>
-              <th title="memories recalled / extracted">Memory</th>
+              <th>{t("Mode")}</th>
+              <th title={t("user turns")}>{t("Turns")}</th>
+              <th title={t("median time to the first reply")}>{t("First reply")}</th>
+              <th title={t("approval prompts per turn")}>{t("Asks/turn")}</th>
+              <th title={t("final answers that were questions")}>{t("Clarify")}</th>
+              <th title={t("tool calls that failed")}>{t("Tool err")}</th>
+              <th title={t("input served from the prompt cache")}>{t("Cached")}</th>
+              <th title={t("memories recalled / extracted")}>{t("Memory")}</th>
             </tr>
           </thead>
           <tbody>
             {rows.map((r) => (
               <tr key={r.mode}>
-                <td>{r.mode}</td>
+                <td>{modeLabel(r.mode)}</td>
                 <td>{r.userTurns}</td>
                 <td>{(r.medianFirstResponseMs / 1000).toFixed(1)} s</td>
                 <td>{r.approvalsPerTurn.toFixed(2)}</td>
@@ -328,49 +316,49 @@ export function EvolutionPage({ currentSession }: { currentSession?: string }) {
     <div className={`proposal p-${p.type}`}>
       <div className="row-between">
         <div>
-          <span className={`ptype`}>{p.type}</span> <strong>{p.title}</strong>
+          <span className={`ptype`}>{t(p.type)}</span> <strong>{p.title}</strong>
         </div>
         <span className="muted small mono">
           {p.source.kind} {p.source.ref}
         </span>
       </div>
       <Markdown text={p.content} className="small" />
-      {p.rationale && <p className="muted small">Why: {p.rationale}</p>}
+      {p.rationale && <p className="muted small">{t("Why:")} {p.rationale}</p>}
       {p.status === 'pending' ? (
         <div className="row">
           <button className="btn-primary small" onClick={() => run('accept', () => api.acceptProposal(p.id))}>
-            Accept
+            {t("Accept")}
           </button>
           <button className="btn-ghost small" onClick={() => run('reject', () => api.rejectProposal(p.id))}>
-            Reject
+            {t("Reject")}
           </button>
         </div>
       ) : (
-        <p className="muted small">{p.status}</p>
+        <p className="muted small">{t(p.status)}</p>
       )}
     </div>
   );
   return (
     <PageShell
-      eyebrow="Self-improvement"
+      eyebrow={t("Self-improvement")}
       title={
         <>
-          The harness <em>evolves</em>
+          {t("The harness")} <em>{t("evolves")}</em>
         </>
       }
-      intro="Reflection turns finished sessions into proposals: memories, reusable skills, global rules, or feature ideas. Intel adds ideas from other harnesses. Nothing changes until you accept."
+      intro={t("Reflection turns finished sessions into proposals: memories, reusable skills, global rules, or feature ideas. Intel adds ideas from other harnesses. Nothing changes until you accept.")}
       actions={
         <button className="btn-primary" disabled={!currentSession || !!busy} onClick={() => run('reflect', () => api.reflect(currentSession!))}>
-          {busy === 'reflect' ? 'Reflecting…' : 'Reflect on current session'}
+          {busy === 'reflect' ? t("Reflecting…") : t("Reflect on current session")}
         </button>
       }
     >
-      <h3>Pending ({pending.length})</h3>
+      <h3>{t('Pending ({n})', { n: pending.length })}</h3>
       <div className="proposals">{pending.map((p) => <P key={p.id} p={p} />)}</div>
-      {!pending.length && <p className="muted">No pending proposals.</p>}
+      {!pending.length && <p className="muted">{t("No pending proposals.")}</p>}
       {done.length > 0 && (
         <>
-          <h3 className="mt">History</h3>
+          <h3 className="mt">{t("History")}</h3>
           <div className="proposals faded">{done.slice(0, 30).map((p) => <P key={p.id} p={p} />)}</div>
         </>
       )}
@@ -402,22 +390,22 @@ export function IntelPage() {
   const current = reports?.find((r) => r.date === sel);
   return (
     <PageShell
-      eyebrow="Field watch"
+      eyebrow={t("Field watch")}
       title={
         <>
-          Harness <em>intel</em>
+          {t("Harness")} <em>{t("intel")}</em>
         </>
       }
-      intro="A daily briefing on what other harnesses shipped — what changed, the mechanism underneath, and what sun-harness could adopt. Runs daily via launchd and catches up when the app opens."
+      intro={t("A daily briefing on what other harnesses shipped — what changed, the mechanism underneath, and what sun-harness could adopt. Runs daily via launchd and catches up when the app opens.")}
       actions={
         <>
           {current?.pending && (
             <button className="btn-ghost" disabled={!!busy} onClick={() => go('analyze', () => api.analyzeIntel(current.date))}>
-              {busy === 'analyze' ? 'Analyzing…' : 'Analyze pending'}
+              {busy === 'analyze' ? t("Analyzing…") : t("Analyze pending")}
             </button>
           )}
           <button className="btn-primary" disabled={!!busy} onClick={() => go('run', () => api.runIntel(false))}>
-            {busy === 'run' ? 'Fetching & analyzing…' : 'Run now'}
+            {busy === 'run' ? t("Fetching & analyzing…") : t("Run now")}
           </button>
         </>
       }
@@ -430,13 +418,13 @@ export function IntelPage() {
               {r.pending && <span className="dot dot-paused" />}
             </button>
           ))}
-          {reports?.length === 0 && <p className="muted small">No reports yet.</p>}
+          {reports?.length === 0 && <p className="muted small">{t("No reports yet.")}</p>}
         </div>
         <article className="report card">
-          {md ? <Markdown text={md} /> : <p className="muted">Run intel to get the first briefing.</p>}
+          {md ? <Markdown text={md} /> : <p className="muted">{t("Run intel to get the first briefing.")}</p>}
           {current && (
             <button className="link small mono" onClick={() => api.openPath(current.html)}>
-              open HTML report
+              {t("open HTML report")}
             </button>
           )}
         </article>
@@ -446,182 +434,6 @@ export function IntelPage() {
 }
 
 // ---------------- Settings ----------------
-
-export function SettingsPage() {
-  const [cfg, setCfg] = useState<SunConfig>();
-  const [models, setModels] = useState<{ ref: string; provider: string; ready: boolean }[]>([]);
-  const [info] = useAsync(() => api.appInfo());
-  const [msg, setMsg] = useState('');
-  useEffect(() => {
-    api.getConfig().then(setCfg);
-    api.listModels().then(setModels);
-  }, []);
-  if (!cfg) return null;
-  const save = async (patch: Partial<SunConfig>) => {
-    setCfg(await api.updateConfig(patch));
-    setModels(await api.listModels());
-    setMsg('Saved');
-    setTimeout(() => setMsg(''), 1500);
-  };
-  const ready = models.filter((m) => m.ready).map((m) => m.ref);
-  const providers = Object.entries(cfg.providers);
-  return (
-    <PageShell
-      eyebrow="Preferences"
-      title={
-        <>
-          Settings <em>{msg && <span className="saved">{msg}</span>}</em>
-        </>
-      }
-      intro={`Stored in ${info?.home ?? '~/.sun'}/config.json. API keys are read from environment variables (your login shell is imported at launch).`}
-    >
-      <div className="grid2">
-        <section className="card">
-          <h3>Models</h3>
-          <label>
-            Default model
-            <select value={cfg.defaultModel} onChange={(e) => save({ defaultModel: e.target.value })}>
-              {[...new Set([cfg.defaultModel, ...ready])].map((m) => (
-                <option key={m}>{m}</option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Fallback chain (used when a model runs out of quota)
-            <div className="chips">
-              {ready.map((m) => {
-                const on = cfg.fallbackModels.includes(m);
-                return (
-                  <button key={m} className={`chip ${on ? 'on' : ''}`} onClick={() => save({ fallbackModels: on ? cfg.fallbackModels.filter((x) => x !== m) : [...cfg.fallbackModels, m] })}>
-                    {on ? `${cfg.fallbackModels.indexOf(m) + 1}. ` : ''}
-                    {m}
-                  </button>
-                );
-              })}
-            </div>
-          </label>
-          <label>
-            Auto-resume paused sessions every
-            <div className="row">
-              <input type="checkbox" checked={cfg.autoResume.enabled} onChange={(e) => save({ autoResume: { ...cfg.autoResume, enabled: e.target.checked } })} />
-              <input type="number" min={1} value={cfg.autoResume.intervalMinutes} onChange={(e) => save({ autoResume: { ...cfg.autoResume, intervalMinutes: Number(e.target.value) } })} />
-              <span className="muted">minutes</span>
-            </div>
-          </label>
-          <h3 className="mt">Approval</h3>
-          <div className="segmented">
-            {(['suggest', 'auto-edit', 'full-auto'] as const).map((m) => (
-              <button key={m} className={cfg.approval === m ? 'on' : ''} onClick={() => save({ approval: m })}>
-                {m}
-              </button>
-            ))}
-          </div>
-          <p className="muted small">
-            suggest: ask before any write or command · auto-edit: workspace edits are free, commands and network ask · full-auto: never ask
-          </p>
-          <label className="row">
-            <input type="checkbox" checked={cfg.denyInsteadOfPrompting} onChange={(e) => save({ denyInsteadOfPrompting: e.target.checked })} />
-            Deny instead of prompting (the agent is told why and keeps going; headless runs always do this)
-          </label>
-          <label>
-            Max steps per run
-            <input type="number" value={cfg.maxSteps} onChange={(e) => save({ maxSteps: Number(e.target.value) })} />
-          </label>
-          <h3 className="mt">Shell sandbox</h3>
-          <div className="segmented">
-            {(['auto', 'seatbelt', 'bwrap', 'docker', 'off'] as const).map((m) => (
-              <button key={m} className={cfg.sandbox.mode === m ? 'on' : ''} onClick={() => save({ sandbox: { ...cfg.sandbox, mode: m } })}>
-                {m}
-              </button>
-            ))}
-          </div>
-          <div className="segmented">
-            {(['on', 'allowlist', 'off'] as const).map((n) => (
-              <button key={n} className={cfg.sandbox.network === n ? 'on' : ''} onClick={() => save({ sandbox: { ...cfg.sandbox, network: n } })}>
-                network {n}
-              </button>
-            ))}
-          </div>
-          {cfg.sandbox.network === 'allowlist' && (
-            <label>
-              Allowed hosts (comma separated, *.domain for subdomains)
-              <input className="mono small" value={cfg.sandbox.allow.join(', ')} onChange={(e) => save({ sandbox: { ...cfg.sandbox, allow: e.target.value.split(',').map((x) => x.trim()).filter(Boolean) } })} />
-            </label>
-          )}
-          <label className="row">
-            <input type="checkbox" checked={cfg.sandbox.autoApprove} onChange={(e) => save({ sandbox: { ...cfg.sandbox, autoApprove: e.target.checked } })} />
-            In auto-edit, run sandboxed shell commands without asking
-          </label>
-          <p className="muted small">
-            auto: macOS seatbelt or Linux bubblewrap when available · docker: one container per session ({cfg.sandbox.docker.image}) · commands can write only the workspace and package caches; credentials and the harness's tokens are hidden
-          </p>
-        </section>
-        <div className="stack">
-          <section className="card">
-            <h3>Providers</h3>
-            {providers.map(([id, p]) => (
-              <div key={id} className="provider">
-                <span className={`dot ${models.some((m) => m.provider === id && m.ready) ? 'dot-idle' : 'dot-off'}`} />
-                <strong>{id}</strong>
-                <span className="muted small mono">{p.apiKeyEnv ?? (p.noKey ? 'no key' : '')}</span>
-                <input
-                  className="mono small"
-                  defaultValue={p.baseUrl}
-                  onBlur={(e) => e.target.value !== p.baseUrl && save({ providers: { [id]: { ...p, baseUrl: e.target.value } } } as never)}
-                />
-                <input
-                  className="mono small"
-                  defaultValue={p.models.join(', ')}
-                  title="Models (comma separated)"
-                  onBlur={(e) => save({ providers: { [id]: { ...p, models: e.target.value.split(',').map((s) => s.trim()).filter(Boolean) } } } as never)}
-                />
-              </div>
-            ))}
-          </section>
-          <section className="card">
-            <h3>Knowledge</h3>
-            <label>
-              Personal KB folders (comma separated)
-              <input className="mono" defaultValue={cfg.kb.roots.join(', ')} onBlur={(e) => save({ kb: { ...cfg.kb, roots: e.target.value.split(',').map((s) => s.trim()).filter(Boolean) } })} />
-            </label>
-            <label className="row">
-              <input type="checkbox" checked={cfg.kb.embeddings.enabled} onChange={(e) => save({ kb: { ...cfg.kb, embeddings: { ...cfg.kb.embeddings, enabled: e.target.checked } } })} />
-              Hybrid retrieval (BM25 + embeddings; note chunks are sent to the embedding provider)
-            </label>
-            <input
-              className="mono"
-              placeholder="qwen/text-embedding-v4"
-              defaultValue={cfg.kb.embeddings.model}
-              onBlur={(e) => save({ kb: { ...cfg.kb, embeddings: { ...cfg.kb.embeddings, model: e.target.value } } })}
-            />
-            <label className="row">
-              <input type="checkbox" checked={cfg.kb.company.enabled} onChange={(e) => save({ kb: { ...cfg.kb, company: { ...cfg.kb.company, enabled: e.target.checked } } })} />
-              Company knowledge base (reserved HTTP provider)
-            </label>
-            <input className="mono" placeholder="https://kb.company.internal/api" defaultValue={cfg.kb.company.baseUrl} onBlur={(e) => save({ kb: { ...cfg.kb, company: { ...cfg.kb.company, baseUrl: e.target.value } } })} />
-            <h3 className="mt">Daily briefing</h3>
-            <label className="row">
-              <input type="checkbox" checked={cfg.briefing.enabled} onChange={(e) => save({ briefing: { ...cfg.briefing, enabled: e.target.checked } })} />
-              Prepare a briefing every day at
-              <input type="number" min={0} max={23} value={cfg.briefing.hour} onChange={(e) => save({ briefing: { ...cfg.briefing, hour: Number(e.target.value) } })} />
-              <span>:</span>
-              <input type="number" min={0} max={59} value={cfg.briefing.minute} onChange={(e) => save({ briefing: { ...cfg.briefing, minute: Number(e.target.value) } })} />
-            </label>
-            <BriefingNow />
-            <h3 className="mt">Intel schedule</h3>
-            <div className="row">
-              <input type="number" min={0} max={23} value={cfg.intel.hour} onChange={(e) => save({ intel: { hour: Number(e.target.value) } } as never)} />
-              <span>:</span>
-              <input type="number" min={0} max={59} value={cfg.intel.minute} onChange={(e) => save({ intel: { minute: Number(e.target.value) } } as never)} />
-              <span className="muted small">{cfg.intel.sources.length} sources · run `sun intel install-schedule` after changing</span>
-            </div>
-          </section>
-          <Efficiency />
-        </div>
-      </div>
-    </PageShell>
-  );
-}
 
 // ---------------- Automations ----------------
 
@@ -640,74 +452,74 @@ export function AutomationsPage({ onOpenSession }: { onOpenSession: (id: string)
       }),
     [],
   );
-  const say = (t: string) => {
-    setMsg(t);
+  const say = (text: string) => {
+    setMsg(text);
     setTimeout(() => setMsg(''), 4000);
   };
   return (
     <PageShell
-      eyebrow="Automations"
-      title={<>Things that run <em>on their own</em></>}
-      intro="Prompts that run on a schedule in their own session, while the gateway or this app is running. Missed runs (laptop asleep) catch up once. Say “every weekday at 9 summarize my unread mail” in any chat, or create one here."
+      eyebrow={t("Automations")}
+      title={<>{t("Things that run")} <em>{t("on their own")}</em></>}
+      intro={t("Prompts that run on a schedule in their own session, while the gateway or this app is running. Missed runs (laptop asleep) catch up once. Say “every weekday at 9 summarize my unread mail” in any chat, or create one here.")}
       actions={
         <button className="btn-primary" onClick={() => setEditing('new')}>
-          + New automation
+          {t("+ New automation")}
         </button>
       }
     >
       {msg && <p className="notice small">{msg}</p>}
-      {editing === 'new' && <AutomationForm onDone={(t) => (setEditing(undefined), reload(), t && say(t))} />}
-      {list?.length === 0 && editing !== 'new' && <p className="muted">No automations yet.</p>}
+      {editing === 'new' && <AutomationForm onDone={(m) => (setEditing(undefined), reload(), m && say(m))} />}
+      {list?.length === 0 && editing !== 'new' && <p className="muted">{t("No automations yet.")}</p>}
       <div className="automations">
         {list?.map((a) => (
           <section key={a.id} className={`card automation ${a.enabled ? '' : 'off'}`}>
             {editing === a.id ? (
-              <AutomationForm initial={a} onDone={(t) => (setEditing(undefined), reload(), t && say(t))} />
+              <AutomationForm initial={a} onDone={(m) => (setEditing(undefined), reload(), m && say(m))} />
             ) : (
               <>
                 <div className="row-between">
                   <div>
                     <strong>{a.title}</strong>
                     <p className="muted small">
-                      {a.description} · {a.mode}
+                      {describeSchedule(a)} · {modeLabel(a.mode)}
                       {a.model ? ` · ${a.model}` : ''}
-                      {a.nextRun ? ` · next ${new Date(a.nextRun).toLocaleString()}` : a.enabled ? '' : ' · paused'}
+                      {a.nextRun ? ` · ${t('next {time}', { time: fmtDate(a.nextRun) })}` : a.enabled ? '' : ` · ${t('paused')}`}
                     </p>
                   </div>
-                  <label className="row small" title={a.enabled ? 'Pause' : 'Resume'}>
+                  <label className="row small" title={a.enabled ? t("Pause") : t("Resume")}>
                     <input type="checkbox" checked={a.enabled} onChange={(e) => void api.updateAutomation(a.id, { enabled: e.target.checked }).then(reload)} />
-                    {a.enabled ? 'On' : 'Off'}
+                    {a.enabled ? t("On") : t("Off")}
                   </label>
                 </div>
                 <p className="small automation-prompt">{a.prompt}</p>
                 <div className="row">
-                  <button className="btn-ghost small" onClick={() => void api.runAutomation(a.id).then((sid) => (say('Started.'), reload(), onOpenSession(sid)))}>
-                    ▶ Run now
+                  <button className="btn-ghost small" onClick={() => void api.runAutomation(a.id).then((sid) => (say(t('Started.')), reload(), onOpenSession(sid)))}>
+                    {t("▶ Run now")}
                   </button>
                   <button className="btn-ghost small" onClick={() => setEditing(a.id)}>
-                    Edit
+                    {t("Edit")}
                   </button>
                   <button className="btn-ghost small" onClick={() => setHistory(history === a.id ? undefined : a.id)}>
-                    History ({a.runs?.length ?? 0})
+                    {t('History ({n})', { n: a.runs?.length ?? 0 })}
                   </button>
-                  <button className="btn-danger small" onClick={() => confirm(`Delete “${a.title}”?`) && void api.deleteAutomation(a.id).then(reload)}>
-                    Delete
+                  <button className="btn-danger small" onClick={() => confirm(t('Delete “{title}”?', { title: a.title })) && void api.deleteAutomation(a.id).then(reload)}>
+                    {t("Delete")}
                   </button>
-                  {a.lastStatus && <span className="muted small">last run: {a.lastStatus}</span>}
+                  {a.lastStatus && <span className="muted small">{t('last run:')} {t(a.lastStatus)}</span>}
                 </div>
                 {history === a.id && (
                   <div className="runs">
                     {(a.runs ?? []).map((r) => (
                       <button key={r.sessionId} className="run-row" onClick={() => onOpenSession(r.sessionId)}>
                         <span className={`dot ${STATUS_DOT[r.status ?? 'idle'] ?? 'dot-off'}`} />
-                        <span className="small">{new Date(r.at).toLocaleString()}</span>
+                        <span className="small">{fmtDate(r.at)}</span>
                         <span className="muted small">
-                          {r.status}
-                          {r.catchUp ? ' · catch-up' : ''}
+                          {t(r.status ?? 'idle')}
+                          {r.catchUp ? ` · ${t('catch-up')}` : ''}
                         </span>
                       </button>
                     ))}
-                    {!a.runs?.length && <p className="muted small">No runs yet.</p>}
+                    {!a.runs?.length && <p className="muted small">{t("No runs yet.")}</p>}
                   </div>
                 )}
               </>
@@ -728,15 +540,16 @@ function AutomationForm({ initial, onDone }: { initial?: Automation; onDone: (ms
   const [cwd, setCwd] = useState(initial?.cwd ?? '');
   const [chats, setChats] = useState((initial?.chats ?? []).join(', '));
   const [catchUp, setCatchUp] = useState(initial?.catchUp !== false);
-  const [preview, setPreview] = useState<{ description: string; next: string[]; cron?: string } | null>(null);
+  const [preview, setPreview] = useState<{ description: string; next: string[]; cron?: string; at?: string } | null>(null);
   const [models, setModels] = useState<string[]>([]);
   const [err, setErr] = useState('');
+  const [info] = useAsync(() => api.appInfo());
   useEffect(() => {
     api.listModels().then((m) => setModels(m.filter((x) => x.ready).map((x) => x.ref)));
   }, []);
   useEffect(() => {
-    const t = setTimeout(() => api.previewSchedule(schedule).then(setPreview, () => setPreview(null)), 250);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => api.previewSchedule(schedule).then(setPreview, () => setPreview(null)), 250);
+    return () => clearTimeout(timer);
   }, [schedule]);
   const save = async () => {
     setErr('');
@@ -744,7 +557,7 @@ function AutomationForm({ initial, onDone }: { initial?: Automation; onDone: (ms
     try {
       if (initial) await api.updateAutomation(initial.id, body);
       else await api.createAutomation(body);
-      onDone(initial ? 'Saved.' : 'Automation created.');
+      onDone(initial ? t('Saved.') : t('Automation created.'));
     } catch (e) {
       setErr(String((e as Error).message ?? e).replace(/^Error invoking remote method 'sun:call': (Error: )?/, ''));
     }
@@ -752,61 +565,63 @@ function AutomationForm({ initial, onDone }: { initial?: Automation; onDone: (ms
   return (
     <div className="automation-form">
       <label>
-        What should it do?
-        <textarea rows={3} value={prompt} placeholder="Summarize my unread mail and list what needs a reply." onChange={(e) => setPrompt(e.target.value)} />
+        {t("What should it do?")}
+        <textarea rows={3} value={prompt} placeholder={t("Summarize my unread mail and list what needs a reply.")} onChange={(e) => setPrompt(e.target.value)} />
       </label>
       <div className="grid2">
         <label>
-          When (plain language or cron)
-          <input value={schedule} onChange={(e) => setSchedule(e.target.value)} placeholder="every weekday at 9:00 · 每天晚上8点 · tomorrow at 15:00 · 0 9 * * 1-5" />
+          {t("When (plain language or cron)")}
+          <input value={schedule} onChange={(e) => setSchedule(e.target.value)} placeholder={t("every weekday at 9:00 · 每天晚上8点 · tomorrow at 15:00 · 0 9 * * 1-5")} />
           <span className={`small ${preview ? 'muted' : 'err-text'}`}>
-            {preview ? `${preview.description}${preview.cron ? ` (${preview.cron})` : ''} · next: ${preview.next.map((d) => new Date(d).toLocaleString()).join(' · ')}` : 'Not understood yet.'}
+            {preview ? `${describeSchedule(preview)}${preview.cron ? ` (${preview.cron})` : ''} · ${t('next:')} ${preview.next.map(fmtDate).join(' · ')}` : t('Not understood yet.')}
           </span>
         </label>
         <label>
-          Title
-          <input value={title} placeholder="(from the prompt)" onChange={(e) => setTitle(e.target.value)} />
+          {t("Title")}
+          <input value={title} placeholder={t("(from the prompt)")} onChange={(e) => setTitle(e.target.value)} />
         </label>
         <label>
-          Mode
+          {t("Mode")}
           <select value={mode} onChange={(e) => setMode(e.target.value)}>
             {['assistant', 'agent', 'coding'].map((m) => (
-              <option key={m}>{m}</option>
+              <option key={m} value={m}>
+                {modeLabel(m)}
+              </option>
             ))}
           </select>
         </label>
         <label>
-          Model
+          {t("Model")}
           <select value={model} onChange={(e) => setModel(e.target.value)}>
-            <option value="">default</option>
+            <option value="">{t("default")}</option>
             {models.map((m) => (
               <option key={m}>{m}</option>
             ))}
           </select>
         </label>
         <label>
-          Workspace
+          {t("Workspace")}
           <span className="row">
-            <input value={cwd} placeholder="(default for the mode)" onChange={(e) => setCwd(e.target.value)} />
-            <button className="btn-ghost small" onClick={async () => setCwd((await api.pickFolder()) ?? cwd)}>
+            <input value={cwd} placeholder={t("(default for the mode)")} onChange={(e) => setCwd(e.target.value)} />
+            {info?.mode !== 'remote' && <button className="btn-ghost small" onClick={async () => setCwd((await api.pickFolder()) ?? cwd)}>
               …
-            </button>
+            </button>}
           </span>
         </label>
         <label>
-          Also send results to chats
-          <input value={chats} placeholder="telegram:12345, dingtalk:cid…" onChange={(e) => setChats(e.target.value)} />
+          {t("Also send results to chats")}
+          <input value={chats} placeholder={t("telegram:12345, dingtalk:cid…")} onChange={(e) => setChats(e.target.value)} />
         </label>
       </div>
       <label className="row small">
-        <input type="checkbox" checked={catchUp} onChange={(e) => setCatchUp(e.target.checked)} /> Run once after wake-up if a scheduled time was missed (last 24 h)
+        <input type="checkbox" checked={catchUp} onChange={(e) => setCatchUp(e.target.checked)} /> {t("Run once after wake-up if a scheduled time was missed (last 24 h)")}
       </label>
       <div className="row">
         <button className="btn-primary" disabled={!prompt.trim() || !preview} onClick={() => void save()}>
-          {initial ? 'Save' : 'Create'}
+          {initial ? t("Save") : t("Create")}
         </button>
         <button className="btn-ghost" onClick={() => onDone()}>
-          Cancel
+          {t("Cancel")}
         </button>
       </div>
       {err && <p className="small err-text">{err}</p>}

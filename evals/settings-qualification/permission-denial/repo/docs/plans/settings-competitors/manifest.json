@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "tasks": [
+    {
+      "id": "permission-denial",
+      "title": "Add bilingual permission denial",
+      "status": "planned",
+      "dependsOn": []
+    }
+  ]
+}

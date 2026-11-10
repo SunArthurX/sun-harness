@@ -1,0 +1,35 @@
+$ node apps/desktop/e2e/settings.mjs
+# started 2026-11-10T06:13:00Z
+[31mCould not save settings (INVALID): briefing.hour, briefing.minute. Try again after checking the current settings.[0m
+CLI rejects invalid times and persists briefing and connector settings.
+CLI inspected and edited the plugin without importing JavaScript.
+A real SIGKILL after the first rename leaves a recoverable journal. Restart keeps both replacement files.
+A real Chromium profile stays protected while running and moves to trash only after exit and explicit profile confirmation.
+Electron settings retain the two-field draft on conflict and save it atomically after reload.
+Electron settings pass English and Chinese search, focus, invalid save, discard and Back at 1440 and 800 pixels.
+Electron forms save appearance and default mode, and keep profile and instructions separate with conflict and discard handling.
+Electron settings import JSONL with an explicit workspace, round-trip a bundle, restore the archive ID, reject stale cleanup, and move the confirmed log to trash.
+Electron hooks show matcher diagnostics, preview without effects, execute or cancel after review, and reject stale trust after editing the source.
+Electron inspected the disabled plugin manifest, enabled its registration, and revoked it through settings.
+Electron reviews independent browser origin actions and restores the default Ask decision.
+Electron applies appearance, remaps in-app shortcuts, and retains the old OS binding after registration failure.
+Gateway web exchanges the URL token for an opaque HttpOnly session and removes it from renderer storage.
+CLI, Electron, and gateway share capability IDs. Version mismatch and native-only routes are rejected.
+Gateway web settings pass direct routes, Back, bilingual search and layout at 1440 and 800 pixels.
+Gateway renderer explicitly requests notification permission, deduplicates alerts, and cancels denied or unfinished audio. Unknown prices remain unknown in mixed usage.
+Gateway web settings import JSONL with an explicit workspace, round-trip a bundle, restore the archive ID, reject stale cleanup, and move the confirmed log to trash.
+Gateway web hooks show matcher diagnostics, preview without effects, execute or cancel after review, and reject stale trust after editing the source.
+Gateway web reviews independent browser origin actions and restores the default Ask decision.
+Gateway web inspected the disabled plugin manifest, enabled its registration, and revoked it through settings.
+Gateway web streamed Draining with one call, then Disabled after settlement.
+Gateway web pauses host actions during a lost event stream and refreshes sessions before enabling them again.
+Gateway web persists review settings, filters structured findings, and marks the report stale after a file changes.
+Gateway web rejected stale cleanup, removed a clean worktree, and ran a trusted setup once. CLI preview matched the host inventory.
+Gateway web previews a selected file, authorizes its exact bytes once, and stages the browser download on the execution host.
+Gateway web explains why Appshot capture requires the macOS desktop and exposes no native capture method.
+Gateway web separates the host and Local Docker and launches a reviewed job in the selected local session.
+Electron Mini is isolated, opens the active chat, aborts the live gateway provider request, and closes when disabled.
+Electron reopens the persisted review and identifies the changed digest.
+Electron shows the persisted setup outcome and the protected dirty worktree.
+Electron previews a selected file, authorizes its exact bytes once, and stages the browser download on the execution host.
+Desktop opens configuration recovery and preserves malformed bytes.

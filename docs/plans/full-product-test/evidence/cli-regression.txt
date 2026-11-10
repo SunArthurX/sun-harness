@@ -1,0 +1,15 @@
+✔ built and bundled commands expose help and workspace scaffolding (794.294291ms)
+✔ run reads stdin, emits stream JSON and reopens the durable session (3144.1015ms)
+✔ one-shot noninteractive approval denies a write and returns the denial to the model (636.759583ms)
+✔ an approved edit appears in changes and undo restores the workspace (1028.540084ms)
+✔ quota pauses with exit 3 and a later process resumes on the selected model (1281.2575ms)
+✔ a terminal provider error returns exit 1 for both run and resume (1284.753417ms)
+✔ CLI image input reaches the provider and a portable bundle restores its attachment (1303.731833ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 7
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 9542.038833

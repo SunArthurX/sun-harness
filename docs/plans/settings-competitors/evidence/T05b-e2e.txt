@@ -1,0 +1,9 @@
+[31mCould not save settings (INVALID): briefing.hour, briefing.minute. Try again after checking the current settings.[0m
+CLI rejects invalid times and persists briefing and connector settings.
+Electron settings retain the two-field draft on conflict and save it atomically after reload.
+Electron settings pass English and Chinese search, focus, invalid save, discard and Back at 1440 and 800 pixels.
+Electron applies appearance, remaps in-app shortcuts, and retains the old OS binding after registration failure.
+CLI, Electron, and gateway share capability IDs. Version mismatch and native-only routes are rejected.
+Gateway web settings pass direct routes, Back, bilingual search and layout at 1440 and 800 pixels.
+Gateway renderer deduplicates completion, honors denied microphone access, and releases cancelled audio without upload.
+Desktop opens configuration recovery and preserves malformed bytes.

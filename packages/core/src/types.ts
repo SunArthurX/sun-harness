@@ -1,3 +1,10 @@
+import type { AppshotMetadata } from './settings/capture.js';
+import type { HookEvent } from './hook-config.js';
+import type { HookRunState } from './hook-process.js';
+import type { PluginState } from './plugins.js';
+import type { ReviewOmission, ReviewOutcome, ReviewRequest } from './review.js';
+import type { WorktreeInfo } from './worktree.js';
+
 // ---------- Model messages (provider-neutral) ----------
 
 export interface ToolCall {
@@ -56,25 +63,28 @@ export type SessionEventBody =
       /** Set for subagent sessions. */
       parent?: string;
       /** Set when the session runs in an isolated git worktree (specs/010). */
-      worktree?: { repo: string; path: string; branch: string; base: string };
+      worktree?: WorktreeInfo;
       /** Per-session approval mode; overrides config.approval. */
       approval?: 'suggest' | 'auto-edit' | 'full-auto';
       /** Per-session shell sandbox; overrides config.sandbox.mode. */
       sandbox?: 'off' | 'auto' | 'seatbelt' | 'bwrap' | 'docker';
       /** Set when the session was forked (rewound) from another session before event `seq`. */
       forkOf?: { session: string; seq: number };
+      /** Imported events through this sequence are history, never pending work. */
+      importedThrough?: number;
     }
+  | { type: 'session/import-note'; originalType: string }
   | { type: 'session/title'; title: string; /** first-message (default), model, or user (renamed). */ source?: 'first-message' | 'model' | 'user' }
   | {
       type: 'user/message';
       text: string;
       source?: 'user' | 'hook' | 'schedule' | 'system' | 'job' | 'verify' | 'memory' | 'trigger';
       /** Images sent with the message (files under ~/.sun/attachments; loaded when the request is built). */
-      images?: { path: string; mime: string }[];
+      images?: { path: string; mime: string; appshot?: AppshotMetadata }[];
       /** The custom slash command this message was expanded from, and what the user typed. */
       command?: { name: string; input: string };
     }
-  | { type: 'request/header'; model: string; systemPrompt: string; tools: string[] }
+  | { type: 'request/header'; model: string; systemPrompt: string; tools: string[]; vision?: boolean }
   | {
       type: 'assistant/message';
       text: string;
@@ -86,16 +96,23 @@ export type SessionEventBody =
   | { type: 'tool/result'; callId: string; name: string; output: string; isError: boolean; durationMs?: number; /** For humans (not sent to the model): unified diff of the edit. */ diff?: string }
   | { type: 'approval/request'; callId: string; name: string; arguments: string; risk: ToolRisk }
   | { type: 'approval/decision'; callId: string; decision: ApprovalDecision; reason?: string }
+  | { type: 'hook/run'; hookId: string; event: HookEvent; state: HookRunState; code: number; durationMs: number }
   | { type: 'run/status'; status: RunStatus; reason?: PauseReason | string; detail?: string }
   | { type: 'model/switch'; from: string; to: string; reason: string }
   | { type: 'mode/switch'; from: string; to: string }
   | { type: 'context/compaction'; summary: string; upToSeq: number; /** Summarizer model when it differs from the session model. */ model?: string }
+  | { type: 'review/request'; digest: string; modelRef: string; omissions: ReviewOmission[]; request?: ReviewRequest }
+  /** A read-only review outside ordinary conversation replay. Older reports contain only text. */
+  | { type: 'review/report'; text: string; review?: ReviewOutcome }
   | { type: 'todo/update'; items: TodoItem[] }
   | { type: 'worktree/closed'; action: 'merged' | 'discarded'; detail?: string }
+  | { type: 'worktree/merge'; state: 'started' | 'applied' | 'failed' | 'recovery' | 'reconciled'; strategy: 'squash' | 'merge' }
+  | { type: 'worktree/setup'; state: 'started' | 'completed' | 'failed' | 'acknowledged'; hookId: string; digest: string; code?: number }
   | { type: 'checkpoint'; id: string; files: string[] }
   | { type: 'verify/result'; passed: boolean; results: { command: string; code: number | null; output: string }[] }
   | { type: 'checkpoint/undo'; id: string; restored: string[] }
   | { type: 'browser/takeover'; on: boolean }
+  | ({ type: 'computer/action' } & Omit<import('./settings/computer.js').ComputerReceipt, 'sessionId'>)
   /** A scheduling intent found in a typed message: the message waits until the user decides. */
   | { type: 'automation/proposal'; proposalId: string; title: string; prompt: string; cron?: string; at?: string; description: string }
   | { type: 'automation/resolved'; proposalId: string; action: 'create' | 'run' | 'both'; automationId?: string }
@@ -163,10 +180,14 @@ export type LiveEvent =
   | { kind: 'event'; sessionId: string; event: SessionEvent }
   | { kind: 'delta'; sessionId: string; text?: string; reasoning?: string }
   | { kind: 'sessions'; sessions: SessionSummary[] }
+  | { kind: 'settings'; revision: string; scope?: 'user' }
+  | { kind: 'connection'; status: import('./settings/protocol.js').GatewayStatus }
+  | { kind: 'plugins'; plugins: PluginState[] }
   | { kind: 'approvals'; approvals: PendingApproval[] }
   | { kind: 'notice'; level: 'info' | 'warn' | 'error'; text: string }
   | { kind: 'briefing'; date: string; path: string; text: string }
   /** An automation run started or finished. */
   | { kind: 'automation'; id: string; title: string; sessionId: string; status: string; text?: string; chats?: string[] }
   /** Live view of a session's browser tab (JPEG frames, only while a client watches). */
-  | { kind: 'browser'; sessionId: string; frame?: string; width?: number; height?: number; url?: string; title?: string; takeover: boolean };
+  | { kind: 'browser-permissions' }
+  | { kind: 'browser'; sessionId: string; frame?: string; width?: number; height?: number; url?: string; title?: string; generation?: string; frameId?: number; takeover: boolean };

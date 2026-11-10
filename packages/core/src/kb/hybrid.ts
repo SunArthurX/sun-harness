@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { withStorageLock } from '../settings/storage-lock.js';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { ensureDir, homePath } from '../paths.js';
 import { classifyHttpError } from '../providers/types.js';
@@ -74,7 +75,7 @@ class EmbeddingCache {
   save(): void {
     if (!this.dirty) return;
     ensureDir(homePath('kb-index'));
-    writeFileSync(this.file, JSON.stringify({ model: this.model, entries: this.entries }));
+    withStorageLock(() => writeFileSync(this.file, JSON.stringify({ model: this.model, entries: this.entries })));
     this.dirty = false;
   }
   size(): number {

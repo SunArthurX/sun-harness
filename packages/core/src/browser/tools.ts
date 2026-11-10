@@ -2,7 +2,7 @@ import { join } from 'node:path';
 import type { Tool } from '../tools/types.js';
 import type { BrowserManager } from './browser.js';
 
-const SNAPSHOT_NOTE = 'Returns an accessibility snapshot: interactive elements carry refs like [ref=e12] for browser_click / browser_type.';
+const SNAPSHOT_NOTE = 'Returns an accessibility snapshot: use opaque element refs from this snapshot for browser_click / browser_type.';
 
 /** Browser tools bound to one BrowserManager; every harness session gets its own tab. */
 export function createBrowserTools(b: BrowserManager): Tool[] {
@@ -15,14 +15,14 @@ export function createBrowserTools(b: BrowserManager): Tool[] {
   return [
     tool({
       name: 'browser_navigate',
-      description: `Open a URL in the browser (a real Chrome; logins persist in the profile). ${SNAPSHOT_NOTE} Use web_fetch instead for static pages you only need to read.`,
+      description: `Open a URL in the browser (a real Chrome; logins persist in the profile). A new origin requires review in Browser permissions. ${SNAPSHOT_NOTE} Use web_fetch instead for static pages you only need to read.`,
       parameters: { type: 'object', properties: { url: { type: 'string' } }, required: ['url'] },
       risk: 'network',
       execute: (a, ctx) => b.navigate(ctx.sessionId, String(a.url), ctx.signal),
     }),
     tool({
       name: 'browser_snapshot',
-      description: `Snapshot the current page. ${SNAPSHOT_NOTE}`,
+      description: `Snapshot the current page. Take a new snapshot after browser takeover and handback. ${SNAPSHOT_NOTE}`,
       parameters: { type: 'object', properties: {} },
       risk: 'read',
       execute: (_a, ctx) => b.snapshot(ctx.sessionId, ctx.signal),
@@ -72,6 +72,27 @@ export function createBrowserTools(b: BrowserManager): Tool[] {
         const file = await b.screenshot(ctx.sessionId, join(ctx.cwd, rel), !!a.full_page, ctx.signal);
         return `Saved ${rel} (${file})`;
       },
+    }),
+    tool({
+      name: 'browser_uploads',
+      description: 'List the current session’s single-use upload handles approved by the user in the live browser panel.',
+      parameters: { type: 'object', properties: {} },
+      risk: 'read',
+      execute: async (_a, ctx) => JSON.stringify(b.listUploads(ctx.sessionId)),
+    }),
+    tool({
+      name: 'browser_upload',
+      description: 'Set an approved file on a top-level file input. Use the latest snapshot ref and a handle from browser_uploads. Never pass a local file path.',
+      parameters: { type: 'object', properties: { ref: { type: 'string' }, handle: { type: 'string' } }, required: ['ref', 'handle'], additionalProperties: false },
+      risk: 'network',
+      execute: (a, ctx) => b.upload(ctx.sessionId, String(a.ref), String(a.handle), ctx.signal),
+    }),
+    tool({
+      name: 'browser_download',
+      description: 'Download an HTTP or HTTPS URL from the browser profile into bounded session-owned staging. Requires separate download permission on the current site and every destination.',
+      parameters: { type: 'object', properties: { url: { type: 'string' } }, required: ['url'], additionalProperties: false },
+      risk: 'network',
+      execute: async (a, ctx) => JSON.stringify(await b.download(ctx.sessionId, String(a.url), ctx.signal)),
     }),
     tool({
       name: 'browser_evaluate',

@@ -10,7 +10,7 @@ export interface BestOfNOptions {
   /** Models to rotate through (candidate k uses models[k % length]); default: the configured model. */
   models?: string[];
   approval?: 'suggest' | 'auto-edit' | 'full-auto';
-  /** Merge the winner into the main checkout (squash, staged) and discard the other worktrees. */
+  /** Merge the winner into the main checkout and remove clean losing worktrees. */
   apply?: boolean;
   timeoutMs?: number;
   signal?: AbortSignal;
@@ -32,6 +32,7 @@ export interface BestOfNResult {
   winner?: Candidate;
   candidates: Candidate[];
   applied: boolean;
+  retained: string[];
 }
 
 function changedLines(diff: string): number {
@@ -83,10 +84,14 @@ export async function runBestOfN(host: HarnessHost, o: BestOfNOptions): Promise<
   });
   const winner = sorted[0]?.changedLines > 0 ? sorted[0] : undefined;
   let applied = false;
+  const retained: string[] = [];
   if (o.apply && winner) {
-    host.mergeWorktree(winner.sessionId);
-    for (const c of candidates) if (c !== winner) host.discardWorktree(c.sessionId);
+    if (host.mergeWorktree(winner.sessionId).cleanup === 'retained') retained.push(winner.sessionId);
+    for (const c of candidates) if (c !== winner) {
+      try { host.discardWorktree(c.sessionId); }
+      catch { retained.push(c.sessionId); }
+    }
     applied = true;
   }
-  return { winner, candidates: sorted, applied };
+  return { winner, candidates: sorted, applied, retained };
 }

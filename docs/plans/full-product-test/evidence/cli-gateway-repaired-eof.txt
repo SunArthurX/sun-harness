@@ -1,0 +1,30 @@
+✔ interactive command loop buffers piped follow-ups and applies mode and model switches (731.606208ms)
+✖ serve owns CLI sessions, isolates local routing, and creates removable launch-agent metadata (6228.976417ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 1
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 7023.405042
+
+✖ failing tests:
+
+test at packages/cli/e2e/product.mjs:249:1
+✖ serve owns CLI sessions, isolates local routing, and creates removable launch-agent metadata (6228.976417ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+  
+    assert.ok(requests.at(-1).messages.some(message => message.content === 'remote pipe audit message'))
+  
+      at TestContext.<anonymous> (file:///Users/sunqingguang/Downloads/06.code/sun-harness/packages/cli/e2e/product.mjs:286:12)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1208:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }

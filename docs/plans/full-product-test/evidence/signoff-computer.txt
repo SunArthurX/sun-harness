@@ -1,0 +1,8 @@
+$ node apps/desktop/e2e/computer.mjs apps/desktop/release/full-product-d17/mac-arm64/sun-harness.app
+# cdhash 3658f97b6d8daadb8b40342203dda962bd1cb582
+# started 2026-11-10T06:41:01Z
+/private/var/folders/4c/_fqg96ms18dc7mrmk9dfq32c0000gp/T/sun-computer-e2e-jRU9yk/Sun Computer Fixture.app: replacing existing signature
+Accessibility authorized for signed desktop: true. Native helper: true.
+The signed desktop observed a real AX window, waited for runtime approval, pressed its button once, edited its text field, persisted receipts, and stopped the lease.
+The signed desktop dispatched no native input after a stale observation, foreground change, emergency stop, or app-grant revocation.
+Opening the private sign-in window revoked the existing lease and blocked new native ownership.

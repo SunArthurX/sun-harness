@@ -1,0 +1,22 @@
+$ node apps/desktop/e2e/chat-product.mjs
+# started 2026-11-10T05:44:29Z
+Electron: chat streamed and persisted, approvals guarded both actions, dock and context rendered, language switched, provider aborted, search and pin worked, quota recovered, and file/image attachments were replayable.
+Electron: the managed Chromium live view displayed a real frame, forwarded keyboard input only under control, and returned ownership.
+Electron: knowledge write and CJK search, memory route, Intel listing and analysis, Evolution accept/reject, and automation create/run/history/delete all passed.
+Electron: the worktree diff was inspected, squash merged to the index, and a separate clean worktree was discarded.
+Gateway: chat streamed and persisted, approvals guarded both actions, dock and context rendered, language switched, provider aborted, search and pin worked, quota recovered, and file/image attachments were replayable.
+Gateway: the managed Chromium live view displayed a real frame, forwarded keyboard input only under control, and returned ownership.
+Gateway: knowledge write and CJK search, memory route, Intel listing and analysis, Evolution accept/reject, and automation create/run/history/delete all passed.
+Gateway: the worktree diff was inspected, squash merged to the index, and a separate clean worktree was discarded.
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+[Error: ENOTEMPTY: directory not empty, rmdir '/var/folders/4c/_fqg96ms18dc7mrmk9dfq32c0000gp/T/sun-chat-product-Kf5bhs/gateway-state/browser/profiles/default/Default/Cache'] {
+  errno: -66,
+  code: 'ENOTEMPTY',
+  syscall: 'rmdir',
+  path: '/var/folders/4c/_fqg96ms18dc7mrmk9dfq32c0000gp/T/sun-chat-product-Kf5bhs/gateway-state/browser/profiles/default/Default/Cache'
+}
+
+Node.js v24.15.0

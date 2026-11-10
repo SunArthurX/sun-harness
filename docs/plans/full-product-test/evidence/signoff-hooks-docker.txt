@@ -1,0 +1,3 @@
+$ node apps/desktop/e2e/hooks-docker.mjs
+# started 2026-11-10T06:14:17Z
+Real Docker hooks preserved exit status, masked the protected settings directory, and removed both timed-out and cancelled invocation containers. No delayed descendants wrote files.
